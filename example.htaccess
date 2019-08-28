@@ -1,5 +1,5 @@
 DirectoryIndex wakaba.html index.html
-AddCharset utf-8 html
+AddCharset utf-8 html # If you change this, remember to change the RewriteRule entry further down, too!
 
 <Files *.sql>
 Deny from all
@@ -17,5 +17,5 @@ Header unset Vary
 <IfModule mod_rewrite.c>
 RewriteEngine On
 RewriteCond %{HTTP_ACCEPT} application/xhtml\+xml
-RewriteRule \.html$ - [T=application/xhtml+xml]
+RewriteRule \.html$ - [T=application/xhtml+xml;charset=utf-8]
 </IfModule>

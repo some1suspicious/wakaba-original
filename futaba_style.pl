@@ -71,16 +71,17 @@ use constant PAGE_TEMPLATE => compile_template(NORMAL_HEAD_INCLUDE.q{
 
 <if $postform>
 	<div class="postarea">
-	<form name="postform" action="<var $self>" method="post" enctype="multipart/form-data">
+	<form id="postform" action="<var $self>" method="post" enctype="multipart/form-data">
 
 	<input type="hidden" name="task" value="post" />
 	<if $thread><input type="hidden" name="parent" value="<var $thread>" /></if>
 	<if !$image_inp and !$thread and ALLOW_TEXTONLY>
 		<input type="hidden" name="nofile" value="1" />
 	</if>
+	<if FORCED_ANON><input type="hidden" name="name" /></if>
 
 	<table><tbody>
-	<tr><td class="postblock"><const S_NAME></td><td><input type="text" name="name" size="28" /></td></tr>
+	<if !FORCED_ANON><tr><td class="postblock"><const S_NAME></td><td><input type="text" name="name" size="28" /></td></tr></if>
 	<tr><td class="postblock"><const S_EMAIL></td><td><input type="text" name="email" size="28" /></td></tr>
 	<tr><td class="postblock"><const S_SUBJECT></td><td><input type="text" name="subject" size="35" />
 	<input type="submit" value="<const S_SUBMIT>" /></td></tr>
@@ -102,11 +103,12 @@ use constant PAGE_TEMPLATE => compile_template(NORMAL_HEAD_INCLUDE.q{
 	<tr><td colspan="2">
 	<div class="rules">}.include("include/rules.html").q{</div></td></tr>
 	</tbody></table></form></div>
-	<script type="text/javascript">set_inputs(document.forms.postform)</script>
+	<script type="text/javascript">set_inputs("postform")</script>
+
+	<hr />
 </if>
 
-<hr />
-<form name="delform" action="<var $self>" method="post">
+<form id="delform" action="<var $self>" method="post">
 
 <loop $threads>
 	<loop $posts>
@@ -196,6 +198,7 @@ use constant PAGE_TEMPLATE => compile_template(NORMAL_HEAD_INCLUDE.q{
 <const S_DELKEY><input type="password" name="password" size="8" />
 <input value="<const S_DELETE>" type="submit" /></td></tr></tbody></table>
 </form>
+<script type="text/javascript">set_delpass("delform")</script>
 
 <if !$thread>
 	<table border="1"><tbody><tr><td>
@@ -206,8 +209,8 @@ use constant PAGE_TEMPLATE => compile_template(NORMAL_HEAD_INCLUDE.q{
 	</td><td>
 
 	<loop $pages>
-		<if $filename>[<a href="<var $filename>"><var $page></a>]</if>
-		<if !$filename>[<var $page>]</if>
+		<if !$current>[<a href="<var $filename>"><var $page></a>]</if>
+		<if $current>[<var $page>]</if>
 	</loop>
 
 	</td><td>
@@ -497,7 +500,7 @@ use constant ADMIN_POST_TEMPLATE => compile_template(MANAGER_HEAD_INCLUDE.q{
 <div align="center"><em><const S_NOTAGS></em></div>
 
 <div class="postarea">
-<form name="postform" action="<var $self>" method="post" enctype="multipart/form-data">
+<form id="postform" action="<var $self>" method="post" enctype="multipart/form-data">
 <input type="hidden" name="task" value="post" />
 <input type="hidden" name="admin" value="<var $admin>" />
 <input type="hidden" name="no_captcha" value="1" />
@@ -515,7 +518,7 @@ use constant ADMIN_POST_TEMPLATE => compile_template(MANAGER_HEAD_INCLUDE.q{
 <tr><td class="postblock"><const S_PARENT></td><td><input type="text" name="parent" size="8" /></td></tr>
 <tr><td class="postblock"><const S_DELPASS></td><td><input type="password" name="password" size="8" /><const S_DELEXPL></td></tr>
 </tbody></table></form></div><hr />
-<script type="text/javascript">set_inputs(document.forms.postform)</script>
+<script type="text/javascript">set_inputs("postform")</script>
 
 }.NORMAL_FOOT_INCLUDE);
 

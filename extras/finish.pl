@@ -5,8 +5,6 @@ use CGI::Carp qw(fatalsToBrowser);
 use strict;
 
 use CGI;
-use LWP;
-use HTTP::Request::Common;
 
 
 
@@ -71,6 +69,8 @@ if(!$task)
 }
 elsif($task eq "post")
 {
+	require "wakaba.pl";
+
 	my $parent=$query->param("parent");
 	my $name=$query->param("name");
 	my $email=$query->param("email");
@@ -80,45 +80,14 @@ elsif($task eq "post")
 	my $captcha=$query->param("captcha");
 	my $srcinfo=$query->param("srcinfo");
 
-	my $ua=LWP::UserAgent->new;
-	my $res=$ua->request(POST WAKABA_SCRIPT_URL,
-		Content_Type=>'form-data',
-		Content=>[
-			task=>'post',
-			parent=>$parent,
-			name=>$name,
-			email=>$email,
-			subject=>$subject,
-			comment=>$comment,
-			password=>$password,
-			captcha=>$captcha,
-			admin=>ADMIN_PASS,
-			fake_ip=>$ip,
-			postfix=>OEKAKI_INFO_TEMPLATE->(decode_srcinfo($srcinfo)),
-			file=>[$tmpname],
-		]
-	);
+	$ENV{SCRIPT_NAME}=~s/\w+\.pl$/wakaba.pl/;
 
-	if($res->is_error())
-	{
-		print "Status: ".$res->status_line()."\n";
-		print "Content-Type: text/html\n";
-		print "\n";
-		print $res->content();
-		exit;
-	}
+	open TMPFILE,$tmpname or die "Can't read uploaded file";
+
+	post_stuff($parent,$name,$email,$subject,$comment,\*TMPFILE,$tmpname,$password,
+	0,$captcha,ADMIN_PASS,0,0,OEKAKI_INFO_TEMPLATE->(decode_srcinfo($srcinfo)));
 
 	unlink $tmpname;
-
-	my $c_name=$name;
-	my $c_email=$email;
-	my $c_password=$password;
-
-	# set the name, email and password cookies
-	make_cookies(name=>$c_name,email=>$c_email,password=>$c_password,-charset=>CHARSET); # yum!
-
-	# forward back to the main page
-	make_http_forward(WAKABA_PAGE_URL,ALTERNATE_REDIRECT);
 }
 
 
@@ -130,11 +99,6 @@ sub make_http_header()
 
 	$PerlIO::encoding::fallback=0x0200;
 	binmode STDOUT,':encoding('.CHARSET.')' if($has_encode);
-}
-
-sub get_script_name()
-{
-	return $ENV{SCRIPT_NAME};
 }
 
 sub expand_filename($)

@@ -1,5 +1,3 @@
-use constant WAKABA_SCRIPT_URL => 'http://localhost/wakaba/wakaba.pl'; # must be absolute!
-use constant WAKABA_PAGE_URL => 'wakaba.html';
 use constant TMP_DIR => 'tmp/';						# Temp file directory (needs to be writeable by the script)
 
 use constant OEKAKI_ENABLE_MODIFY => 1;				# Enable image modification

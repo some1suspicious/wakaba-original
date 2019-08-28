@@ -182,14 +182,13 @@ sub compile_template($%)
 		}
 	}
 
-	my $port=$ENV{SERVER_PORT}==80?"":":$ENV{SERVER_PORT}";
-	my $self=$ENV{SCRIPT_NAME};
-	my $absolute_self="http://$ENV{SERVER_NAME}$port$ENV{SCRIPT_NAME}";
-	my ($path)=$ENV{SCRIPT_NAME}=~m!^(.*/)[^/]+$!;
-	my $absolute_path="http://$ENV{SERVER_NAME}$port$path";
-
 	my $sub=eval
 		'no strict; sub { '.
+		'my $port=$ENV{SERVER_PORT}==80?"":":$ENV{SERVER_PORT}";'.
+		'my $self=$ENV{SCRIPT_NAME};'.
+		'my $absolute_self="http://$ENV{SERVER_NAME}$port$ENV{SCRIPT_NAME}";'.
+		'my ($path)=$ENV{SCRIPT_NAME}=~m!^(.*/)[^/]+$!;'.
+		'my $absolute_path="http://$ENV{SERVER_NAME}$port$path";'.
 		'my %__v=@_;my %__ov;for(keys %__v){$__ov{$_}=$$_;$$_=$__v{$_};}'.
 		'my $res;'.
 		$code.
@@ -367,12 +366,12 @@ sub cookie_encode($;$)
 	return $str;
 }
 
-sub get_xhtml_content_type(;$)
+sub get_xhtml_content_type(;$$)
 {
-	my $charset=shift;
+	my ($charset,$usexhtml)=@_;
 	my $type;
 
-	if($ENV{HTTP_ACCEPT}=~/application\/xhtml\+xml/) { $type="application/xhtml+xml"; }
+	if($usexhtml and $ENV{HTTP_ACCEPT}=~/application\/xhtml\+xml/) { $type="application/xhtml+xml"; }
 	else { $type="text/html"; }
 
 	$type.="; charset=$charset" if($charset);
@@ -380,27 +379,51 @@ sub get_xhtml_content_type(;$)
 	return $type;
 }
 
+sub expand_filename($)
+{
+	my ($filename)=@_;
+	return $filename if($filename=~m!^/!);
+	return $filename if($filename=~m!^\w+:!);
+
+	my ($self_path)=$ENV{SCRIPT_NAME}=~m!^(.*/)[^/]+$!;
+	return $self_path.$filename;
+}
+
+
 
 #
 # Data utilities
 #
 
-sub process_tripcode($;$$) # should maybe consider shift_jis issues?
+sub process_tripcode($;$$$)
 {
-	my ($name,$tripkey,$secret)=@_;
+	my ($name,$tripkey,$secret,$charset)=@_;
 	$tripkey="!" unless($tripkey);
 
-	if($name=~/^(.*?)(#|\Q$tripkey\E)(.*)$/)
+	if($name=~/^(.*?)((?<!&)#|\Q$tripkey\E)(.*)$/)
 	{
 		my ($namepart,$marker,$trippart)=($1,$2,$3);
 		my $trip;
 
 		$namepart=clean_string($namepart);
 
-		if($secret and $trippart=~s/(?:\Q$marker\E)+(.*)$//) # do we want secure trips, and is there one?
+		if($secret and $trippart=~s/(?:\Q$marker\E)(?<!&#)(?:\Q$marker\E)*(.*)$//) # do we want secure trips, and is there one?
 		{
 			$trip=$tripkey.$tripkey.encode_base64(rc4(null_string(6),"t".clean_string($1).$secret),"");
 			return ($namepart,$trip) unless($trippart); # return directly if there's no normal tripcode
+		}
+
+		# 2ch trips are processed as Shift_JIS whenever possible
+		eval 'use Encode qw(decode encode)';
+		unless($@)
+		{
+			if($charset)
+			{
+				$trippart=decode($charset,$trippart);
+				$trippart=~s/&\#([0-9]+);/chr $1/ge;
+				$trippart=~s/&\#x([0-9a-f]+);/chr hex $1/gei;
+			}
+			$trippart=encode("Shift_JIS",$trippart,0x0200);
 		}
 
 		$trippart=clean_string($trippart);
@@ -458,6 +481,12 @@ sub make_date($$;@)
 		my ($sec,$min,$hour,$mday,$mon,$year,$wday)=gmtime($time);
 		return sprintf("%s, %02d-%s-%04d %02d:%02d:%02d GMT",
 		$days[$wday],$mday,$months[$mon],$year+1900,$hour,$min,$sec);
+	}
+	elsif($style eq "month")
+	{
+		my ($sec,$min,$hour,$mday,$mon,$year,$wday)=gmtime($time);
+		return sprintf("%s %d",
+		$months[$mon],$year+1900);
 	}
 	elsif($style eq "2ch-sep93")
 	{
@@ -599,9 +628,9 @@ sub read_spam_file($)
 # Image utilities
 #
 
-sub analyze_image($)
+sub analyze_image($$)
 {
-	my ($file)=@_;
+	my ($file,$name)=@_;
 	my (@res);
 
 	return ("jpg",@res) if(@res=analyze_jpeg($file));
@@ -609,7 +638,7 @@ sub analyze_image($)
 	return ("gif",@res) if(@res=analyze_gif($file));
 
 	# find file extension for unknown files
-	my ($ext)=$file=~/\.([^\.]+)$/;
+	my ($ext)=$name=~/\.([^\.]+)$/;
 	return (lc($ext),0,0);
 }
 

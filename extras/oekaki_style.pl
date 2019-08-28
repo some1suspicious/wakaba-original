@@ -17,49 +17,49 @@ use constant PAGE_TEMPLATE => compile_template(NORMAL_HEAD_INCLUDE.q{
 	<div class="theader"><const S_POSTING></div>
 </if>
 
-<if $postform>
-	<if $thread><hr /></if>
-	<div align="center">
-	<form action="<var expand_filename('paint.pl')>" method="get">
-	<if $thread><input type="hidden" name="oek_parent" value="<var $thread>" /></if>
+<if $thread><hr /></if>
+<div align="center">
+<form action="<var expand_filename('paint.pl')>" method="get">
+<if $thread><input type="hidden" name="oek_parent" value="<var $thread>" /></if>
 
-	<const S_OEKPAINT>
-	<select name="oek_painter">
+<const S_OEKPAINT>
+<select name="oek_painter">
 
-	<loop S_OEKPAINTERS>
-		<if $painter eq OEKAKI_DEFAULT_PAINTER>
-		<option value="<var $painter>" selected="selected"><var $name></option>
-		</if>
-		<if $painter ne OEKAKI_DEFAULT_PAINTER>
-		<option value="<var $painter>"><var $name></option>
-		</if>
+<loop S_OEKPAINTERS>
+	<if $painter eq OEKAKI_DEFAULT_PAINTER>
+	<option value="<var $painter>" selected="selected"><var $name></option>
+	</if>
+	<if $painter ne OEKAKI_DEFAULT_PAINTER>
+	<option value="<var $painter>"><var $name></option>
+	</if>
+</loop>
+</select>
+
+<const S_OEKX><input type="text" name="oek_x" size="3" value="<const OEKAKI_DEFAULT_X>" />
+<const S_OEKY><input type="text" name="oek_y" size="3" value="<const OEKAKI_DEFAULT_Y>" />
+
+<if OEKAKI_ENABLE_MODIFY and $thread>
+	<const S_OEKSOURCE>
+	<select name="oek_src">
+	<option value=""><const S_OEKNEW></option>
+
+	<loop $threads>
+		<loop $posts>
+			<if $image>
+				<option value="<var $image>"><var sprintf S_OEKMODIFY,$num></option>
+			</if>
+		</loop>
 	</loop>
 	</select>
+</if>
 
-	<const S_OEKX><input type="text" name="oek_x" size="3" value="<const OEKAKI_DEFAULT_X>" />
-	<const S_OEKY><input type="text" name="oek_y" size="3" value="<const OEKAKI_DEFAULT_Y>" />
+<input type="submit" value="<const S_OEKSUBMIT>" />
+</form>
+</div><hr />
 
-	<if OEKAKI_ENABLE_MODIFY and $thread>
-		<const S_OEKSOURCE>
-		<select name="oek_src">
-		<option value=""><const S_OEKNEW></option>
-
-		<loop $threads>
-			<loop $posts>
-				<if $image>
-					<option value="<var $image>"><var sprintf S_OEKMODIFY,$num></option>
-				</if>
-			</loop>
-		</loop>
-		</select>
-	</if>
-
-	<input type="submit" value="<const S_OEKSUBMIT>" />
-	</form>
-	</div><hr />
-
+<if $postform>
 	<div class="postarea">
-	<form name="postform" action="<var $self>" method="post" enctype="multipart/form-data">
+	<form id="postform" action="<var $self>" method="post" enctype="multipart/form-data">
 
 	<input type="hidden" name="task" value="post" />
 	<if $thread><input type="hidden" name="parent" value="<var $thread>" /></if>
@@ -90,11 +90,12 @@ use constant PAGE_TEMPLATE => compile_template(NORMAL_HEAD_INCLUDE.q{
 	<tr><td colspan="2">
 	<div class="rules">}.include("include/rules.html").q{</div></td></tr>
 	</tbody></table></form></div>
-	<script type="text/javascript">set_inputs(document.forms.postform)</script>
+	<script type="text/javascript">set_inputs("postform")</script>
+
+	<hr />
 </if>
 
-<hr />
-<form name="delform" action="<var $self>" method="post">
+<form id="delform" action="<var $self>" method="post">
 
 <loop $threads>
 	<loop $posts>
@@ -184,6 +185,7 @@ use constant PAGE_TEMPLATE => compile_template(NORMAL_HEAD_INCLUDE.q{
 <const S_DELKEY><input type="password" name="password" size="8" />
 <input value="<const S_DELETE>" type="submit" /></td></tr></tbody></table>
 </form>
+<script type="text/javascript">set_delpass("delform")</script>
 
 <if !$thread>
 	<table border="1"><tbody><tr><td>
@@ -267,7 +269,7 @@ use constant OEKAKI_FINISH_TEMPLATE => compile_template(NORMAL_HEAD_INCLUDE.q{
 <div class="theader"><const S_POSTING></div>
 
 <div class="postarea">
-<form name="postform" action="<var $self>" method="post" enctype="multipart/form-data">
+<form id="postform" action="<var $self>" method="post" enctype="multipart/form-data">
 <input type="hidden" name="task" value="post" />
 <input type="hidden" name="oek_ip" value="<var $oek_ip>" />
 <input type="hidden" name="srcinfo" value="<var $srcinfo>" />
@@ -301,7 +303,7 @@ use constant OEKAKI_FINISH_TEMPLATE => compile_template(NORMAL_HEAD_INCLUDE.q{
 <tr><td colspan="2">
 <div class="rules">}.include("include/rules.html").q{</div></td></tr>
 </tbody></table></form></div>
-<script type="text/javascript">set_inputs(document.forms.postform)</script>
+<script type="text/javascript">set_inputs("postform")</script>
 
 <hr />
 
@@ -313,92 +315,6 @@ use constant OEKAKI_FINISH_TEMPLATE => compile_template(NORMAL_HEAD_INCLUDE.q{
 <hr />
 
 }.NORMAL_FOOT_INCLUDE);
-
-
-
-
-
-
-
-
-sub print_paasdsage($$$$$)
-{
-	my ($file,$tmpname,$oek_parent,$oek_ip,$srcinfo)=@_;
-
-	print $file '<html><head>';
-
-	print $file '<title>'.TITLE.'</title>';
-	print $file '<meta http-equiv="Content-Type"  content="text/html;charset='.CHARSET.'" />' if(CHARSET);
-	print $file '<link rel="stylesheet" type="text/css" href="'.expand_filename(CSS_FILE).'" title="Standard stylesheet" />';
-	print $file '<link rel="shortcut icon" href="'.expand_filename(FAVICON).'" />' if(FAVICON);
-	print $file '<script src="'.expand_filename(JS_FILE).'"></script>'; # could be better
-	print $file '</head><body>';
-
-#	print $file S_HEAD;
-
-	print $file '<div class="adminbar">';
-	print $file '[<a href="'.expand_filename(HOME).'" target="_top">'.S_HOME.'</a>]';
-	print $file ' [<a href="'.get_script_name().'?action=admin">'.S_ADMIN.'</a>]';
-	print $file '</div>';
-
-	print $file '<div class="logo">';
-	print $file '<img src="'.expand_filename(TITLEIMG).'" alt="'.TITLE.'" />' if(SHOWTITLEIMG==1);
-	print $file '<img src="'.expand_filename(TITLEIMG).'" onclick="this.src=this.src;" alt="'.TITLE.'" />' if(SHOWTITLEIMG==2);
-	print $file '<br />' if(SHOWTITLEIMG and SHOWTITLETXT);
-	print $file TITLE if(SHOWTITLETXT);
-	print $file '</div><hr />';
-
-	print $file '<div class="postarea" align="center">';
-	print $file '<form name="postform" action="'.get_script_name().'" method="post" enctype="multipart/form-data">';
-	print $file '<input type="hidden" name="task" value="post" />';
-	print $file '<input type="hidden" name="oek_ip" value="'.$oek_ip.'" />';
-	print $file '<input type="hidden" name="srcinfo" value="'.$srcinfo.'" />';
-	print $file '<table><tbody>';
-	print $file '<tr><td class="postblock" align="left">'.S_NAME.'</td><td align="left"><input type="text" name="name" size="28" /></td></tr>';
-	print $file '<tr><td class="postblock" align="left">'.S_EMAIL.'</td><td align="left"><input type="text" name="email" size="28" /></td></tr>';
-	print $file '<tr><td class="postblock" align="left">'.S_SUBJECT.'</td><td align="left"><input type="text" name="subject" size="35" />';
-	print $file ' <input type="submit" value="'.S_SUBMIT.'" /></td></tr>';
-	print $file '<tr><td class="postblock" align="left">'.S_COMMENT.'</td><td align="left"><textarea name="comment" cols="48" rows="4"></textarea></td></tr>';
-
-	if(ENABLE_CAPTCHA)
-	{
-		my $key=$oek_parent?('res'.$oek_parent):'mainpage';
-
-		print $file '<tr><td class="postblock" align="left">'.S_CAPTCHA.'</td><td><input type="text" name="captcha" size="10" />';
-		print $file ' <img src="'.expand_filename(CAPTCHA_SCRIPT).'?key='.$key.'" />';
-		print $file '</td></tr>';
-	}
-
-#	print $file '<tr><td class="postblock" align="left">'.S_DELPASS.'</td><td align="left"><input type="password" name="password" size="8" maxlength="8" value="'.$c_password.'" /> '.S_DELEXPL2.'</td></tr>';
-	print $file '<tr><td class="postblock" align="left">'.S_DELPASS.'</td><td align="left"><input type="password" name="password" size="8" maxlength="8" /> '.S_DELEXPL.'</td></tr>';
-
-	if($oek_parent)
-	{
-		print $file '<input type="hidden" name="parent" value="'.$oek_parent.'" />';
-		print $file '<tr><td class="postblock" align="left">'.S_OEKIMGREPLY.'</td>';
-		print $file '<td align="left">'.sprintf(S_OEKREPEXPL,expand_filename(RES_DIR.$oek_parent.PAGE_EXT),$oek_parent).'</td></tr>';
-	}
-
-	print $file '<tr><td colspan="2">';
-#	print $file '<div align="left" class="rules">'.S_RULES.'</div></td></tr>';
-	print $file '</tbody></table></form></div><hr />';
-	print $file '<script>with(document.postform) {if(!name.value) name.value=get_cookie("name"); if(!email.value) email.value=get_cookie("email"); if(!password.value) password.value=get_password("password"); }</script>';
-
-	print $file '<div align="center">';
-	print $file '<img src="'.expand_filename($tmpname).'">';
-	print INFO_TEMPLATE->(decode_srcinfo($srcinfo));
-	print $file '</div>';
-
-	print $file '<hr />';
-#	print $file S_FOOT;
-	print $file '</body></html>';
-}
-
-
-
-
-
-
 
 
 

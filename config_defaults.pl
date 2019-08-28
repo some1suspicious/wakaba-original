@@ -37,6 +37,7 @@ BEGIN {
 	eval "use constant MAX_POSTS => 500" unless(defined &MAX_POSTS);
 	eval "use constant MAX_THREADS => 0" unless(defined &MAX_THREADS);
 	eval "use constant MAX_AGE => 0" unless(defined &MAX_AGE);
+	eval "use constant MAX_MEGABYTES => 0" unless(defined &MAX_MEGABYTES);
 	eval "use constant MAX_FIELD_LENGTH => 100" unless(defined &MAX_FIELD_LENGTH);
 	eval "use constant MAX_COMMENT_LENGTH => 8192" unless(defined &MAX_COMMENT_LENGTH);
 	eval "use constant MAX_LINES_SHOWN => 15" unless(defined &MAX_LINES_SHOWN);
@@ -82,6 +83,8 @@ BEGIN {
 	eval "use constant ALTERNATE_REDIRECT => 0" unless(defined &ALTERNATE_REDIRECT);
 	eval "use constant COOKIE_PATH => 'root'" unless(defined &COOKIE_PATH);
 	eval "use constant STYLE_COOKIE => 'wakabastyle'" unless(defined &STYLE_COOKIE);
+	eval "use constant FORCED_ANON => 0" unless(defined &FORCED_ANON);
+	eval "use constant USE_XHTML => 1" unless(defined &USE_XHTML);
 
 	eval "use constant IMG_DIR => 'src/'" unless(defined &IMG_DIR);
 	eval "use constant THUMB_DIR => 'thumb/'" unless(defined &THUMB_DIR);
@@ -96,7 +99,7 @@ BEGIN {
 
 	eval "use constant FILETYPES => ()" unless(defined &FILETYPES);
 
-	eval "use constant WAKABA_VERSION => '2.0.6'" unless(defined &WAKABA_VERSION);
+	eval "use constant WAKABA_VERSION => '2.1.4'" unless(defined &WAKABA_VERSION);
 }
 
 1;

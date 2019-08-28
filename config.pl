@@ -26,7 +26,7 @@
 #use constant TITLE => 'Wakaba image board';	# Name of this image board
 #use constant SHOWTITLETXT => 1;				# Show TITLE at top (1: yes  0: no)
 #use constant SHOWTITLEIMG => 0;				# Show image at top (0: no, 1: single, 2: rotating)
-#use constant TITLEIMG => 'title.jpg';			# Title image (point to php file if rotating)
+#use constant TITLEIMG => 'title.jpg';			# Title image (point to a script file if rotating)
 #use constant FAVICON => 'wakaba.ico';			# Favicon.ico file
 #use constant HOME => '../';					# Site home directory (up one level by default
 #use constant IMAGES_PER_PAGE => 10;			# Images per page
@@ -45,6 +45,7 @@
 #use constant MAX_POSTS => 500;					# Maximum number of posts (set to 0 to disable)
 #use constant MAX_THREADS => 0;					# Maximum number of threads (set to 0 to disable)
 #use constant MAX_AGE => 0;						# Maximum age of a thread in hours (set to 0 to disable)
+#use constant MAX_MEGABYTES => 0;				# Maximum size to use for all images in megabytes (set to 0 to disable)
 #use constant MAX_FIELD_LENGTH => 100;			# Maximum number of characters in subject, name, and email
 #use constant MAX_COMMENT_LENGTH => 8192;		# Maximum number of characters in a comment
 #use constant MAX_LINES_SHOWN => 15;			# Max lines shown per post (0 = no limit)
@@ -90,13 +91,15 @@
 #use constant STUPID_THUMBNAILING => 0;			# Bypass thumbnailing code and just use HTML to resize the image. STUPID, wastes bandwidth. (1: enable, 0: disable)
 #use constant ALTERNATE_REDIRECT => 0;			# Use alternate redirect method. (Javascript/meta-refresh instead of HTTP forwards. Needed to run on certain servers, like IIS.)
 #use constant COOKIE_PATH => 'root';			# Path argument for cookies ('root': cookies apply to all boards on the site, 'current': cookies apply only to this board, 'parent': cookies apply to all boards in the parent directory)
+#use constant FORCED_ANON => 0;					# Force anonymous posting (0: no, 1: yes)
+#use constant USE_XHTML => 1;					# Send pages as application/xhtml+xml to browsers that support this (0:no, 1:yes)
 
 # Internal paths and files - might as well leave this alone.
 #use constant IMG_DIR => 'src/';				# Image directory (needs to be writeable by the script)
 #use constant THUMB_DIR => 'thumb/';			# Thumbnail directory (needs to be writeable by the script)
 #use constant RES_DIR => 'res/';				# Reply cache directory (needs to be writeable by the script)
 #use constant HTML_SELF => 'wakaba.html';		# Name of main html file
-#use constant JS_FILE => 'wakaba.js';			# location of the js file
+#use constant JS_FILE => 'wakaba.js';			# Location of the js file
 #use constant PAGE_EXT => '.html';				# Extension used for board pages after first
 #use constant ERRORLOG => '';					# Writes out all errors seen by user, mainly useful for debugging
 #use constant CONVERT_COMMAND => 'convert';		# location of the ImageMagick convert command (usually just 'convert', but sometime a full path is needed)
@@ -137,7 +140,6 @@
 #	gif => '.',
 #	jpg => '.',
 #	png => '.',
-
 #);
 
 # no encoding; # Uncomment this if you uncommented the "use encoding" at the top of the file

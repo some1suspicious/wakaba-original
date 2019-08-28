@@ -131,8 +131,8 @@ function get_preferred_stylesheet()
 	return null;
 }
 
-function set_inputs(form) { with(form) {if(!name.value) name.value=get_cookie("name"); if(!email.value) email.value=get_cookie("email"); if(!password.value) password.value=get_password("password"); } }
-function set_delpass() { if(document.forms.delform) document.forms.delform.password.value=get_cookie("password"); }
+function set_inputs(id) { with(document.getElementById(id)) {if(!name.value) name.value=get_cookie("name"); if(!email.value) email.value=get_cookie("email"); if(!password.value) password.value=get_password("password"); } }
+function set_delpass(id) { with(document.getElementById(id)) password.value=get_cookie("password"); }
 
 window.onunload=function(e)
 {
@@ -143,27 +143,22 @@ window.onunload=function(e)
 	}
 }
 
-if(style_cookie)
-{
-	var cookie=get_cookie(style_cookie);
-	var title=cookie?cookie:get_preferred_stylesheet();
-	set_stylesheet(title);
-}
-
 window.onload=function(e)
 {
 	var match;
 
-	if(match=/#i([0-9]+)/.exec(document.location.toString()))
-	{
-		insert(">>"+match[1]);
-	}
+	if(match=/#i([0-9]+)/.exec(document.location.toString())) insert(">>"+match[1]);
 
 	if(match=/#([0-9]+)/.exec(document.location.toString()))
 	{
 		var reply=document.getElementById("reply"+match[1]);
 		if(reply) reply.className="highlight";
 	}
+}
 
-	set_delpass();
+if(style_cookie)
+{
+	var cookie=get_cookie(style_cookie);
+	var title=cookie?cookie:get_preferred_stylesheet();
+	set_stylesheet(title);
 }
