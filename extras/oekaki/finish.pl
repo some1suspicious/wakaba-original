@@ -72,10 +72,10 @@ elsif($task eq "post")
 	require "wakaba.pl";
 
 	my $parent=$query->param("parent");
-	my $name=$query->param("name");
-	my $email=$query->param("email");
-	my $subject=$query->param("subject");
-	my $comment=$query->param("comment");
+	my $name=$query->param("field1");
+	my $email=$query->param("field2");
+	my $subject=$query->param("field3");
+	my $comment=$query->param("field4");
 	my $password=$query->param("password");
 	my $captcha=$query->param("captcha");
 	my $srcinfo=$query->param("srcinfo");

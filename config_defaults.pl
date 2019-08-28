@@ -78,7 +78,7 @@ BEGIN {
 	eval "use constant ALLOW_IMAGE_REPLIES => 1" unless(defined &ALLOW_IMAGE_REPLIES);
 	eval "use constant ALLOW_UNKNOWN => 0" unless(defined &ALLOW_UNKNOWN);
 	eval "use constant MUNGE_UNKNOWN => '.unknown'" unless(defined &MUNGE_UNKNOWN);
-	eval "use constant FORBIDDEN_EXTENSIONS => ('php','php3','php4','phtml','shtml','cgi','pl','pm','py','r','exe','dll','scr','pif','asp','cfm','jsp')" unless(defined &FORBIDDEN_EXTENSIONS);
+	eval "use constant FORBIDDEN_EXTENSIONS => ('php','php3','php4','phtml','shtml','cgi','pl','pm','py','r','exe','dll','scr','pif','asp','cfm','jsp','rb')" unless(defined &FORBIDDEN_EXTENSIONS);
 	eval "use constant RENZOKU => 5" unless(defined &RENZOKU);
 	eval "use constant RENZOKU2 => 10" unless(defined &RENZOKU2);
 	eval "use constant RENZOKU3 => 900" unless(defined &RENZOKU3);
@@ -100,6 +100,7 @@ BEGIN {
 	eval "use constant STYLE_COOKIE => 'wakabastyle'" unless(defined &STYLE_COOKIE);
 	eval "use constant FORCED_ANON => 0" unless(defined &FORCED_ANON);
 	eval "use constant USE_XHTML => 1" unless(defined &USE_XHTML);
+	eval "use constant SPAM_TRAP => 1" unless(defined &SPAM_TRAP);
 
 	eval "use constant IMG_DIR => 'src/'" unless(defined &IMG_DIR);
 	eval "use constant THUMB_DIR => 'thumb/'" unless(defined &THUMB_DIR);
@@ -107,16 +108,21 @@ BEGIN {
 	eval "use constant ARCHIVE_DIR => 'arch/'" unless (defined &ARCHIVE_DIR);
 	eval "use constant REDIR_DIR => 'redir/'" unless (defined &REDIR_DIR);
 	eval "use constant HTML_SELF => 'wakaba.html'" unless(defined &HTML_SELF);
-	eval "use constant JS_FILE => 'wakaba.js'" unless(defined &JS_FILE);
+	eval "use constant JS_FILE => 'wakaba3.js'" unless(defined &JS_FILE);
 	eval "use constant CSS_DIR => 'css/'" unless(defined &CSS_DIR);
 	eval "use constant PAGE_EXT => '.html'" unless(defined &PAGE_EXT);
 	eval "use constant ERRORLOG => ''" unless(defined &ERRORLOG);
 	eval "use constant CONVERT_COMMAND => 'convert'" unless(defined &CONVERT_COMMAND);
-	eval "use constant SPAM_FILE => 'spam.txt'" unless(defined &SPAM_FILE);
+	unless(defined &SPAM_FILES)
+	{
+		if(defined &SPAM_FILE) { eval "use constant SPAM_FILES => (SPAM_FILE)" }
+		else { eval "use constant SPAM_FILES => ('spam.txt')" }
+	}
+#	eval "use constant SPAM_FILE => 'spam.txt'" unless(defined &SPAM_FILE);
 
 	eval "use constant FILETYPES => ()" unless(defined &FILETYPES);
 
-	eval "use constant WAKABA_VERSION => '3.0.4'" unless(defined &WAKABA_VERSION);
+	eval "use constant WAKABA_VERSION => '3.0.6'" unless(defined &WAKABA_VERSION);
 }
 
 1;

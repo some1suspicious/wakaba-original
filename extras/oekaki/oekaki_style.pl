@@ -66,13 +66,15 @@ use constant PAGE_TEMPLATE => compile_template(NORMAL_HEAD_INCLUDE.q{
 	<if !$image_inp and !$thread and ALLOW_TEXTONLY>
 		<input type="hidden" name="nofile" value="1" />
 	</if>
+	<if FORCED_ANON><input type="hidden" name="name" /></if>
+	<if SPAM_TRAP><div class="trap"><const S_SPAMTRAP><input type="text" name="name" size="28" autocomplete="off" /><input type="text" name="link" size="28" autocomplete="off" /></div></if>
 
 	<table><tbody>
-	<tr><td class="postblock"><const S_NAME></td><td><input type="text" name="name" size="28" /></td></tr>
-	<tr><td class="postblock"><const S_EMAIL></td><td><input type="text" name="email" size="28" /></td></tr>
-	<tr><td class="postblock"><const S_SUBJECT></td><td><input type="text" name="subject" size="35" />
+	<if !FORCED_ANON><tr><td class="postblock"><const S_NAME></td><td><input type="text" name="field1" size="28" /></td></tr></if>
+	<tr><td class="postblock"><const S_EMAIL></td><td><input type="text" name="field2" size="28" /></td></tr>
+	<tr><td class="postblock"><const S_SUBJECT></td><td><input type="text" name="field3" size="35" />
 	<input type="submit" value="<const S_SUBMIT>" /></td></tr>
-	<tr><td class="postblock"><const S_COMMENT></td><td><textarea name="comment" cols="48" rows="4"></textarea></td></tr>
+	<tr><td class="postblock"><const S_COMMENT></td><td><textarea name="field4" cols="48" rows="4"></textarea></td></tr>
 
 	<if $image_inp>
 		<tr><td class="postblock"><const S_UPLOADFILE></td><td><input type="file" name="file" size="35" />
@@ -80,7 +82,7 @@ use constant PAGE_TEMPLATE => compile_template(NORMAL_HEAD_INCLUDE.q{
 		</td></tr>
 	</if>
 
-	<if ENABLE_CAPTCHA and !$admin>
+	<if ENABLE_CAPTCHA>
 		<tr><td class="postblock"><const S_CAPTCHA></td><td><input type="text" name="captcha" size="10" />
 		<img alt="" src="<var expand_filename(CAPTCHA_SCRIPT)>?key=<var get_captcha_key($thread)>&amp;dummy=<var $dummy>" />
 		</td></tr>
@@ -110,7 +112,13 @@ use constant PAGE_TEMPLATE => compile_template(NORMAL_HEAD_INCLUDE.q{
 					<img src="<var expand_filename($thumbnail)>" width="<var $tn_width>" height="<var $tn_height>" alt="<var $size>" class="thumb" /></a>
 				</if>
 				<if !$thumbnail>
-					<div class="nothumb"><a target="_blank" href="<var expand_image_filename($image)>"><const S_NOTHUMB></a></div>
+					<if DELETED_THUMBNAIL>
+						<a target="_blank" href="<var expand_image_filename(DELETED_IMAGE)>">
+						<img src="<var expand_filename(DELETE_THUMBNAIL)>" width="<var $tn_width>" height="<var $tn_height>" alt="" class="thumb" /></a>
+					</if>
+					<if !DELETED_THUMBNAIL>
+						<div class="nothumb"><a target="_blank" href="<var expand_image_filename($image)>"><const S_NOTHUMB></a></div>
+					</if>
 				</if>
 			</if>
 
@@ -164,7 +172,13 @@ use constant PAGE_TEMPLATE => compile_template(NORMAL_HEAD_INCLUDE.q{
 					<img src="<var expand_filename($thumbnail)>" width="<var $tn_width>" height="<var $tn_height>" alt="<var $size>" class="thumb" /></a>
 				</if>
 				<if !$thumbnail>
-					<div class="nothumb"><a target="_blank" href="<var expand_image_filename($image)>"><const S_NOTHUMB></a></div>
+					<if DELETED_THUMBNAIL>
+						<a target="_blank" href="<var expand_image_filename(DELETED_IMAGE)>">
+						<img src="<var expand_filename(DELETE_THUMBNAIL)>" width="<var $tn_width>" height="<var $tn_height>" alt="" class="thumb" /></a>
+					</if>
+					<if !DELETED_THUMBNAIL>
+						<div class="nothumb"><a target="_blank" href="<var expand_image_filename($image)>"><const S_NOTHUMB></a></div>
+					</if>
 				</if>
 			</if>
 
@@ -274,11 +288,11 @@ use constant OEKAKI_FINISH_TEMPLATE => compile_template(NORMAL_HEAD_INCLUDE.q{
 <input type="hidden" name="oek_ip" value="<var $oek_ip>" />
 <input type="hidden" name="srcinfo" value="<var $srcinfo>" />
 <table><tbody>
-<tr><td class="postblock"><const S_NAME></td><td><input type="text" name="name" size="28" /></td></tr>
-<tr><td class="postblock"><const S_EMAIL></td><td><input type="text" name="email" size="28" /></td></tr>
-<tr><td class="postblock"><const S_SUBJECT></td><td><input type="text" name="subject" size="35" />
+<tr><td class="postblock"><const S_NAME></td><td><input type="text" name="field1" size="28" /></td></tr>
+<tr><td class="postblock"><const S_EMAIL></td><td><input type="text" name="field2" size="28" /></td></tr>
+<tr><td class="postblock"><const S_SUBJECT></td><td><input type="text" name="field3" size="35" />
 <input type="submit" value="<const S_SUBMIT>" /></td></tr>
-<tr><td class="postblock"><const S_COMMENT></td><td><textarea name="comment" cols="48" rows="4"></textarea></td></tr>
+<tr><td class="postblock"><const S_COMMENT></td><td><textarea name="field4" cols="48" rows="4"></textarea></td></tr>
 
 <if $image_inp>
 	<tr><td class="postblock"><const S_UPLOADFILE></td><td><input type="file" name="file" size="35" />

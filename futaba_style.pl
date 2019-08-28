@@ -17,6 +17,7 @@ use constant NORMAL_HEAD_INCLUDE => q{
 body { margin: 0; padding: 8px; margin-bottom: auto; }
 blockquote blockquote { margin-left: 0em }
 form { margin-bottom: 0px }
+form .trap { display:none }
 .postarea { text-align: center }
 .postarea table { margin: 0px auto; text-align: left }
 .thumb { border: none; float: left; margin: 2px 20px }
@@ -79,13 +80,14 @@ use constant PAGE_TEMPLATE => compile_template(NORMAL_HEAD_INCLUDE.q{
 		<input type="hidden" name="nofile" value="1" />
 	</if>
 	<if FORCED_ANON><input type="hidden" name="name" /></if>
+	<if SPAM_TRAP><div class="trap"><const S_SPAMTRAP><input type="text" name="name" size="28" autocomplete="off" /><input type="text" name="link" size="28" autocomplete="off" /></div></if>
 
 	<table><tbody>
-	<if !FORCED_ANON><tr><td class="postblock"><const S_NAME></td><td><input type="text" name="name" size="28" /></td></tr></if>
-	<tr><td class="postblock"><const S_EMAIL></td><td><input type="text" name="email" size="28" /></td></tr>
-	<tr><td class="postblock"><const S_SUBJECT></td><td><input type="text" name="subject" size="35" />
+	<if !FORCED_ANON><tr><td class="postblock"><const S_NAME></td><td><input type="text" name="field1" size="28" /></td></tr></if>
+	<tr><td class="postblock"><const S_EMAIL></td><td><input type="text" name="field2" size="28" /></td></tr>
+	<tr><td class="postblock"><const S_SUBJECT></td><td><input type="text" name="field3" size="35" />
 	<input type="submit" value="<const S_SUBMIT>" /></td></tr>
-	<tr><td class="postblock"><const S_COMMENT></td><td><textarea name="comment" cols="48" rows="4"></textarea></td></tr>
+	<tr><td class="postblock"><const S_COMMENT></td><td><textarea name="field4" cols="48" rows="4"></textarea></td></tr>
 
 	<if $image_inp>
 		<tr><td class="postblock"><const S_UPLOADFILE></td><td><input type="file" name="file" size="35" />
@@ -305,6 +307,7 @@ use constant POST_PANEL_TEMPLATE => compile_template(MANAGER_HEAD_INCLUDE.q{
 
 <div class="delbuttons">
 <input type="submit" value="<const S_MPDELETE>" />
+<input type="submit" name="archive" value="<const S_MPARCHIVE>" />
 <input type="reset" value="<const S_MPRESET>" />
 [<label><input type="checkbox" name="fileonly" value="on" /><const S_MPONLYPIC></label>]
 </div>
@@ -325,7 +328,10 @@ use constant POST_PANEL_TEMPLATE => compile_template(MANAGER_HEAD_INCLUDE.q{
 	<td><var clean_string(substr $subject,0,20)></td>
 	<td><b><var clean_string(substr $name,0,30)><var $trip></b></td>
 	<td><var clean_string(substr $comment,0,30)></td>
-	<td><var dec_to_dot($ip)> [<a href="<var $self>?admin=<var $admin>&amp;task=deleteall&amp;ip=<var $ip>"><const S_MPDELETEALL></a>] [<a href="<var $self>?admin=<var $admin>&amp;task=addip&amp;type=ipban&amp;ip=<var $ip>"><const S_MPBAN></a>]</td>
+	<td><var dec_to_dot($ip)>
+		[<a href="<var $self>?admin=<var $admin>&amp;task=deleteall&amp;ip=<var $ip>"><const S_MPDELETEALL></a>]
+		[<a href="<var $self>?admin=<var $admin>&amp;task=addip&amp;type=ipban&amp;ip=<var $ip>" onclick="return do_ban(this)"><const S_MPBAN></a>]
+	</td>
 
 	</tr>
 	<if $image>
@@ -341,6 +347,7 @@ use constant POST_PANEL_TEMPLATE => compile_template(MANAGER_HEAD_INCLUDE.q{
 
 <div class="delbuttons">
 <input type="submit" value="<const S_MPDELETE>" />
+<input type="submit" name="archive" value="<const S_MPARCHIVE>" />
 <input type="reset" value="<const S_MPRESET>" />
 [<label><input type="checkbox" name="fileonly" value="on" /><const S_MPONLYPIC></label>]
 </div>

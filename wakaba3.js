@@ -42,7 +42,7 @@ function get_password(name)
 
 function insert(text)
 {
-	var textarea=document.forms.postform.comment;
+	var textarea=document.forms.postform.field4;
 	if(textarea)
 	{
 		if(textarea.createTextRange && textarea.caretPos) // IE
@@ -138,8 +138,15 @@ function get_preferred_stylesheet()
 	return null;
 }
 
-function set_inputs(id) { with(document.getElementById(id)) {if(!name.value) name.value=get_cookie("name"); if(!email.value) email.value=get_cookie("email"); if(!password.value) password.value=get_password("password"); } }
+function set_inputs(id) { with(document.getElementById(id)) {if(!field1.value) field1.value=get_cookie("name"); if(!field2.value) field2.value=get_cookie("email"); if(!password.value) password.value=get_password("password"); } }
 function set_delpass(id) { with(document.getElementById(id)) password.value=get_cookie("password"); }
+
+function do_ban(el)
+{
+	var reason=prompt("Give a reason for this ban:");
+	if(reason) document.location=el.href+"&comment="+encodeURIComponent(reason);
+	return false;
+}
 
 window.onunload=function(e)
 {
@@ -155,7 +162,7 @@ window.onload=function(e)
 	var match;
 
 	if(match=/#i([0-9]+)/.exec(document.location.toString()))
-	if(!document.forms.postform.comment.value)
+	if(!document.forms.postform.field4.value)
 	insert(">>"+match[1]);
 
 	if(match=/#([0-9]+)/.exec(document.location.toString()))

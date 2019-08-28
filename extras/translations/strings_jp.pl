@@ -16,6 +16,7 @@ use constant S_CAPTCHA => '検証';
 use constant S_PARENT => 'スレ';
 use constant S_DELPASS => '削除キー';
 use constant S_DELEXPL => '(記事の削除用。英数字で8文字以内)';
+use constant S_SPAMTRAP => 'Leave these fields empty (spam trap): ';
 
 use constant S_THUMB => 'サムネイルを表示しています.クリックすると元のサイズを表示します.';
 use constant S_HIDDEN => 'Image reply hidden, click name for full image.';
@@ -62,6 +63,7 @@ use constant S_NOTAGS => 'タグがつかえます';
 
 use constant S_MPDELETEIP => 'Delete all';
 use constant S_MPDELETE => '削除する';
+use constant S_MPARCHIVE => 'Archive';
 use constant S_MPRESET => 'リセット';
 use constant S_MPONLYPIC => '画像だけ消す';
 use constant S_MPDELETEALL => 'Del all';

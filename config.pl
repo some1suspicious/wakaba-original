@@ -116,6 +116,7 @@
 #use constant COOKIE_PATH => 'root';			# Path argument for cookies ('root': cookies apply to all boards on the site, 'current': cookies apply only to this board, 'parent': cookies apply to all boards in the parent directory)
 #use constant FORCED_ANON => 0;					# Force anonymous posting (0: no, 1: yes)
 #use constant USE_XHTML => 1;					# Send pages as application/xhtml+xml to browsers that support this (0:no, 1:yes)
+#use constant SPAM_TRAP => 1;					# Enable the spam trap (empty, hidden form fields that spam bots usually fill out) (0:no, 1:yes)
 
 # Internal paths and files - might as well leave this alone.
 #use constant IMG_DIR => 'src/';				# Image directory (needs to be writeable by the script)
@@ -129,7 +130,10 @@
 #use constant ERRORLOG => '';					# Writes out all errors seen by user, mainly useful for debugging
 #use constant CONVERT_COMMAND => 'convert';		# location of the ImageMagick convert command (usually just 'convert', but sometime a full path is needed)
 ##use constant CONVERT_COMMAND => '/usr/X11R6/bin/convert';
-#use constant SPAM_FILE => 'spam.txt';
+#use constant SPAM_FILES => ('spam.txt');		# Spam definition files, as a Perl list.
+												# Hints: * Set all boards to use the same file for easy updating.
+												#        * Set up two files, one being the official list from
+												#          http://wakaba.c3.cx/antispam/spam.txt, and one your own additions.
 
 # Icons for filetypes - file extensions specified here will not be renamed, and will get icons
 # (except for the built-in image formats). These example icons can be found in the extras/ directory.

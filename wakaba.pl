@@ -70,10 +70,10 @@ elsif(!$task)
 elsif($task eq "post")
 {
 	my $parent=$query->param("parent");
-	my $name=$query->param("name");
-	my $email=$query->param("email");
-	my $subject=$query->param("subject");
-	my $comment=$query->param("comment");
+	my $name=$query->param("field1");
+	my $email=$query->param("field2");
+	my $subject=$query->param("field3");
+	my $comment=$query->param("field4");
 	my $file=$query->param("file");
 	my $password=$query->param("password");
 	my $nofile=$query->param("nofile");
@@ -89,10 +89,11 @@ elsif($task eq "delete")
 {
 	my $password=$query->param("password");
 	my $fileonly=$query->param("fileonly");
+	my $archive=$query->param("archive");
 	my $admin=$query->param("admin");
 	my @posts=$query->param("delete");
 
-	delete_stuff($password,$fileonly,$admin,@posts);
+	delete_stuff($password,$fileonly,$archive,$admin,@posts);
 }
 elsif($task eq "admin")
 {
@@ -477,18 +478,21 @@ sub post_stuff($$$$$$$$$$$$$$)
 
 	# process the tripcode - maybe the string should be decoded later
 	my $trip;
-	($name,$trip)=process_tripcode(decode_string($name),TRIPKEY,SECRET);
+	($name,$trip)=process_tripcode($name,TRIPKEY,SECRET,CHARSET);
 
-	# check captcha - should whitelists affect captcha?
+	# check captcha
 	check_captcha($dbh,$captcha,$ip,$parent) if(ENABLE_CAPTCHA and !$no_captcha and !is_trusted($trip));
 
 	# check for bans
 	ban_check($numip,$c_name,$subject,$comment) unless($whitelisted);
 
 	# spam check
-	make_error(S_SPAM) if(spam_check($comment,SPAM_FILE));
-	make_error(S_SPAM) if(spam_check($subject,SPAM_FILE));
-	make_error(S_SPAM) if(spam_check($c_name,SPAM_FILE));
+	spam_engine(
+		query=>$query,
+		trap_fields=>SPAM_TRAP?["name","link"]:[],
+		spam_files=>[SPAM_FILES],
+		charset=>CHARSET,
+	);
 
 	# proxy check
 	proxy_check($ip) if (!$whitelisted and ENABLE_PROXY_CHECK);
@@ -516,22 +520,21 @@ sub post_stuff($$$$$$$$$$$$$$)
 	}
 
 	# clean up the inputs
-	$email=clean_string(decode_string($email));
-	$subject=clean_string(decode_string($subject));
+	$email=clean_string(decode_string($email,CHARSET));
+	$subject=clean_string(decode_string($subject,CHARSET));
 
 	# fix up the email/link
-	$email="mailto:$email" if($email and $email!~/^$protocol_re:/);
+	$email="mailto:$email" if $email and $email!~/^$protocol_re:/;
 
 	# format comment
-	$comment=decode_string($comment);
-	$comment=format_comment(clean_string($comment)) unless($no_format);
+	$comment=format_comment(clean_string(decode_string($comment,CHARSET))) unless $no_format;
 	$comment.=$postfix;
 
 	# insert default values for empty fields
-	$parent=0 unless($parent);
-	$name=make_anonymous($ip,$time) unless($name or $trip);
-	$subject=S_ANOTITLE unless($subject);
-	$comment=S_ANOTEXT unless($comment);
+	$parent=0 unless $parent;
+	$name=make_anonymous($ip,$time) unless $name or $trip;
+	$subject=S_ANOTITLE unless $subject;
+	$comment=S_ANOTEXT unless $comment;
 
 	# flood protection - must happen after inputs have been cleaned up
 	flood_check($numip,$time,$comment,$file);
@@ -844,20 +847,6 @@ sub simple_format($@)
 	} split /\n/,$comment;
 }
 
-sub decode_string($)
-{
-	my ($str)=@_;
-
-	if($has_encode)
-	{
-		$str=decode(CHARSET,$str);
-		$str=~s/&\#([0-9]+);/chr $1/ge;
-		$str=~s/&\#x([0-9a-f]+);/chr hex $1/gei;
-	}
-
-	return $str;
-}
-
 sub encode_string($)
 {
 	my ($str)=@_;
@@ -1111,9 +1100,9 @@ sub process_file($$$)
 # Deleting
 #
 
-sub delete_stuff($$$@)
+sub delete_stuff($$$$@)
 {
-	my ($password,$fileonly,$admin,@posts)=@_;
+	my ($password,$fileonly,$archive,$admin,@posts)=@_;
 	my ($post);
 
 	check_password($admin,ADMIN_PASS) if($admin);
@@ -1124,7 +1113,7 @@ sub delete_stuff($$$@)
 
 	foreach $post (@posts)
 	{
-		delete_post($post,$password,$fileonly,0);
+		delete_post($post,$password,$fileonly,$archive);
 	}
 
 	# update the cached HTML pages
@@ -1324,14 +1313,15 @@ sub make_admin_proxy_panel($)
 sub make_admin_spam_panel($)
 {
 	my ($admin)=@_;
-	my @spam=read_array(SPAM_FILE);
+	my @spam_files=SPAM_FILES;
+	my @spam=read_array($spam_files[0]);
 
 	check_password($admin,ADMIN_PASS);
 
 	make_http_header();
 	print encode_string(SPAM_PANEL_TEMPLATE->(admin=>$admin,
 	spamlines=>scalar @spam,
-	spam=>join "\n",map { clean_string($_) } @spam));
+	spam=>join "\n",map { clean_string($_,1) } @spam));
 }
 
 sub make_sql_dump($)
@@ -1346,13 +1336,13 @@ sub make_sql_dump($)
 	while($row=get_decoded_arrayref($sth))
 	{
 		push @database,"INSERT INTO ".SQL_TABLE." VALUES('".
-		(join "','",map { s/([\\'])/\\$1/g; $_ } @{$row}). # escape ' and \, and join up all values with commas and apostrophes
+		(join "','",map { s/\\/&#92;/g; $_ } @{$row}). # escape ' and \, and join up all values with commas and apostrophes
 		"');";
 	}
 
 	make_http_header();
 	print encode_string(SQL_DUMP_TEMPLATE->(admin=>$admin,
-	database=>join "<br />",map { clean_string($_) } @database));
+	database=>join "<br />",map { clean_string($_,1) } @database));
 }
 
 sub make_sql_interface($$$)
@@ -1366,7 +1356,7 @@ sub make_sql_interface($$$)
 	{
 		make_error(S_WRONGPASS) if($nuke ne NUKE_PASS); # check nuke password
 
-		my @statements=grep { /^\S/ } split /\r?\n/,decode_string($sql);
+		my @statements=grep { /^\S/ } split /\r?\n/,decode_string($sql,CHARSET,1);
 
 		foreach my $statement (@statements)
 		{
@@ -1385,7 +1375,7 @@ sub make_sql_interface($$$)
 
 	make_http_header();
 	print encode_string(SQL_INTERFACE_TEMPLATE->(admin=>$admin,nuke=>$nuke,
-	results=>join "<br />",map { clean_string($_) } @results));
+	results=>join "<br />",map { clean_string($_,1) } @results));
 }
 
 sub make_admin_post($)
@@ -1421,7 +1411,7 @@ sub do_login($$$$)
 			-charset=>CHARSET,-autopath=>COOKIE_PATH,-expires=>time+365*24*3600);
 		}
 
-		make_http_forward(get_script_name()."?task=$nexttask&admin=$crypt",ALTERNATE_REDIRECT)
+		make_http_forward(get_script_name()."?task=$nexttask&admin=$crypt",ALTERNATE_REDIRECT);
 	}
 	else { make_admin_login() }
 }
@@ -1429,7 +1419,7 @@ sub do_login($$$$)
 sub do_logout()
 {
 	make_cookies(wakaadmin=>"",-expires=>1);
-	make_http_forward(get_script_name()."?task=admin",ALTERNATE_REDIRECT)
+	make_http_forward(get_script_name()."?task=admin",ALTERNATE_REDIRECT);
 }
 
 sub do_rebuild_cache($)
@@ -1454,7 +1444,7 @@ sub add_admin_entry($$$$$$)
 
 	check_password($admin,ADMIN_PASS);
 
-	$comment=clean_string($comment);
+	$comment=clean_string(decode_string($comment,CHARSET));
 
 	$sth=$dbh->prepare("INSERT INTO ".SQL_ADMIN_TABLE." VALUES(null,?,?,?,?,?);") or make_error(S_SQLFAIL);
 	$sth->execute($type,$comment,$ival1,$ival2,$sval1) or make_error(S_SQLFAIL);
@@ -1496,7 +1486,8 @@ sub update_spam_file($$)
 	check_password($admin,ADMIN_PASS);
 
 	my @spam=split /\r?\n/,$spam;
-	make_error(S_NOTWRITE) unless(write_array(SPAM_FILE,@spam));
+	my @spam_files=SPAM_FILES;
+	write_array($spam_files[0],@spam);
 
 	make_http_forward(get_script_name()."?admin=$admin&task=spam",ALTERNATE_REDIRECT);
 }

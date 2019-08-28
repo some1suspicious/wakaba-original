@@ -14,6 +14,7 @@ use constant S_CAPTCHA => 'Verifikation';							# Describes captcha field
 use constant S_PARENT => 'Parent';									# Describes parent field on admin post page
 use constant S_DELPASS => 'Passwort';								# Describes password field
 use constant S_DELEXPL => '(Passwort benoetigt zum Loeschen)';		# Prints explanation for password box (to the right)
+use constant S_SPAMTRAP => 'Leave these fields empty (spam trap): ';
 
 use constant S_THUMB => 'Thumbnail angezeigt, Bild anklicken fuer Vollgroesse.';	# Prints instructions for viewing real source
 use constant S_HIDDEN => 'Antwort mit Bild versteckt, Namen anklicken fuer das ganze Bild.';	# Prints instructions for viewing hidden image reply
@@ -60,6 +61,7 @@ use constant S_NOTAGS => 'HTML-tags erlaubt. Es findet keine Formatierung statt,
 
 use constant S_MPDELETEIP => 'Alles loeschen';
 use constant S_MPDELETE => 'Loeschen';									# Defines for deletion button in Management Panel
+use constant S_MPARCHIVE => 'Archive';
 use constant S_MPRESET => 'Reset';										# Defines name for field reset button in Management Panel
 use constant S_MPONLYPIC => 'Nur die Datei';								# Sets whether or not to delete only file, or entire post/thread
 use constant S_MPDELETEALL => 'Alles&nbsp;loeschen';							# 
