@@ -1538,7 +1538,7 @@ sub crypt_password($)
 
 sub make_http_header()
 {
-	print "Content-Type: ".get_xhtml_content_type(CHARSET,USE_XHTML)."\n";
+	print "Content-Type: ".get_xhtml_content_type(CHARSET,0)."\n";
 	print "\n";
 }
 
@@ -1839,9 +1839,6 @@ sub get_decoded_hashref($)
 	{
 		for my $k (keys %$row) # don't blame me for this shit, I got this from perlunicode.
 		{ defined && /[^\000-\177]/ && Encode::_utf8_on($_) for $row->{$k}; }
-
-		if(SQL_DBI_SOURCE=~/^DBI:mysql:/i) # OMGWTFBBQ
-		{ for my $k (keys %$row) { $$row{$k}=~s/chr\(([0-9]+)\)/chr($1)/ge; } }
 	}
 
 	return $row;
@@ -1857,9 +1854,6 @@ sub get_decoded_arrayref($)
 	{
 		# don't blame me for this shit, I got this from perlunicode.
 		defined && /[^\000-\177]/ && Encode::_utf8_on($_) for @$row;
-
-		if(SQL_DBI_SOURCE=~/^DBI:mysql:/i) # OMGWTFBBQ
-		{ s/chr\(([0-9]+)\)/chr($1)/ge for @$row; }
 	}
 
 	return $row;

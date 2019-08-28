@@ -99,7 +99,6 @@ BEGIN {
 	eval "use constant COOKIE_PATH => 'root'" unless(defined &COOKIE_PATH);
 	eval "use constant STYLE_COOKIE => 'wakabastyle'" unless(defined &STYLE_COOKIE);
 	eval "use constant FORCED_ANON => 0" unless(defined &FORCED_ANON);
-	eval "use constant USE_XHTML => 1" unless(defined &USE_XHTML);
 	eval "use constant SPAM_TRAP => 1" unless(defined &SPAM_TRAP);
 
 	eval "use constant IMG_DIR => 'src/'" unless(defined &IMG_DIR);
@@ -122,7 +121,7 @@ BEGIN {
 
 	eval "use constant FILETYPES => ()" unless(defined &FILETYPES);
 
-	eval "use constant WAKABA_VERSION => '3.0.8'" unless(defined &WAKABA_VERSION);
+	eval "use constant WAKABA_VERSION => '3.0.9'" unless(defined &WAKABA_VERSION);
 }
 
 1;
