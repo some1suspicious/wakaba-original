@@ -123,6 +123,14 @@ sub do_spans($@)
 		# do <em>
 		$line=~s{ (?<![0-9a-zA-Z\*_\x80-\x9f\xe0-\xfc]) (\*|_) (?![<>\s\*_]) ([^<>]+?) (?<![<>\s\*_\x80-\x9f\xe0-\xfc]) \1 (?![0-9a-zA-Z\*_]) }{<em>$2</em>}gx;
 
+		# do ^H
+		if($]>5.007)
+		{
+			my $regexp;
+			$regexp=qr/(?:&#?[0-9a-zA-Z]+;|.)(?<!\^H)(??{$regexp})?\^H/;
+			$line=~s{($regexp)}{"<del>".(substr $1,0,(length $1)/3)."</del>"}gex;
+		}
+
 		$line=$handler->($line) if($handler);
 
 		# fix up hidden sections
@@ -208,7 +216,15 @@ sub clean_string($)
 
 	# repair unicode entities
 	$str=~s/&amp;(\#[0-9]+;)/&$1/g;
+	$str=~s/&amp;(\#x[0-9a-f]+;)/&$1/gi;
 
+	return $str;
+}
+
+sub escamp($)
+{
+	my ($str)=@_;
+	$str=~s/&/&amp;/g;
 	return $str;
 }
 
@@ -274,7 +290,7 @@ sub make_cookies(%)
 sub urlenc($)
 {
 	my ($str)=@_;
-	$str=~s/([^\w ])/"%".sprintf("%02x",ord($1))/sge;
+	$str=~s/([^\w ])/"%".sprintf("%02x",ord $1)/sge;
 	$str=~s/ /+/sg;
 	return $str;
 }
@@ -289,11 +305,12 @@ sub cookie_encode($;$)
 		{
 			require Encode;
 			$str=Encode::decode($charset,$str);
-			$str=~s/&\#([0-9]+);/chr($1)/ge;
+			$str=~s/&\#([0-9]+);/chr $1/ge;
+			$str=~s/&\#x([0-9a-f]+);/chr hex $1/gei;
 		}
 
 		$str=~s/([^0-9a-zA-Z])/
-			my $c=ord($1);
+			my $c=ord $1;
 			sprintf($c>255?'%%u%04x':'%%%02x',$c);
 		/sge;
 	}
@@ -301,18 +318,19 @@ sub cookie_encode($;$)
 	{
 		if($charset=~/\butf-?8$/i)
 		{
-			$str=~s{([\xe0-\xef][\x80-\xBF][\x80-\xBF]|[\xc0-\xdf][\x80-\xBF]|&#([0-9]+);|[^0-9a-zA-Z])}{ # convert UTF-8 to URL encoding - only handles up to U-FFFF
+			$str=~s{([\xe0-\xef][\x80-\xBF][\x80-\xBF]|[\xc0-\xdf][\x80-\xBF]|&#([0-9]+);|&#[xX]([0-9a-fA-F]+);|[^0-9a-zA-Z])}{ # convert UTF-8 to URL encoding - only handles up to U-FFFF
 				my $c;
 				if($2) { $c=$2 }
-				elsif(length $1==1) { $c=ord($1) }
+				elsif($3) { $c=hex $3 }
+				elsif(length $1==1) { $c=ord $1 }
 				elsif(length $1==2)
 				{
-					my @b=map { ord($_) } split //,$1;
+					my @b=map { ord $_ } split //,$1;
 					$c=(($b[0]-0xc0)<<6)+($b[1]-0x80);
 				}
 				elsif(length $1==3)
 				{
-					my @b=map { ord($_) } split //,$1;
+					my @b=map { ord $_ } split //,$1;
 					$c=(($b[0]-0xe0)<<12)+(($b[1]-0x80)<<6)+($b[2]-0x80);
 				}
 				sprintf($c>255?'%%u%04x':'%%%02x',$c);
@@ -323,14 +341,14 @@ sub cookie_encode($;$)
 			require 'sjis.pl';
 			my $sjis_table=get_sjis_table();
 
-			$str=~s{([\x80-\x9f\xe0-\xfc].|&#([0-9]+);|[^0-9a-zA-Z])}{ # convert Shift_JIS to URL encoding
-				my $c=($2 or $$sjis_table{$1});
+			$str=~s{([\x80-\x9f\xe0-\xfc].|&#([0-9]+);|&#[xX]([0-9a-fA-F]+);|[^0-9a-zA-Z])}{ # convert Shift_JIS to URL encoding
+				my $c=($2 or ($3 and hex $3) or $$sjis_table{$1});
 				sprintf($c>255?'%%u%04x':'%%%02x',$c);
 			}sge;
 		}
 		else
 		{
-			$str=~s/([^0-9a-zA-Z])/sprintf('%%%02x',ord($1))/sge;
+			$str=~s/([^0-9a-zA-Z])/sprintf('%%%02x',ord $1)/sge;
 		}
 	}
 
@@ -343,7 +361,7 @@ sub cookie_encode($;$)
 # Data utilities
 #
 
-sub process_tripcode($;$$)
+sub process_tripcode($;$$) # should maybe consider shift_jis issues?
 {
 	my ($name,$tripkey,$secret)=@_;
 	$tripkey="!" unless($tripkey);
@@ -353,19 +371,15 @@ sub process_tripcode($;$$)
 		my ($namepart,$marker,$trippart)=($1,$2,$3);
 		my $trip;
 
-#		eval 'use Digest::MD5 qw(md5_base64)'; # check to see if we can do MD5
-#		if(!$@ and $secret and $trippart=~s/(?:\Q$marker\E)+(.*)$//) # do we want secure trips, and is there one?
-#		{
-#			$trip=$tripkey.$tripkey.substr md5_base64($secret.$1),0,8;
-#			return ($namepart,$trip) unless($trippart); # return directly if there's no normal tripcode
-#		}
+		$namepart=clean_string($namepart);
 
 		if($secret and $trippart=~s/(?:\Q$marker\E)+(.*)$//) # do we want secure trips, and is there one?
 		{
-			$trip=$tripkey.$tripkey.encode_base64(rc4(null_string(6),"t".$1.$secret),"");
+			$trip=$tripkey.$tripkey.encode_base64(rc4(null_string(6),"t".clean_string($1).$secret),"");
 			return ($namepart,$trip) unless($trippart); # return directly if there's no normal tripcode
 		}
 
+		$trippart=clean_string($trippart);
 		my $salt=substr $trippart."H..",1,2;
 		$salt=~s/[^\.-z]/./g;
 		$salt=~tr/:;<=>?@[\\]^_`/ABCDEFGabcdef/; 
@@ -374,7 +388,7 @@ sub process_tripcode($;$$)
 		return ($namepart,$trip);
 	}
 
-	return ($name,"");
+	return (clean_string($name),"");
 }
 
 sub make_date($$;@)
@@ -420,6 +434,16 @@ sub make_date($$;@)
 		my ($sec,$min,$hour,$mday,$mon,$year,$wday)=gmtime($time);
 		return sprintf("%s, %02d-%s-%04d %02d:%02d:%02d GMT",
 		$days[$wday],$mday,$months[$mon],$year+1900,$hour,$min,$sec);
+	}
+	elsif($style eq "2ch-sep93")
+	{
+		my $sep93=timelocal(0,0,0,1,8,93);
+		return make_date($time,"2ch") if($time<$sep93);
+
+		my @ltime=localtime($time);
+
+		return sprintf("%04d-%02d-%02d %02d:%02d",
+		1993,9,int ($time-$sep93)/86400+1,$ltime[2],$ltime[1]);
 	}
 }
 

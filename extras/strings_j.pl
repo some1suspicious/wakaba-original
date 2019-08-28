@@ -12,7 +12,7 @@ use constant S_SUBMIT => '送信する';
 use constant S_COMMENT => 'コメント';
 use constant S_UPLOADFILE => '添付File';
 use constant S_NOFILE => '画像なし';
-use constant S_CAPTCHA => 'Verification';
+use constant S_CAPTCHA => '検証';
 use constant S_PARENT => 'スレ';
 use constant S_DELPASS => '削除キー';
 use constant S_DELEXPL => '(記事の削除用。英数字で8文字以内)';
@@ -28,7 +28,7 @@ use constant S_REPLY => '返信';
 use constant S_OLD => 'このスレは古いので、もうすぐ消えます。';
 use constant S_ABBR => 'レス%d件省略。全て読むには返信ボタンを押してください。';
 use constant S_ABBRIMG => 'レス%d,%d件省略。全て読むには返信ボタンを押してください。';
-use constant S_ABBRTEXT => 'Comment too long. Click <a href="%s">here</a> to view the full text.';
+use constant S_ABBRTEXT => '省略されました・・全てを読むには<a href="%s">ここ</a>を押してください';
 
 use constant S_REPDEL => '【記事削除】';
 use constant S_DELPICONLY => '画像だけ消す';
@@ -58,11 +58,11 @@ use constant S_ADMINPASS => 'Admin password:';
 
 use constant S_MANAPANEL => '記事削除';
 use constant S_MANABANS => 'Bans';
-use constant S_MANASPAM => 'Spam';
+use constant S_MANASPAM => 'スパム';
 use constant S_MANASQLDUMP => 'SQL Dump';
 use constant S_MANASQLINT=> 'SQL Interface';
 use constant S_MANAPOST => '管理人投稿';
-use constant S_MANAREBUILD => 'Rebuild caches';
+use constant S_MANAREBUILD => 'キャッシュの再構築';
 use constant S_MANANUKE => 'Nuke board';
 use constant S_MANASUB => ' 認証';
 
@@ -108,14 +108,14 @@ use constant S_REPORTERR => '該当記事がみつかりません';
 use constant S_UPFAIL => 'アップロードに失敗しました<br />サーバがサポートしていない可能性があります';
 use constant S_NOREC => 'アップロードに失敗しました<br />画像ファイル以外は受け付けません';
 use constant S_NOCAPTCHA => 'Error: No verification code on record - it probably timed out.';
-use constant S_BADCAPTCHA => 'Error: Wrong verification code entered.';
+use constant S_BADCAPTCHA => '不正な検証コードが入力されました';
 use constant S_BADFORMAT => 'Error: File format not supported.';
 use constant S_STRREF => '拒絶されました(str)';
 use constant S_UNJUST => '不正な投稿をしないで下さい(post)';
 use constant S_NOPIC => '画像がありません';
 use constant S_NOTEXT => '何か書いて下さい';
 use constant S_TOOLONG => '本文が長すぎますっ！';
-use constant S_NOTALLOWED => 'Error: Posting not allowed.';
+use constant S_NOTALLOWED => '管理人以外は投稿できません';
 use constant S_UNUSUAL => '異常です';
 use constant S_BADHOST => '拒絶されました(host)';
 use constant S_RENZOKU => '連続投稿はもうしばらく時間を置いてからお願い致します';
@@ -128,10 +128,10 @@ use constant S_NOTHREADERR => 'スレッドがありません';
 use constant S_BADDELPASS => '該当記事が見つからないかパスワードが間違っています';
 use constant S_WRONGPASS => 'パスワードが違います';
 use constant S_NOTWRITE => 'を書けません<br />';
-use constant S_SPAM => 'Spammers are not welcome here.';					# Returns error when detecting spam
+use constant S_SPAM => 'スパムを投稿しないで下さい';					# Returns error when detecting spam
 
 use constant S_SQLCONF => '接続失敗';
-use constant S_SQLFAIL => 'sql失敗<br />';
+use constant S_SQLFAIL => 'sql失敗';
 
 #define(S_ANONAME, '名無し');
 #define(S_ANOTEXT, '本文なし');

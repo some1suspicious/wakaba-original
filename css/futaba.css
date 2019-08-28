@@ -224,25 +224,9 @@ img {
 
 #naviprev, #navinext {
 	float: left;
-	padding: 4px 1px 4px 1px;
+	padding: 4px;
 	margin: 1px;
 	border: 1px inset #808080;
-}
-
-#naviprev a, #navinext a {
-	color: black;
-	background: #ccc;
-	text-decoration: none;
-	padding: 3px 10px 3px 10px;
-	border: 2px outset grey;
-}
-
-#naviprev a:active, #navinext a:active {
-	color: black;
-	background: #ccc;
-	text-decoration: none;
-	padding: 3px 10px 3px 10px;
-	border: 2px inset grey;
 }
 
 #footer {

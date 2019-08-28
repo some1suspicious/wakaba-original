@@ -405,7 +405,7 @@ sub print_error($$)
 
 	print $file '<div style="text-align: center; width=100%; font-size: 2em;"><br />';
 	print $file $error;
-	print $file '<br /><br /><a href="'.$ENV{HTTP_REFERER}.'">'.S_RETURN.'</a>';
+	print $file '<br /><br /><a href="'.escamp($ENV{HTTP_REFERER}).'">'.S_RETURN.'</a>';
 	print $file '</div>';
 
 	print $file '</body></html>';

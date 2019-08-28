@@ -336,18 +336,16 @@ sub post_stuff($$$$$$$$$$$$$$$)
 	# check that the request came in as a POST, or from the command line
 	make_error(S_UNJUST) if($ENV{REQUEST_METHOD} and $ENV{REQUEST_METHOD} ne "POST");
 
-	if($admin) # check admin password
+	if($admin) # check admin password - allow both encrypted and non-encrypted
 	{
 		check_password($admin,ADMIN_PASS);
 	}
-	else # forbid admin-only features
+	else
 	{
+		# forbid admin-only features
 		make_error(S_WRONGPASS) if($fake_ip or $no_captcha or $no_format or $postfix);
-	}
 
-	# see what kind of posting is allowed
-	unless($admin eq ADMIN_PASS)
-	{
+		# check what kind of posting is allowed
 		if($parent)
 		{
 			make_error(S_NOTALLOWED) if($file and !ALLOW_IMAGE_REPLIES);
@@ -423,21 +421,16 @@ sub post_stuff($$$$$$$$$$$$$$$)
 	my $c_password=$password;
 
 	# clean up the inputs
-	$name=clean_string(decode_string($name));
 	$email=clean_string(decode_string($email));
 	$subject=clean_string(decode_string($subject));
 
-	# process the tripcode
+	# process the tripcode - maybe the string should be decoded later
 	my $trip;
-	($name,$trip)=process_tripcode($name,TRIPKEY,SECRET);
+	($name,$trip)=process_tripcode(decode_string($name),TRIPKEY,SECRET);
 
 	# format comment
 	$comment=decode_string($comment);
-	unless($no_format)
-	{
-		$comment=clean_string($comment);
-		$comment=format_comment($comment,$admin);
-	}
+	$comment=format_comment(clean_string($comment)) unless($no_format);
 	$comment.=$postfix;
 
 	# insert default values for empty fields
@@ -605,15 +598,16 @@ sub decode_string($)
 	if($has_encode)
 	{
 		$str=decode(CHARSET,$str);
-		$str=~s/&\#([0-9]+);/chr($1)/ge;
+		$str=~s/&\#([0-9]+);/chr $1/ge;
+		$str=~s/&\#x([0-9a-f]+);/chr hex $1/gei;
 	}
 
 	return $str;
 }
 
-sub format_comment($$)
+sub format_comment($)
 {
-	my ($comment,$thread)=@_;
+	my ($comment)=@_;
 
 	# fix newlines
 	$comment=~s/\r\n/\n/g;
@@ -1166,9 +1160,11 @@ sub do_nuke_database($)
 sub check_password($$)
 {
 	my ($admin,$password)=@_;
-	my $crypt=crypt_password($password);
 
-	make_error(S_WRONGPASS) if($admin ne $crypt);
+	return if($admin eq ADMIN_PASS);
+	return if($admin eq crypt_password($password));
+
+	make_error(S_WRONGPASS);
 }
 
 sub crypt_password($)

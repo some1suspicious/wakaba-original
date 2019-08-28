@@ -133,20 +133,29 @@ function get_preferred_stylesheet()
 
 /*window.onload=function(e)
 {
-	var cookie=get_cookie("wakabastyle");
-	var title=cookie?cookie:get_preferred_stylesheet();
-	set_stylesheet(title);
+	if(style_cookie)
+	{
+		var cookie=get_cookie(style_cookie);
+		var title=cookie?cookie:get_preferred_stylesheet();
+		set_stylesheet(title);
+	}
 }*/
 
 window.onunload=function(e)
 {
-	var title=get_active_stylesheet();
-	if(title) set_cookie("wakabastyle",title,365);
+	if(style_cookie)
+	{
+		var title=get_active_stylesheet();
+		set_cookie(style_cookie,title,365);
+	}
 }
 
-var cookie=get_cookie("wakabastyle");
-var title=cookie?cookie:get_preferred_stylesheet();
-set_stylesheet(title,true);
+if(style_cookie)
+{
+	var cookie=get_cookie(style_cookie);
+	var title=cookie?cookie:get_preferred_stylesheet();
+	set_stylesheet(title);
+}
 
 
 

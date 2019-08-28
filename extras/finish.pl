@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!perl
 
 use CGI::Carp qw(fatalsToBrowser);
 
@@ -94,7 +94,7 @@ elsif($task eq "post")
 			comment=>$comment,
 			password=>$password,
 			captcha=>$captcha,
-			admin=>crypt_password(ADMIN_PASS),
+			admin=>ADMIN_PASS,
 			fake_ip=>$ip,
 			postfix=>INFO_TEMPLATE->(decode_srcinfo($srcinfo)),
 			file=>[$tmpname],
@@ -159,14 +159,6 @@ sub expand_filename($)
 
 	my ($self_path)=$ENV{SCRIPT_NAME}=~m!^(.*/)[^/]+$!;
 	return $self_path.$filename;
-}
-
-sub crypt_password($)
-{
-#	my $crypt=encode_base64(rc4("."x9,(shift).$ENV{REMOTE_ADDR}.SECRET),"");
-	my $crypt=encode_base64(rc4(null_string(9),"a".(shift)."127.0.0.1".SECRET),"");
-	$crypt=~tr/+/./; # for web shit
-	return $crypt;
 }
 
 sub print_page($$$$$)

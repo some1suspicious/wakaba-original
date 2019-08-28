@@ -81,6 +81,7 @@ BEGIN {
 	eval "use constant STUPID_THUMBNAILING => 0" unless(defined &STUPID_THUMBNAILING);
 	eval "use constant ALTERNATE_REDIRECT => 0" unless(defined &ALTERNATE_REDIRECT);
 	eval "use constant COOKIE_PATH => 'root'" unless(defined &COOKIE_PATH);
+	eval "use constant STYLE_COOKIE => 'wakabastyle'" unless(defined &STYLE_COOKIE);
 
 	eval "use constant IMG_DIR => 'src/'" unless(defined &IMG_DIR);
 	eval "use constant THUMB_DIR => 'thumb/'" unless(defined &THUMB_DIR);

@@ -375,13 +375,13 @@ sub print_admin_header($$)
 	print $file '[<a href="'.expand_filename(HTML_SELF).'">'.S_MANARET.'</a>]';
 	if($admin)
 	{
-		print $file ' [<a href="'.get_script_name().'?task=mpanel&admin='.$admin.'">'.S_MANAPANEL.'</a>]';
-		print $file ' [<a href="'.get_script_name().'?task=bans&admin='.$admin.'">'.S_MANABANS.'</a>]';
-		print $file ' [<a href="'.get_script_name().'?task=spam&admin='.$admin.'">'.S_MANASPAM.'</a>]';
-		print $file ' [<a href="'.get_script_name().'?task=sqldump&admin='.$admin.'">'.S_MANASQLDUMP.'</a>]';
-		print $file ' [<a href="'.get_script_name().'?task=sql&admin='.$admin.'">'.S_MANASQLINT.'</a>]';
-		print $file ' [<a href="'.get_script_name().'?task=mpost&admin='.$admin.'">'.S_MANAPOST.'</a>]';
-		print $file ' [<a href="'.get_script_name().'?task=rebuild&admin='.$admin.'">'.S_MANAREBUILD.'</a>]';
+		print $file ' [<a href="'.get_script_name().'?task=mpanel&amp;admin='.$admin.'">'.S_MANAPANEL.'</a>]';
+		print $file ' [<a href="'.get_script_name().'?task=bans&amp;admin='.$admin.'">'.S_MANABANS.'</a>]';
+		print $file ' [<a href="'.get_script_name().'?task=spam&amp;admin='.$admin.'">'.S_MANASPAM.'</a>]';
+		print $file ' [<a href="'.get_script_name().'?task=sqldump&amp;admin='.$admin.'">'.S_MANASQLDUMP.'</a>]';
+		print $file ' [<a href="'.get_script_name().'?task=sql&amp;admin='.$admin.'">'.S_MANASQLINT.'</a>]';
+		print $file ' [<a href="'.get_script_name().'?task=mpost&amp;admin='.$admin.'">'.S_MANAPOST.'</a>]';
+		print $file ' [<a href="'.get_script_name().'?task=rebuild&amp;admin='.$admin.'">'.S_MANAREBUILD.'</a>]';
 	}
 	print $file '</div>';
 
@@ -395,7 +395,7 @@ sub print_error($$)
 	print_page_header($file,"errorpage");
 
 	print $file '<h2>'.$error.'</h2>';
-	print $file '<h3><a href="'.$ENV{HTTP_REFERER}.'">'.S_RETURN.'</a></h3>';
+	print $file '<h3><a href="'.escamp($ENV{HTTP_REFERER}).'">'.S_RETURN.'</a></h3>';
 
 	print $file '</body></html>';
 }
@@ -411,6 +411,9 @@ sub print_page_header($$)
 	my ($file,$pagetype)=@_;
 	my @styles=get_stylesheets();
 
+	print $file '<?xml version="1.0"';
+	print $file ' encoding="'.CHARSET.'"' if(CHARSET);
+	print $file '?>';
 	print $file '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"';
 	print $file ' "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">';
 	print $file '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"><head>';
@@ -426,6 +429,7 @@ sub print_page_header($$)
 	}
 
 	print $file '<link rel="shortcut icon" href="'.expand_filename(FAVICON).'" />' if(FAVICON);
+	print $file '<script type="text/javascript">var style_cookie="'.STYLE_COOKIE.'";</script>';
 	print $file '<script type="text/javascript" src="'.expand_filename(JS_FILE).'"></script>';
 	print $file '</head><body class="'.$pagetype.'">';
 
