@@ -11,6 +11,18 @@ function get_cookie(name)
 	}
 };
 
+function set_cookie(name,value,days)
+{
+	if(days)
+	{
+		var date=new Date();
+		date.setTime(date.getTime()+(days*24*60*60*1000));
+		var expires="; expires="+date.toGMTString();
+	}
+	else expires="";
+	document.cookie=name+"="+value+expires+"; path=/";
+}
+
 function get_password(name)
 {
 	var pass=get_cookie(name);
@@ -27,6 +39,8 @@ function get_password(name)
 
 	return(pass);
 }
+
+
 
 function insert(text) /* hay WTSnacks what's goin on in this function? */
 {
@@ -45,6 +59,90 @@ function insert(text) /* hay WTSnacks what's goin on in this function? */
 		textarea.focus();
 	}
 }
+
+
+
+function set_stylesheet(styletitle)
+{
+	var links=document.getElementsByTagName("link");
+	var found=false;
+	for(var i=0;i<links.length;i++)
+	{
+		var rel=links[i].getAttribute("rel");
+		var title=links[i].getAttribute("title");
+		if(rel.indexOf("style")!=-1&&title)
+		{
+			links[i].disabled=true; // IE needs this to work. IE needs to die.
+			if(styletitle==title) { links[i].disabled=false; found=true; }
+		}
+	}
+	if(!found) set_preferred_stylesheet();
+
+	if(document.images)
+	{
+		for(var i=0;i<document.images.length;i++)
+		{
+			var classname=document.images[i].getAttribute('class');
+			if(classname&&classname.indexOf('captcha')!=-1)
+			{
+				document.images[i].src=make_captcha_link("."+document.images[i].getAttribute('class'));
+			}
+		}
+	}
+}
+
+function set_preferred_stylesheet()
+{
+	var links=document.getElementsByTagName("link");
+	for(var i=0;i<links.length;i++)
+	{
+		var rel=links[i].getAttribute("rel");
+		var title=links[i].getAttribute("title");
+		if(rel.indexOf("style")!=-1&&title) links[i].disabled=(rel.indexOf("alt")!=-1);
+	}
+}
+
+function get_active_stylesheet()
+{
+	var links=document.getElementsByTagName("link");
+	for(var i=0;i<links.length;i++)
+	{
+		var rel=links[i].getAttribute("rel");
+		var title=links[i].getAttribute("title");
+		if(rel.indexOf("style")!=-1&&title&&!links[i].disabled) return title;
+	}
+}
+
+function get_preferred_stylesheet()
+{
+	var links=document.getElementsByTagName("link");
+	for(var i=0;i<links.length;i++)
+	{
+		var rel=links[i].getAttribute("rel");
+		var title=links[i].getAttribute("title");
+		if(rel.indexOf("style")!=-1&&rel.indexOf("alt")==-1&&title) return title;
+	}
+	return null;
+}
+
+/*window.onload=function(e)
+{
+	var cookie=get_cookie("wakabastyle");
+	var title=cookie?cookie:get_preferred_stylesheet();
+	set_stylesheet(title);
+}*/
+
+window.onunload=function(e)
+{
+	var title=get_active_stylesheet();
+	set_cookie("wakabastyle",title,365);
+}
+
+var cookie=get_cookie("wakabastyle");
+var title=cookie?cookie:get_preferred_stylesheet();
+set_stylesheet(title);
+
+
 
 window.onload=function(e)
 {

@@ -45,14 +45,13 @@ use constant S_FOOT => '<div class="footer">'.
                        ' + <a href="http://www.1chan.net/futallaby/">futallaby</a>'.
                        ' -</div>';										# Prints footer
 
-use constant S_RELOAD => 'Return';										# Reloads the image board (refresh)
-use constant S_MANAGEMENT => 'Manager : ';								# Defines prefix for Manager Post name
-use constant S_DELETION => 'Deletion';									# Prints deletion message with quotes?
 use constant S_WEEKDAYS => ('Sun','Mon','Tue','Wed','Thu','Fri','Sat');	# Defines abbreviated weekday names.
 
 use constant S_MANARET => 'Return';										# Returns to HTML file instead of PHP--thus no log/SQLDB update occurs
-use constant S_MANAUPD => 'Update';										# Updates the log/SQLDB by accessing the PHP file
 use constant S_MANAMODE => 'Manager Mode';								# Prints heading on top of Manager page
+
+use constant S_ADMINPASS => 'Admin password:';							# Prints login prompt
+
 use constant S_MANAPANEL => 'Management Panel';							# Defines Management Panel radio button--allows the user to view the management panel (overview of all posts)
 use constant S_MANABANS => 'Bans';										# Defines Management Panel radio button--allows the user to view the management panel (overview of all posts)
 use constant S_MANAPOST => 'Manager Post';								# Defines Manager Post radio button--allows the user to post using HTML code in the comment box

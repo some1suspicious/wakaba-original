@@ -33,6 +33,7 @@ BEGIN {
 	eval "use constant S_ANONAME => 'Anonymous'" unless(declared("S_ANONAME"));
 	eval "use constant S_ANOTEXT => ''" unless(declared("S_ANOTEXT"));
 	eval "use constant S_ANOTITLE => ''" unless(declared("S_ANOTITLE"));
+	eval "use constant DEFAULT_STYLE => 'Futaba'" unless(declared("DEFAULT_STYLE"));
 
 	eval "use constant MAX_KB => 1000" unless(declared("MAX_KB"));
 	eval "use constant MAX_W => 200" unless(declared("MAX_W"));
@@ -76,7 +77,7 @@ BEGIN {
 	eval "use constant EMAIL_ID => 'Heaven'" unless(declared("EMAIL_ID"));
 	eval "use constant TRIPKEY => '!'" unless(declared("TRIPKEY"));
 	eval "use constant ENABLE_WAKABAMARK => 1" unless(declared("ENABLE_WAKABAMARK"));
-	eval "use constant APPROX_LINE_LENGTH => 80" unless(declared("APPROX_LINE_LENGTH"));
+	eval "use constant APPROX_LINE_LENGTH => 150" unless(declared("APPROX_LINE_LENGTH"));
 	eval "use constant STUPID_THUMBNAILING => 0" unless(declared("STUPID_THUMBNAILING"));
 	eval "use constant ALTERNATE_REDIRECT => 0" unless(declared("ALTERNATE_REDIRECT"));
 
@@ -86,6 +87,7 @@ BEGIN {
 	eval "use constant HTML_SELF => 'wakaba.html'" unless(declared("HTML_SELF"));
 	eval "use constant CSS_FILE => 'wakaba.css'" unless(declared("CSS_FILE"));
 	eval "use constant JS_FILE => 'wakaba.js'" unless(declared("JS_FILE"));
+	eval "use constant CSS_DIR => 'css/'" unless(declared("CSS_DIR"));
 	eval "use constant PAGE_EXT => '.html'" unless(declared("PAGE_EXT"));
 	eval "use constant ERRORLOG => ''" unless(declared("ERRORLOG"));
 	eval "use constant CONVERT_COMMAND => 'convert'" unless(declared("CONVERT_COMMAND"));

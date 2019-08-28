@@ -1,5 +1,7 @@
 use strict;
 
+
+
 #
 # Externally called functions
 #
@@ -9,9 +11,9 @@ sub print_page($$$@)
 	my ($file,$page,$total,@threads)=@_;
 
 	print_page_header($file);
-	print_posting_form($file,0,"","");
+	print $file '<div id="mainpage">';
 
-	print $file '<form name="delform" action="'.get_script_name().'" method="post">';
+	print_posting_form($file,0,"","");
 
 	foreach my $thread (@threads)
 	{
@@ -19,10 +21,9 @@ sub print_page($$$@)
 	}
 
 	print_deletion_footer($file);
-
-	print $file '</form>';
-
 	print_navi_footer($file,$page,$total);
+
+	print $file '</div>';
 	print_page_footer($file);
 
 }
@@ -33,20 +34,18 @@ sub print_reply($@)
 	my ($sth,$row);
 
 	print_page_header($file);
+	print $file '<div id="replypage">';
 
-	print $file '[<a href="'.expand_filename(HTML_SELF).'">'.S_RETURN.'</a>]';
-	print $file '<div class="theader">'.S_POSTING.'</div>';
+	print $file '<div id="replybar">[<a href="'.expand_filename(HTML_SELF).'">'.S_RETURN.'</a>]</div>';
+	print $file '<h2>'.S_POSTING.'</h2>';
 
 	print_posting_form($file,$thread[0]{num},"",$thread[$#thread]{num});
-
-	print $file '<form name="delform" action="'.get_script_name().'" method="post">';
 
 	print_thread($file,1,@thread);
 
 	print_deletion_footer($file);
 
-	print $file '</form>';
-
+	print $file '</div>';
 	print_page_footer($file);
 }
 
@@ -55,13 +54,13 @@ sub print_admin_login($)
 	my ($file)=@_;
 
 	print_page_header($file);
+	print $file '<div id="login">';
 	print_admin_header($file,"");
 
-	print $file '<div align="center">';
 	print $file '<form action="'.get_script_name().'" method="get">';
 	print $file S_ADMINPASS;
-	print $file ' <input type="password" name="admin" size="8" maxlength="16" value="" /> ';
-	print $file '<select name="action">';
+	print $file ' <input type="password" name="admin" size="8" maxlength="16" value="" />';
+	print $file '&nbsp;<select name="action">';
 	print $file '<option value="mpanel">'.S_MANAPANEL.'</option>';
 	print $file '<option value="bans">'.S_MANABANS.'</option>';
 	print $file '<option value="mpost">'.S_MANAPOST.'</option>';
@@ -70,8 +69,9 @@ sub print_admin_login($)
 	print $file '<option value="nuke">'.S_MANANUKE.'</option>';
 	print $file '</select>';
 	print $file '<input type="submit" value="'.S_MANASUB.'" />';
-	print $file '</form></div>';
+	print $file '</form>';
 
+	print $file '</div>';
 	print_page_footer($file);
 }
 
@@ -81,21 +81,32 @@ sub print_admin_post_panel($$@)
 	my ($sth,$row,$count,$size);
 
 	print_page_header($file);
+	print $file '<div id="posts">';
 	print_admin_header($file,$admin);
 
-	print $file '<div class="dellist">'.S_MPTITLE.'</div>';
+	print $file '<h3>'.S_MPTITLE.'</h3>';
+
+	print $file '<form action="'.get_script_name().'" method="post">';
+	print $file '<input type="hidden" name="action" value="deleteall" />';
+	print $file '<input type="hidden" name="admin" value="'.$admin.'" />';
+	print $file '<table class="admininput"><tbody>';
+	print $file '<tr><td class="label">'.S_BANIPLABEL.'</td><td class="input"><input type="text" name="ip" size="24" /></td></tr>';
+	print $file '<tr><td class="label">'.S_BANMASKLABEL.'</td><td class="input"><input type="text" name="mask" size="24" />';
+	print $file ' <input type="submit" value="'.S_MPDELETEIP.'" /></td></tr>';
+	print $file '</tbody></table></form>';
 
 	print $file '<form action="'.get_script_name().'" method="post">';
 	print $file '<input type="hidden" name="action" value="delete" />';
 	print $file '<input type="hidden" name="admin" value="'.$admin.'" />';
-	print $file '<div class="delbuttons">';
+
+	print $file '<div class="buttons">';
 	print $file '<input type="submit" value="'.S_MPDELETE.'" />';
 	print $file '<input type="reset" value="'.S_MPRESET.'" />';
-	print $file '[<label><input type="checkbox" name="fileonly" value="on" />'.S_MPONLYPIC.'</label>]';
+	print $file ' [<label><input type="checkbox" name="fileonly" value="on" />'.S_MPONLYPIC.'</label>]';
 	print $file '</div>';
 
-	print $file '<table align="center"><tbody>';
-	print $file '<tr class="managehead">'.S_MPTABLE.'</tr>';
+	print $file '<table class="admindata"><tbody>';
+	print $file '<tr class="headrow">'.S_MPTABLE.'</tr>';
 
 	$count=1;
 	$size=0;
@@ -111,9 +122,9 @@ sub print_admin_post_panel($$@)
 		print $file '<td>' unless($$row{image});
 		print $file '<td rowspan="2">' if($$row{image});
 		print $file '<label>';
-		print $file '<input type="checkbox" name="delete" value="'.$$row{num}.'" />';
-		print $file '&nbsp;&gt;&gt;' if($$row{parent});
-		print $file '&nbsp;<big><b>'.$$row{num}.'</b></big>&nbsp;&nbsp;</td>';
+		print $file '<input type="checkbox" name="delete" value="'.$$row{num}.'" />&nbsp;';
+		print $file '&gt;&gt;' if($$row{parent});
+		print $file '<big>'.$$row{num}.'</big>&nbsp;&nbsp;</td>';
 		print $file '<td>'.make_date($$row{timestamp},2).'</td>';
 		print $file '<td>'.$subject.'</td>';
 		print $file '<td><b>'.$name;
@@ -141,29 +152,17 @@ sub print_admin_post_panel($$@)
 
 	print $file '</tbody></table>';
 
-	print $file '<div class="delbuttons">';
+	print $file '<div class="buttons">';
 	print $file '<input type="submit" value="'.S_MPDELETE.'" />';
 	print $file '<input type="reset" value="'.S_MPRESET.'" />';
-	print $file '[<label><input type="checkbox" name="fileonly" value="on" />'.S_MPONLYPIC.'</label>]';
+	print $file ' [<label><input type="checkbox" name="fileonly" value="on" />'.S_MPONLYPIC.'</label>]';
 	print $file '</div>';
 
 	print $file '</form>';
 
-	print $file '<br /><div class="postarea" align="center">';
+	print $file '<h4>'.(sprintf S_IMGSPACEUSAGE,int($size/1024)).'</h4>';
 
-	print $file '<form action="'.get_script_name().'" method="post">';
-	print $file '<input type="hidden" name="action" value="deleteall" />';
-	print $file '<input type="hidden" name="admin" value="'.$admin.'" />';
-	print $file '<table><tbody>';
-	print $file '<tr><td class="postblock" align="left">'.S_BANIPLABEL.'</td><td align="left"><input type="text" name="ip" size="24" /></td></tr>';
-	print $file '<tr><td class="postblock" align="left">'.S_BANMASKLABEL.'</td><td align="left"><input type="text" name="mask" size="24" />';
-	print $file ' <input type="submit" value="'.S_MPDELETEIP.'" /></td></tr>';
-	print $file '</tbody></table></form>';
-
-	print $file '</div><br />';
-
-	print $file sprintf S_IMGSPACEUSAGE,int($size/1024);
-
+	print $file '</div>';
 	print_page_footer($file);
 }
 
@@ -173,59 +172,49 @@ sub print_admin_ban_panel($$@)
 	my ($sth,$row,$count);
 
 	print_page_header($file);
+	print $file '<div id="bans">';
 	print_admin_header($file,$admin);
 
-	print $file '<div class="dellist">'.S_BANTITLE.'</div>';
+	print $file '<h3>'.S_BANTITLE.'</h3>';
 
-	print $file '<div class="postarea" align="center">';
-	print $file '<table><tbody><tr><td align="bottom">';
+	print $file '<div id="inputs">';
 
 	print $file '<form action="'.get_script_name().'" method="post">';
 	print $file '<input type="hidden" name="action" value="addip" />';
 	print $file '<input type="hidden" name="type" value="ipban" />';
 	print $file '<input type="hidden" name="admin" value="'.$admin.'" />';
-	print $file '<table><tbody>';
-	print $file '<tr><td class="postblock" align="left">'.S_BANIPLABEL.'</td><td align="left"><input type="text" name="ip" size="24" /></td></tr>';
-	print $file '<tr><td class="postblock" align="left">'.S_BANMASKLABEL.'</td><td align="left"><input type="text" name="mask" size="24" /></td></tr>';
-	print $file '<tr><td class="postblock" align="left">'.S_BANCOMMENTLABEL.'</td><td align="left"><input type="text" name="comment" size="16" />';
+	print $file '<table class="admininput"><tbody>';
+	print $file '<tr><td class="label">'.S_BANIPLABEL.'</td><td class="input"><input type="text" name="ip" size="24" /></td></tr>';
+	print $file '<tr><td class="label">'.S_BANMASKLABEL.'</td><td class="input"><input type="text" name="mask" size="24" /></td></tr>';
+	print $file '<tr><td class="label">'.S_BANCOMMENTLABEL.'</td><td class="input"><input type="text" name="comment" size="16" />';
 	print $file ' <input type="submit" value="'.S_BANIP.'" /></td></tr>';
 	print $file '</tbody></table></form>';
-
-	print $file '</td><td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td valign="bottom">';
 
 	print $file '<form action="'.get_script_name().'" method="post">';
 	print $file '<input type="hidden" name="action" value="addstring" />';
 	print $file '<input type="hidden" name="type" value="wordban" />';
 	print $file '<input type="hidden" name="admin" value="'.$admin.'" />';
-	print $file '<table><tbody>';
-	print $file '<tr><td class="postblock" align="left">'.S_BANWORDLABEL.'</td><td align="left"><input type="text" name="string" size="24" /></td></tr>';
-	print $file '<tr><td class="postblock" align="left">'.S_BANCOMMENTLABEL.'</td><td align="left"><input type="text" name="comment" size="16" />';
+	print $file '<table class="admininput"><tbody>';
+	print $file '<tr><td class="label">'.S_BANWORDLABEL.'</td><td class="input"><input type="text" name="string" size="24" /></td></tr>';
+	print $file '<tr><td class="label">'.S_BANCOMMENTLABEL.'</td><td class="input"><input type="text" name="comment" size="16" />';
 	print $file ' <input type="submit" value="'.S_BANWORD.'" /></td></tr>';
-	print $file '</form>';
 	print $file '</tbody></table></form>';
-
-	print $file '</td><td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td valign="bottom">';
 
 	print $file '<form action="'.get_script_name().'" method="post">';
 	print $file '<input type="hidden" name="action" value="addip" />';
 	print $file '<input type="hidden" name="type" value="whitelist" />';
 	print $file '<input type="hidden" name="admin" value="'.$admin.'" />';
-	print $file '<table><tbody>';
-	print $file '<tr><td class="postblock" align="left">'.S_BANIPLABEL.'</td><td align="left"><input type="text" name="ip" size="24" /></td></tr>';
-	print $file '<tr><td class="postblock" align="left">'.S_BANMASKLABEL.'</td><td align="left"><input type="text" name="mask" size="24" /></td></tr>';
-	print $file '<tr><td class="postblock" align="left">'.S_BANCOMMENTLABEL.'</td><td align="left"><input type="text" name="comment" size="16" />';
+	print $file '<table class="admininput"><tbody>';
+	print $file '<tr><td class="label">'.S_BANIPLABEL.'</td><td class="input"><input type="text" name="ip" size="24" /></td></tr>';
+	print $file '<tr><td class="label">'.S_BANMASKLABEL.'</td><td class="input"><input type="text" name="mask" size="24" /></td></tr>';
+	print $file '<tr><td class="label">'.S_BANCOMMENTLABEL.'</td><td class="input"><input type="text" name="comment" size="16" />';
 	print $file ' <input type="submit" value="'.S_BANWHITELIST.'" /></td></tr>';
 	print $file '</tbody></table></form>';
 
-	print $file '</td></tr></tbody></table>';
-	print $file '</div><br />';
+	print $file '</div>';
 
-#	print $file '<input type="reset" value="'.S_MPRESET.'" />';
-#	print $file '[<label><input type="checkbox" name="fileonly" value="on" />'.S_MPONLYPIC.'</label>]';
-#	print $file '</div>';
-
-	print $file '<table align="center"><tbody>';
-	print $file '<tr class="managehead">'.S_BANTABLE.'</tr>';
+	print $file '<table class="admindata"><tbody>';
+	print $file '<tr class="headrow">'.S_BANTABLE.'</tr>';
 
 	$count=1;
 
@@ -255,8 +244,9 @@ sub print_admin_ban_panel($$@)
 		print $file '</tr>';
 	}
 
-	print $file '</tbody></table><br />';
+	print $file '</tbody></table>';
 
+	print $file '</sdiv>';
 	print_page_footer($file);
 }
 
@@ -266,12 +256,13 @@ sub print_admin_post($$)
 	my ($sth,$row,$count);
 
 	print_page_header($file);
+	print $file '<div id="adminpost">';
 	print_admin_header($file,$admin);
 
-	print $file '<div align="center"><em>'.S_NOTAGS.'</em></div>';
-
+	print $file '<h3>'.S_NOTAGS.'</h3>';
 	print_posting_form($file,0,$admin,"");
 
+	print $file '</div>';
 	print_page_footer($file);
 }
 
@@ -279,6 +270,7 @@ sub print_admin_header($$)
 {
 	my ($file,$admin)=@_;
 
+	print $file '<div id="managerbar">';
 	print $file '[<a href="'.expand_filename(HTML_SELF).'">'.S_MANARET.'</a>]';
 	if($admin)
 	{
@@ -287,8 +279,9 @@ sub print_admin_header($$)
 		print $file ' [<a href="'.get_script_name().'?action=mpost&admin='.$admin.'">'.S_MANAPOST.'</a>]';
 		print $file ' [<a href="'.get_script_name().'?action=rebuild&admin='.$admin.'">'.S_MANAREBUILD.'</a>]';
 	}
+	print $file '</div>';
 
-	print $file '<div class="passvalid">'.S_MANAMODE.'</div><br />';
+	print $file '<h2>'.S_MANAMODE.'</h2>';
 }
 
 sub print_error($$)
@@ -297,14 +290,13 @@ sub print_error($$)
 
 	print_page_header($file);
 
-	print $file '<div style="text-align: center; width=100%; font-size: 2em;"><br />';
-	print $file $error;
-	print $file '<br /><br /><a href="'.$ENV{HTTP_REFERER}.'">'.S_RETURN.'</a>';
+	print $file '<div id="error">';
+	print $file '<h2>'.$error.'</h2>';
+	print $file '<a href="'.$ENV{HTTP_REFERER}.'">'.S_RETURN.'</a>';
 	print $file '</div>';
 
 	print $file '</body></html>';
 }
-
 
 
 
@@ -315,44 +307,55 @@ sub print_error($$)
 sub print_page_header($)
 {
 	my ($file)=@_;
+	my @styles=get_stylesheets();
 
-#	print $file '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"';
-#	print $file ' "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">';
-#	print $file '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="jp">'; # lang="jp"? what the hell?
-#	print $file '<head><meta http-equiv="content-type"  content="text/html;charset=utf-8" />';
-#	print $file '<!-- meta HTTP-EQUIV="pragma" CONTENT="no-cache" -->';
-
-#	print $file '<?xml version="1.0" encoding="utf-8"?>';
-	print $file '<html><head>';
+	print $file '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"';
+	print $file ' "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">';
+	print $file '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"><head>';
 
 	print $file '<title>'.TITLE.'</title>';
 	print $file '<meta http-equiv="Content-Type"  content="text/html;charset='.CHARSET.'" />' if(CHARSET);
-#	print $file '<meta http-equiv="pragma" content="no-cache">';
-	print $file '<link rel="stylesheet" type="text/css" href="'.expand_filename(CSS_FILE).'" title="Standard stylesheet" />';
+
+	foreach my $style (@styles)
+	{
+		print $file '<link rel="';
+		print $file 'alternate ' unless($$style{title} eq DEFAULT_STYLE);
+		print $file 'stylesheet" type="text/css" href="'.expand_filename($$style{filename}).'" title="'.$$style{title}.'" />';
+	}
+
+	print $file '<link rel="stylesheet" type="text/css" href="'.expand_filename("css/futaba.css").'" title="Futaba" />';
+	print $file '<link rel="alternate stylesheet" type="text/css" href="'.expand_filename("css/wakaba.css").'" title="Wakaba" />';
+	print $file '<link rel="alternate stylesheet" type="text/css" href="'.expand_filename("css/none.css").'" title="None" />';
 	print $file '<link rel="shortcut icon" href="'.expand_filename(FAVICON).'" />' if(FAVICON);
-	print $file '<script src="'.expand_filename(JS_FILE).'"></script>'; # could be better
+	print $file '<script type="text/javascript" src="'.expand_filename(JS_FILE).'"></script>';
 	print $file '</head><body>';
 
 	print $file S_HEAD;
 
-	print $file '<div class="adminbar">';
+	print $file '<div id="adminbar">';
 	print $file '[<a href="'.expand_filename(HOME).'" target="_top">'.S_HOME.'</a>]';
 	print $file ' [<a href="'.get_secure_script_name().'?action=admin">'.S_ADMIN.'</a>]';
 	print $file '</div>';
 
-	print $file '<div class="logo">';
+	print $file '<div id="stylebar">';
+	foreach my $style (@styles)
+	{
+		print $file '[<a href="javascript:set_stylesheet(\''.$$style{title}.'\')">'.$$style{title}.'</a>] ';
+	}
+	print $file '</div>';
+
+	print $file '<div id="title">';
 	print $file '<img src="'.expand_filename(TITLEIMG).'" alt="'.TITLE.'" />' if(SHOWTITLEIMG==1);
 	print $file '<img src="'.expand_filename(TITLEIMG).'" onclick="this.src=this.src;" alt="'.TITLE.'" />' if(SHOWTITLEIMG==2);
-	print $file '<br />' if(SHOWTITLEIMG and SHOWTITLETXT);
-	print $file TITLE if(SHOWTITLETXT);
-	print $file '</div><hr />';
+	print $file '<h1>'.TITLE.'</h1>' if(SHOWTITLETXT);
+	print $file '<hr /></div>';
 }
 
 sub print_page_footer($)
 {
 	my ($file)=@_;
 
-	print $file S_FOOT;
+	print $file '<div id="footer">'.S_FOOT.'</div>';
 	print $file '</body></html>';
 }
 
@@ -377,21 +380,21 @@ sub print_posting_form($$$$)
 		}
 	}
 
-	print $file '<div class="postarea" align="center">';
+	print $file '<div id="postarea">';
 	print $file '<form name="postform" action="'.get_script_name().'" method="post" enctype="multipart/form-data">';
 	print $file '<input type="hidden" name="action" value="post" />';
 	print $file '<input type="hidden" name="parent" value="'.$parent.'" />' if($parent);
 	print $file '<input type="hidden" name="admin" value="'.$admin.'" />' if($admin);
 	print $file '<table><tbody>';
-	print $file '<tr><td class="postblock" align="left">'.S_NAME.'</td><td align="left"><input type="text" name="name" size="28" /></td></tr>';
-	print $file '<tr><td class="postblock" align="left">'.S_EMAIL.'</td><td align="left"><input type="text" name="email" size="28" /></td></tr>';
-	print $file '<tr><td class="postblock" align="left">'.S_SUBJECT.'</td><td align="left"><input type="text" name="subject" size="35" />';
+	print $file '<tr><td class="label">'.S_NAME.'</td><td class="input"><input type="text" name="name" size="28" /></td></tr>';
+	print $file '<tr><td class="label">'.S_EMAIL.'</td><td class="input"><input type="text" name="email" size="28" /></td></tr>';
+	print $file '<tr><td class="label">'.S_SUBJECT.'</td><td class="input"><input type="text" name="subject" size="35" />';
 	print $file ' <input type="submit" value="'.S_SUBMIT.'" /></td></tr>';
-	print $file '<tr><td class="postblock" align="left">'.S_COMMENT.'</td><td align="left"><textarea name="comment" cols="48" rows="4"></textarea></td></tr>';
+	print $file '<tr><td class="label">'.S_COMMENT.'</td><td class="input"><textarea name="comment" cols="48" rows="4"></textarea></td></tr>';
 
 	if($image_inp)
 	{
-		print $file '<tr><td class="postblock" align="left">'.S_UPLOADFILE.'</td><td><input type="file" name="file" size="35" />';
+		print $file '<tr><td class="label">'.S_UPLOADFILE.'</td><td class="input"><input type="file" name="file" size="35" />';
 		print $file ' [<label><input type="checkbox" name="nofile" value="on" />'.S_NOFILE.'</label>]' if($textonly_inp);
 		print $file '</td></tr>';
 	}
@@ -404,17 +407,22 @@ sub print_posting_form($$$$)
 	{
 		my $key=get_captcha_key($parent);
 
-		print $file '<tr><td class="postblock" align="left">'.S_CAPTCHA.'</td><td><input type="text" name="captcha" size="10" />';
+		print $file '<tr><td class="label">'.S_CAPTCHA.'</td><td class="input"><input type="text" name="captcha" size="10" />';
 		print $file ' <img src="'.expand_filename(CAPTCHA_SCRIPT).'?key='.$key.'&dummy='.$dummy.'" />';
 		print $file '</td></tr>';
 	}
 
 #	print $file '<tr><td class="postblock" align="left">'.S_DELPASS.'</td><td align="left"><input type="password" name="password" size="8" maxlength="8" value="'.$c_password.'" /> '.S_DELEXPL2.'</td></tr>';
-	print $file '<tr><td class="postblock" align="left">'.S_DELPASS.'</td><td align="left"><input type="password" name="password" size="8" maxlength="8" /> '.S_DELEXPL.'</td></tr>';
-	print $file '<tr><td colspan="2">';
-	print $file '<div align="left" class="rules">'.S_RULES.'</div></td></tr>';
-	print $file '</tbody></table></form></div><hr />';
-	print $file '<script>with(document.postform) {name.value=get_cookie("name"); email.value=get_cookie("email"); password.value=get_password("password"); }</script>';
+	print $file '<tr><td class="label">'.S_DELPASS.'</td><td class="input"><input type="password" name="password" size="8" maxlength="8" /> '.S_DELEXPL.'</td></tr>';
+
+	print $file '<tr><td colspan="2"><div id="rules">'.S_RULES.'</div></td></tr>';
+
+	print $file '</tbody></table></form></div>';
+	print $file '<script type="text/javascript">with(document.postform) {name.value=get_cookie("name"); email.value=get_cookie("email"); password.value=get_password("password"); }</script>';
+
+	print $file '<hr />';
+
+	print $file '<form name="delform" action="'.get_script_name().'" method="post">';
 }
 
 sub print_thread($$@)
@@ -425,11 +433,13 @@ sub print_thread($$@)
  	# remove parent post from start of thread 
  	$parent=shift @thread;
 
+	print $file '<div class="threadcontainer"><div class="thread"><div class="threadstart">';
+
 	# display image
+	print_comment_header($file,$parent,!$threadview,1);
 	print_image($file,$parent,0) if($$parent{image});
 
 	# display the original thread comment
-	print_comment_header($file,$parent,!$threadview,1);
 	print_comment($file,$parent,$threadview);
 
 	# check to see if we should abbreviate the thread
@@ -447,37 +457,31 @@ sub print_thread($$@)
 			$images++ if($$res{image});
 		}
 
-		if($images)
-		{
-			print $file '<span class="omittedposts">'.(sprintf S_ABBRIMG,$omit,$images).'</span>';
-		}
-		else
-		{
-			print $file '<span class="omittedposts">'.(sprintf S_ABBR,$omit).'</span>';
-		}
+		if($images) { print $file '<span class="omittedposts">'.(sprintf S_ABBRIMG,$omit,$images).'</span>' }
+		else { print $file '<span class="omittedposts">'.(sprintf S_ABBR,$omit).'</span>'; }
 	}
+	print $file '</div>';
 
 	# display replies
 
-	foreach my $res (@thread)
+	if(@thread)
 	{
-		print $file '<table><tbody><tr><td class="doubledash">&gt;&gt;</td>';
-		print $file '<td class="reply" id="reply'.$$res{num}.'">';
-
-		print_comment_header($file,$res,0,0);
-
-		if($$res{image})
+		print $file '<div class="replies">';
+		foreach my $res (@thread)
 		{
-			print $file '<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;';
-			print_image($file,$res,!$threadview);
+			print $file '<div class="replycontainer">';
+			print $file '<div class="reply" id="reply'.$$res{num}.'">';
+
+			print_comment_header($file,$res,0,0);
+			print_image($file,$res,!$threadview) if($$res{image});
+			print_comment($file,$res,!$threadview);
+
+			print $file '</div></div>';
 		}
-
-		print_comment($file,$res,!$threadview);
-
-		print $file '</td></tr></tbody></table>';
+		print $file '</div>';
 	}
 
-	print $file '<br clear="left" /><hr />';
+	print $file '<hr /></div></div>';
 }
 
 sub print_comment_header($$$$)
@@ -489,26 +493,30 @@ sub print_comment_header($$$$)
 	$nameclass=$toplevel?"postername":"commentpostername";
 
 	print $file '<a name="'.$$res{num}.'"></a>';
+
+	print $file $toplevel?'<h3>':'<h4>';
 	print $file '<label><input type="checkbox" name="delete" value="'.$$res{num}.'" />';
-	print $file '<span class="'.$titleclass.'">'.$$res{subject}.'</span>';
-	print $file ' <span class="'.$nameclass.'">';
+	print $file '<strong>'.$$res{subject}.'</strong>';
+	print $file ' <em>';
 	print $file '<a href="mailto:'.$$res{email}.'">' if($$res{email});
 	print $file $$res{name};
 	print $file '</a>' if($$res{email});
-	print $file '</span>';
 
 	if($$res{trip})
 	{
-		print $file '<span class="postertrip">';
+		print $file '<small>';
 		print $file '<a href="mailto:'.$$res{email}.'">' if($$res{email});
 		print $file TRIPKEY.$$res{trip};
 		print $file '</a>' if($$res{email});
-		print $file '</span>';
+		print $file '</small>';
 	}
 
+	print $file '</em>';
 	print $file ' '.$$res{date}.'</label>';
-	print $file ' <span class="reflink"><a href="javascript:insert(\'>>'.$$res{num}.'\')">No.'.$$res{num}.'</a></span>&nbsp;';
-	print $file ' [<a href="'.get_reply_link($$res{num},0).'">'.S_REPLY.'</a>]' if($frontpage);
+	print $file ' <span class="reflink"><a href="javascript:insert(\'>>'.$$res{num}.'\')">No.'.$$res{num}.'</a></span>';
+	print $file ' <span class="replylink">[<a href="'.get_reply_link($$res{num},0).'">'.S_REPLY.'</a>]</span>' if($frontpage);
+
+	print $file $toplevel?'</h3>':'</h4>';
 }
 
 sub print_comment($$$)
@@ -518,14 +526,12 @@ sub print_comment($$$)
 
 	if($abbreviate and $abbreviation=abbreviate_html($$res{comment}))
 	{
-		print $file '<blockquote>';
-		print $file $abbreviation;
-		print $file '<div class="abbrev">'.sprintf(S_ABBRTEXT,get_reply_link($$res{num},$$res{parent})).'</div>';
-		print $file '</blockquote>'; 
+		print $file '<div class="replytext">',$abbreviation.'</div>';
+		print $file '<div class="replyabbrev">'.sprintf(S_ABBRTEXT,get_reply_link($$res{num},$$res{parent})).'</div>';
 	}
 	else
 	{
-		print $file '<blockquote>'.$$res{comment}.'</blockquote>';
+		print $file '<div class="replytext">'.$$res{comment}.'</div>';
 	}
 }
 
@@ -537,38 +543,44 @@ sub print_image($$$)
 
 	$hidden=0 unless(HIDE_IMAGE_REPLIES);
 
-	print $file '<span class="filesize">'.S_PICNAME.'<a target="_blank" href="'.expand_filename($$res{image}).'">'.$imagename.'</a>';
-	print $file '-(<em>'.$$res{size}.' B, '.$$res{width}.'x'.$$res{height}.'</em>)</span>';
-	print $file ' <span class="thumbnailmsg">'.S_THUMB.'</span>' unless($hidden);
-	print $file ' <span class="thumbnailmsg">'.S_HIDDEN.'</span>' if($hidden);
-	print $file '<br /><a target="_blank" href="'.expand_filename($$res{image}).'">';
+	print $file '<h5>'.S_PICNAME.'<a target="_blank" href="'.expand_filename($$res{image}).'">'.$imagename.'</a>';
+	print $file '-(<em>'.$$res{size}.' B, '.$$res{width}.'x'.$$res{height}.'</em>)';
+	print $file ' <small>'.S_THUMB.'</small>' unless($hidden);
+	print $file ' <small>'.S_HIDDEN.'</small>' if($hidden);
+	print $file '</h5>';
 
 	unless($hidden)
 	{
 		if($$res{thumbnail})
 		{
-			print $file '<img src="'.expand_filename($$res{thumbnail}).'" border="0" align="left"';
-			print $file ' width="'.$$res{tn_width}.'" height="'.$$res{tn_height}.'" hspace="20" alt="'.$$res{size}.'">';
+			print $file '<div class="thumbnail">';
+			print $file '<a target="_blank" href="'.expand_filename($$res{image}).'">';
+			print $file '<img src="'.expand_filename($$res{thumbnail}).'"';
+			print $file ' width="'.$$res{tn_width}.'" height="'.$$res{tn_height}.'" alt="'.$$res{size}.'" />';
+			print $file '</a>';
+			print $file '</div>';
 		}
 		else
 		{
-			print $file '<div hspace="20" style="float:left;text-align:center;padding:20px;">'.S_NOTHUMB.'</div>';
+			print $file '<div class="nothumbnail">';
+			print $file '<a target="_blank" href="'.expand_filename($$res{image}).'">'.S_NOTHUMB.'</a>';
+			print $file '</div>';
 		}
 	}
-	print $file '</a>';
 }
 
 sub print_deletion_footer($)
 {
 	my ($file)=@_;
 
-	print $file '<table align="right"><tbody><tr><td align="center" nowrap="nowrap">';
+	print $file '<div id="delete">';
 	print $file '<input type="hidden" name="action" value="delete" />';
 	print $file S_REPDEL.'[<label><input type="checkbox" name="fileonly" value="on" />'.S_DELPICONLY.'</label>]<br />';
 #	print $file S_DELKEY.'<input type="password" name="password" value="'.$c_password.'" maxlength="8" size="8" />';
 	print $file S_DELKEY.'<input type="password" name="password" maxlength="8" size="8" />';
-	print $file '<input value="'.S_DELETE.'" type="submit"></td></tr></tbody></table></form>';
-	print $file '<script>document.delform.password.value=get_cookie("password");</script>';
+	print $file '<input value="'.S_DELETE.'" type="submit" />';
+	print $file '</div></form>';
+	print $file '<script type="text/javascript">document.delform.password.value=get_cookie("password");</script>';
 }
 
 sub print_navi_footer($$$)
@@ -578,14 +590,12 @@ sub print_navi_footer($$$)
 
 	@pages=get_page_links($total);
 
-	print $file '<table border="1"><tbody><tr><td>';
+	print $file '<div id="navibar"><div id="naviprev">';
 
-	if($page==0)
-	{ print $file S_FIRSTPG; }
-	else
-	{ print $file '<form method="get" action='.$pages[$page-1].'><input value="'.S_PREV.'" type="submit" /></form>'; }
+	if($page==0) { print $file S_FIRSTPG }
+	else { print $file '<a href="'.$pages[$page-1].'">'.S_PREV.'</a>' }
 
-	print $file '</td><td>';
+	print $file '</div><div id="navilinks">';
 
 	for($i=0;$i<$total;$i++)
 	{
@@ -595,14 +605,12 @@ sub print_navi_footer($$$)
 		{ print $file '[<a href="'.$pages[$i].'">'.$i.'</a>] '; }
 	}
 
-	print $file '</td><td>';
+	print $file '</div><div id="navinext">';
 
-	if($page==$total-1)
-	{ print $file S_LASTPG; }
-	else
-	{ print $file '<form method="get" action='.$pages[$page+1].'><input value="'.S_NEXT.'" type="submit" /></form>'; }
+	if($page==$total-1) { print $file S_LASTPG }
+	else { print $file '<a href="'.$pages[$page+1].'">'.S_NEXT.'</a>' }
 
-	print $file '</td></tr></tbody></table><br clear="all">';
+	print $file '</div></div>';
 }
 
 1;

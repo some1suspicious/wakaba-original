@@ -16,7 +16,7 @@ use lib '.';
 BEGIN { require "config.pl"; }
 BEGIN { require "config_defaults.pl"; }
 BEGIN { require "strings_e.pl"; }
-BEGIN { require "futaba_style.pl"; }
+BEGIN { require "wakaba_style.pl"; }
 BEGIN { require "filetypes_none.pl"; }
 
 my %filetypes=%filetypes::filetypes;
@@ -742,10 +742,10 @@ sub do_spans($@)
 		$line=~s{(https?://[^\s<>"]*?)((?:\s|<|>|"|\.|\)|\]|!|\?|,|&#44;|&quot;)*(?:[\s<>"]|$))}{\<a href="$1"\>$1\</a\>$2}sgi;
 
 		# do <strong>
-		$line=~s{([^0-9a-zA-Z\*_]|^)(\*\*|__)([^<>\s\*_](?:[^<>]*?[^<>\s\*_])?)\2(?=[^0-9a-zA-Z\*_]|$)}{$1<strong>$3</strong>}g if(ENABLE_WAKABAMARK);
+		$line=~s{([^0-9a-zA-Z\*_]|^)(\*\*|__)([^<>\s\*_](?:[^<>]*?[^<>\s\*_])?)\2([^0-9a-zA-Z\*_]|$)}{$1<strong>$3</strong>$4}g if(ENABLE_WAKABAMARK);
 
 		# do <em>
-		$line=~s{([^0-9a-zA-Z\*_]|^)(\*|_)([^<>\s\*_](?:[^<>]*?[^<>\s\*_])?)\2(?=[^0-9a-zA-Z\*_]|$)}{$1<em>$3</em>}g if(ENABLE_WAKABAMARK);
+		$line=~s{([^0-9a-zA-Z\*_]|^)(\*|_)([^<>\s\*_](?:[^<>]*?[^<>\s\*_])?)\2([^0-9a-zA-Z\*_]|$)}{$1<em>$3</em>$4}g if(ENABLE_WAKABAMARK);
 
 		$line=$handler->($line) if($handler);
 
@@ -1379,6 +1379,32 @@ sub get_page_links($)
 sub get_page_count()
 {
 	return int((count_threads()+IMAGES_PER_PAGE-1)/IMAGES_PER_PAGE);
+}
+
+sub get_stylesheets()
+{
+	my $found=0;
+	my @stylesheets=map
+	{
+		my %sheet;
+
+		$sheet{filename}=$_;
+
+		($sheet{title})=m!([^/]+)\.css$!i;
+		$sheet{title}=ucfirst $sheet{title};
+		$sheet{title}=~s/_/ /g;
+		$sheet{title}=~s/ ([a-z])/ \u$1/g;
+		$sheet{title}=~s/([a-z])([A-Z])/$1 $2/g;
+
+		if($sheet{title} eq DEFAULT_STYLE) { $sheet{default}=1; $found=1; }
+		else { $sheet{default}=0; }
+
+		\%sheet;
+	} glob(CSS_DIR."*.css");
+
+	$stylesheets[0]{default}=1 if(@stylesheets and !$found);
+
+	return @stylesheets;
 }
 
 sub expand_filename($)

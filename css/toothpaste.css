@@ -1,0 +1,392 @@
+body {
+         background: #FFFFFF;
+         color: #000080;
+}
+a {
+	color: #CC0000;
+}
+a:visited {
+	color: #BB0000;
+}
+a:hover {
+	color: #FF7F7F;
+}
+form {
+	margin: 0px;
+}
+img {
+	border-width: 0px;
+}
+hr {
+	display: none;
+}
+
+
+#adminbar, #stylebar {
+	float: right;
+	margin-left: 1em;
+}
+
+#title {
+	clear: both;
+}
+
+#title h1 {
+	color: #005F00;
+	text-align: center;
+	font-family: sans-serif;
+	font-weight: normal;
+	font-size: 2em;
+	margin: 0em;
+}
+
+#returnlink {
+}
+
+#replypage h2 {
+	background: #FFEEEE;
+	font-family: sans-serif;
+	font-size: 1em;
+	font-weight: bold;
+	text-align: center;
+	padding: 2px;
+	margin: 0px;
+	color: #aa0000;
+	-moz-border-radius: 4px;
+}
+
+
+
+#postarea {
+	text-align: center;
+}
+#postarea table {
+	background: #E7FFEF;
+	color: #008000;
+	padding: 4px;
+	margin: 1em auto 2em auto;
+	-moz-border-radius: 6px;
+	clear: both;
+}
+#postarea td {
+	text-align: left;
+}
+#postarea td.label {
+	background: #D6F0E0;
+	font-weight: bold;
+	-moz-border-radius: 4px;
+}
+#postarea td.input {
+}
+#rules {
+	font-size: 0.7em;
+}
+
+
+
+.threadcontainer {
+	padding-right: 16px;
+}
+
+.thread {
+	display: table;
+	width: 100%;
+	border: 8px solid #E7EFFF;
+	padding: 0px;
+	margin-bottom: 2em;
+	clear: both;
+	-moz-border-radius: 6px;
+}
+
+
+
+.threadstart h3 {
+	background: #E7EFFF;
+	font-size: 1em;
+	font-weight: normal;
+	margin: 0px;
+	padding-bottom: 4px;
+}
+.threadstart h3 strong { /* subject */
+	color: #CC1105;
+	font-size: 1.2em;
+	font-weight: bold;
+}
+.threadstart h3 em { /* name */
+	color: #117743;
+	font-weight: bold;
+	font-style: normal;
+}
+.threadstart h3 small { /* tripcode */
+	color:#228854;
+	font-size: 1em;
+	font-weight: normal;
+}
+.threadstart h3 .reflink a {
+	color: #000080;
+	text-decoration: none;
+}
+.threadstart h3 .reflink a:hover {
+	color: #FF7F7F;
+}
+.threadstart h3 .replylink {
+	margin-left: 0.5em;
+}
+.threadstart h5 { /* thumbnail message */
+	font-size: smaller;
+	font-weight: normal;
+	margin: 4px;
+}
+.threadstart .replytext {
+	margin: 1em 40px 1em 40px;
+}
+
+
+
+.thumbnail {
+	float: left;
+	padding: 2px 20px 2px 20px;
+}
+.nothumbnail {
+	float: left;
+	display: inline; /* stupid IE bug */
+	background: #eeeedc;
+	border: 2px dashed #ddddca;
+	text-align: center;
+	padding: 20px 10px 20px 10px;
+	margin: 4px 20px 4px 20px;
+}
+
+
+.replies {
+	display: table;
+	width: 100%;
+	border-left: 8px solid #E7EFFF;
+	border-top: 8px solid #E7EFFF;
+	padding: 0px;
+	-moz-border-radius: 6px 0px 0px 0px;
+}
+
+.replycontainer {
+	display: table;
+	margin: 3px 0px 3px 0px;
+	width: 100%;
+/*	padding-left: 20px;
+	background-image: url(../img/futaba-arrow.png);
+	background-repeat: no-repeat;
+	background-position: 0px 6px;*/
+}
+.reply {
+	display: table;
+	width: 100%;
+}
+.highlight {
+	display: table;
+	background: #E7EFFF;
+	width: 100%;
+}
+.reply h4, .highlight h4 {
+	font-size: 1em;
+	font-weight: normal;
+	margin: 0px;
+	padding-right: 0.5em;
+}
+.reply h4 strong, .highlight h4 strong { /* subject */
+	color: #CC1105;
+	font-size: 1.2em;
+	font-weight: bold;
+}
+.reply h4 em, .highlight h4 em { /* name */
+	color: #117743;
+	font-weight: bold;
+	font-style: normal;
+}
+.reply h4 small, .highlight h4 small { /* tripcode */
+	color:#228854;
+	font-size: 1em;
+	font-weight: normal;
+}
+.reply h4 .reflink a, .highlight h4 .reflink a {
+	color: #000080;
+	text-decoration: none;
+}
+.reply h4 .reflink a:hover, .highlight h4 .reflink a:hover {
+	color:#DD0000;
+}
+.reply h5, .highlight h5 { /* thumbnail message */
+	font-size: smaller;
+	font-weight: normal;
+	margin: 0px 0.5em 0px 20px;
+}
+.reply .replytext, .highlight .replytext {
+	margin: 0.5em 40px 1em 40px;
+}
+.reply .replytext > :first-child, .highlight .replytext > :first-child {
+	margin-top: 0em;
+}
+
+.thread hr {
+	margin-bottom: 1.5em;
+	position: relative;
+	top: 1em;
+	clear: both;
+}
+
+
+#delete {
+	float: right;
+	background: #D6F0E0;
+	color: #008000;
+	padding: 4px;
+	text-align: center;
+	-moz-border-radius: 6px;
+}
+
+#navibar {
+	float: left;
+	color: #008000;
+	background: #D6F0E0;
+	padding: 4px;
+	-moz-border-radius: 6px;
+}
+
+#naviprev, #navinext {
+	float: left;
+	padding: 4px;
+	-moz-border-radius: 4px;
+}
+
+#navilinks {
+	background: #E7FFEF;
+	float: left;
+	padding: 4px;
+}
+
+#footer {
+	clear: both;
+	font-size: small;
+	text-align: center;
+	padding-top: 1.5em;
+}
+
+
+
+
+
+table.admininput {
+	background: #EEDDDD;
+	padding: 4px;
+	margin: 1em auto 2em auto;
+	-moz-border-radius: 6px;
+}
+table.admininput td {
+	text-align: left;
+}
+table.admininput td.label {
+	background: #CFB0BB;
+	color: #ffffff;
+	font-weight: bold;
+	-moz-border-radius: 4px;
+	padding: 0em 0.5em;
+}
+table.admininput td.input {
+	white-space: nowrap;
+}
+
+
+
+table.admindata {
+	margin: 0px auto;
+	font-family:sans-serif;
+	font-size: 0.9em;
+}
+table.admindata big {
+	font-weight: bold;
+}
+tr.headrow th {
+	background: #CFB0BB;
+	color: #FFFFFF;
+	padding: 4px;
+}
+tr.headrow th:first-child {
+	-moz-border-radius: 8px 0px 0px 0px;
+}
+tr.headrow th:last-child {
+	-moz-border-radius: 0px 8px 0px 0px;
+}
+tr.row1 td {
+	background: #FFEEEE;
+	white-space: nowrap;
+}
+tr.row2 td {
+	background: #EEDDDD;
+	white-space: nowrap;
+}
+
+
+
+#login, #posts, #bans, #adminpost {
+	color: #600030;
+}
+
+#login h2, #posts h2, #bans h2, #adminpost h2 {
+	background: #CFB0BB;
+	color: #ffffff;
+	font-family: sans-serif;
+	font-size: 1em;
+	font-weight: bold;
+	text-align: center;
+	padding: 2px;
+	margin: 0em 0em 1em 0em;
+	-moz-border-radius: 4px;
+}
+
+#login form {
+	display: table;
+	margin: 0px auto;
+}
+
+#posts h3, #bans h3 {
+	font-size: 1em;
+	font-weight: bold;
+	font-family: sans-serif;
+	font-variant: small-caps;
+	text-align: center;
+	margin: 0em 0em 1em 0em;
+}
+
+#adminpost h3 {
+	font-size: 1em;
+	font-weight: normal;
+	font-style: italic;
+	text-align: center;
+	margin: 0em 0em 1em 0em;
+}
+
+#posts h4 {
+	margin: 0em;
+}
+
+#posts .buttons {
+	display: table;
+	margin: 0.5em auto 0.5em auto;
+}
+
+#posts table.admininput {
+	margin: 0px auto;
+}
+
+#bans h3 {
+	margin-bottom: 0em;
+}
+
+#bans #inputs {
+	display: table;
+	margin: 0px auto;
+}
+
+#bans #inputs form {
+	display: table-cell;
+	vertical-align: bottom;
+	padding: 0.5em;
+}
