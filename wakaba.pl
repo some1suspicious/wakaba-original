@@ -68,7 +68,7 @@ init_admin_database() if(!table_exists(SQL_ADMIN_TABLE));
 
 if(!table_exists(SQL_TABLE)) # check for comments table
 {
-	do_nuke_database(ADMIN_PASS);
+	do_nuke_database(NUKE_PASS);
 }
 elsif(!$action)
 {
@@ -322,7 +322,7 @@ sub build_thread_cache_all()
 sub post_stuff($$$$$$$$$$$)
 {
 	my ($parent,$name,$email,$subject,$comment,$file,$password,$nofile,$captcha,$admin)=@_;
-	my ($sth,$row,$ip,$numip,$host,$whitelisted,$trip,$time,$date,$lasthit);
+	my ($sth,$row,$ip,$numip,$host,$whitelisted,$trip,$time,$date,$lasthit,$parent_res);
 	my ($filename,$size,$md5,$width,$height,$thumbnail,$tn_width,$tn_height);
 
 	# get a timestamp for future use
@@ -352,7 +352,6 @@ sub post_stuff($$$$$$$$$$$)
 	make_error(S_UNUSUAL) if($name=~/[\n\r]/);
 	make_error(S_UNUSUAL) if($email=~/[\n\r]/);
 	make_error(S_UNUSUAL) if($subject=~/[\n\r]/);
-	#make_error(S_UNUSUAL) if(length($url)>10);
 
 	# check for excessive amounts of text
 	make_error(S_TOOLONG) if(length($name)>MAX_FIELD_LENGTH);
@@ -389,8 +388,8 @@ sub post_stuff($$$$$$$$$$$)
 	# check if thread exists, and get lasthit value
 	if($parent)
 	{
-		$lasthit=get_lasthit($parent);
-		make_error(S_NOTHREADERR) unless($lasthit);
+		$parent_res=get_parent_post($parent) or make_error(S_NOTHREADERR);
+		$lasthit=$$parent_res{lasthit};
 	}
 	else
 	{
@@ -421,7 +420,7 @@ sub post_stuff($$$$$$$$$$$)
 	$comment=S_ANOTEXT unless($comment);
 
 	# flood protection - must happen after inputs have been cleaned up
-	flood_check($ip,$time,$comment,$file);
+	flood_check($numip,$time,$comment,$file);
 
 	# Manager and deletion stuff - duuuuuh?
 
@@ -436,14 +435,14 @@ sub post_stuff($$$$$$$$$$$)
 
 	# finally, write to the database
 	$sth=$dbh->prepare("INSERT INTO ".SQL_TABLE." VALUES(null,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);") or make_error(S_SQLFAIL);
-	$sth->execute($parent,$time,$lasthit,dot_to_dec($ip),
+	$sth->execute($parent,$time,$lasthit,$numip,
 	$date,$name,$trip,$email,$subject,$password,$comment,
 	$filename,$size,$md5,$width,$height,$thumbnail,$tn_width,$tn_height) or make_error(S_SQLFAIL);
 
 	if($parent) # bumping
 	{
 		# check for sage, or too many replies
-		unless($email=~/sage/i or count_replies($parent)>MAX_RES)
+		unless($email=~/sage/i or sage_count($parent_res)>MAX_RES)
 		{
 			$sth=$dbh->prepare("UPDATE ".SQL_TABLE." SET lasthit=$time WHERE num=? OR parent=?;") or make_error(S_SQLFAIL);
 			$sth->execute($parent,$parent) or make_error(S_SQLFAIL);
@@ -558,17 +557,6 @@ sub proxy_check($)
 	}
 }
 
-sub get_lasthit($)
-{
-	my ($thread)=@_;
-	my ($sth);
-
-	$sth=$dbh->prepare("SELECT lasthit FROM ".SQL_TABLE." WHERE num=? AND parent=0;") or make_error(S_SQLFAIL);
-	$sth->execute($thread) or make_error(S_SQLFAIL);
-
-	return ($sth->fetchrow_array())[0];
-}
-
 sub process_tripcode($)
 {
 	my ($name,$hash)=@_;
@@ -636,6 +624,26 @@ sub format_comment($$)
 	# make URLs into links - is this magic or what
 	$comment=~s!(http://\S*?(\(\S*?\)\S*?)?)(\)|\.?\s|$)!<a href="$1">$1</a>$3!sgi;
 
+	# fix up >> links
+	$comment=~s!&gt;&gt;([0-9]+)!
+		my $res=get_post($1);
+		if($res)
+		{
+			if($$res{parent})
+			{
+				'<a href="'.get_reply_link($$res{parent}).'#'.$$res{num}.'">&gt;&gt;'.$1.'</a>';
+			}
+			else
+			{
+				'<a href="'.get_reply_link($$res{num}).'">&gt;&gt;'.$1.'</a>';
+			}
+		}
+		else
+		{
+			"&gt;&gt;$1";
+		}
+	!gem;
+
 	# colour quoted sections
 	$comment=~s!^(&gt;.*)$!<span class="unkfunc">$1</span>!gm;
 
@@ -669,6 +677,39 @@ sub make_id_code($$$)
 	{
 		return substr(crypt($ip.'id'.$date,'id'),-8);
 	}
+}
+
+sub get_post($)
+{
+	my ($thread)=@_;
+	my ($sth);
+
+	$sth=$dbh->prepare("SELECT * FROM ".SQL_TABLE." WHERE num=?;") or make_error(S_SQLFAIL);
+	$sth->execute($thread) or make_error(S_SQLFAIL);
+
+	return $sth->fetchrow_hashref();
+}
+
+sub get_parent_post($)
+{
+	my ($thread)=@_;
+	my ($sth);
+
+	$sth=$dbh->prepare("SELECT * FROM ".SQL_TABLE." WHERE num=? AND parent=0;") or make_error(S_SQLFAIL);
+	$sth->execute($thread) or make_error(S_SQLFAIL);
+
+	return $sth->fetchrow_hashref();
+}
+
+sub sage_count($)
+{
+	my ($parent)=@_;
+	my ($sth);
+
+	$sth=$dbh->prepare("SELECT count(*) FROM ".SQL_TABLE." WHERE parent=? AND NOT ( timestamp<? AND ip=? );") or make_error(S_SQLFAIL);
+	$sth->execute($$parent{num},$$parent{timestamp}+(NOSAGE_WINDOW),$$parent{ip}) or make_error(S_SQLFAIL);
+
+	return ($sth->fetchrow_array())[0];
 }
 
 sub check_captcha($$$)
@@ -832,7 +873,18 @@ sub process_file($$)
 
 		if(THUMBNAIL_SMALL)
 		{
-			$thumbnail=undef unless(make_thumbnail($filename,$thumbnail,$tn_width,$tn_height));
+			if(make_thumbnail($filename,$thumbnail,$tn_width,$tn_height))
+			{
+				if(-s $thumbnail >= -s $filename) # is the thumbnail larger than the original image?
+				{
+					unlink $thumbnail;
+					$thumbnail=$filename;
+				}
+			}
+			else
+			{
+				$thumbnail=undef;
+			}
 		}
 		else
 		{
@@ -1008,11 +1060,13 @@ sub do_rebuild_cache($)
 
 	unlink glob RES_DIR.'*';
 
-	build_cache();
+	repair_database();
 	build_thread_cache_all();
+	build_cache();
 
 	make_http_forward(HTML_SELF);
 }
+
 
 sub add_admin_entry($$$$$$)
 {
@@ -1060,7 +1114,7 @@ sub do_nuke_database($)
 {
 	my ($admin)=@_;
 
-	make_error(S_WRONGPASS) if($admin ne ADMIN_PASS); # check admin password
+	make_error(S_WRONGPASS) if($admin ne NUKE_PASS); # check nuke password
 	
 	init_database();
 
@@ -1249,7 +1303,7 @@ sub parse_range($$)
 {
 	my ($ip,$mask)=@_;
 
-	$ip=dot_to_dec($ip);
+	$ip=dot_to_dec($ip) if($ip=~/^\d+\.\d+\.\d+\.\d+$/);
 
 	if($mask=~/^\d+\.\d+\.\d+\.\d+$/) { $mask=dot_to_dec($mask); }
 	elsif($mask=~/(\d+)/) { $mask=(~((1<<$1)-1)); }
@@ -1276,7 +1330,7 @@ sub init_database()
 	"parent INTEGER,".			# Parent post for replies in threads. For original posts, must be set to 0 (and not null)
 	"timestamp INTEGER,".			# Timestamp in seconds for when the post was created
 	"lasthit INTEGER,".			# Last activity in thread. Must be set to the same value for BOTH the original post and all replies!
-	"ip TEXT,".				# IP number of poster
+	"ip TEXT,".				# IP number of poster, in integer form!
 
 	"date TEXT,".				# The date, as a string
 	"name TEXT,".				# Name of the poster
@@ -1309,12 +1363,32 @@ sub init_admin_database()
 	"num ".get_sql_autoincrement().",".	# Entry number, auto-increments
 	"type TEXT,".				# Type of entry (ipban, wordban, etc)
 	"comment TEXT,".			# Comment for the entry
-	"ival1 INTEGER,".			# Integer value 1 (usually IP)
-	"ival2 INTEGER,".			# Integer value 2 (usually netmask)
+	"ival1 TEXT,".			# Integer value 1 (usually IP - has to be TEXT because of issues with signed integers)
+	"ival2 TEXT,".			# Integer value 2 (usually netmask)
 	"sval1 TEXT".				# String value 1
 
 	");") or make_error(S_SQLFAIL);
 	$sth->execute() or make_error(S_SQLFAIL);
+}
+
+sub repair_database()
+{
+	my ($sth,$row,@threads,$thread);
+
+	$sth=$dbh->prepare("SELECT * FROM ".SQL_TABLE." WHERE parent=0;") or make_error(S_SQLFAIL);
+	$sth->execute() or make_error(S_SQLFAIL);
+
+
+	while($row=$sth->fetchrow_hashref()) { push(@threads,$row); }
+
+	foreach $thread (@threads)
+	{
+		# fix lasthit
+		my ($upd);
+
+		$upd=$dbh->prepare("UPDATE ".SQL_TABLE." SET lasthit=? WHERE parent=?;") or make_error(S_SQLFAIL);
+		$upd->execute($$row{lasthit},$$row{num}) or make_error(S_SQLFAIL." ".$dbh->errstr());
+	}
 }
 
 sub get_sql_autoincrement()
@@ -1418,24 +1492,6 @@ sub thread_exists($)
 
 	return ($sth->fetchrow_array())[0];
 }
-
-sub count_replies($)
-{
-	my ($thread)=@_;
-	my ($sth);
-
-	$sth=$dbh->prepare("SELECT count(*) FROM ".SQL_TABLE." WHERE parent=?;") or make_error(S_SQLFAIL);
-	$sth->execute($thread) or make_error(S_SQLFAIL);
-
-	return ($sth->fetchrow_array())[0];
-}
-
-#sub execute_encoded($@)
-#{
-#	my ($sth,@args)=@_;
-#
-#	
-#}
 
 sub get_decoded_hashref($)
 {

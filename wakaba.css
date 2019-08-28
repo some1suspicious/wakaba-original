@@ -69,8 +69,8 @@ a:hover {
 
 }
 .managehead {
-	background:#0F8FE1;
-	color:#800000;
+	background:#AAAA66;
+	color:#400000;
 	padding:0px;
 }
 .postlists {
@@ -80,11 +80,11 @@ a:hover {
 	color:#800000;
 }
 .row1 {
-	background:#9AD2F6;
+	background:#EEEECC;
 	color:#800000;
 }
 .row2 {
-        background:#FFFFFF;
+        background:#DDDDAA;
         color:#800000;
 }
 .unkfunc {

@@ -20,11 +20,13 @@ use constant S_RULES => '<ul><li>“Y•t‰Â”\ƒtƒ@ƒCƒ‹FGIF, JPG, PNG ƒuƒ‰ƒEƒU‚É‚æ‚Á‚
                         '<li>‰æ‘œ‚Í‰¡ '.MAX_W.'ƒsƒNƒZƒ‹Ac '.MAX_H.'ƒsƒNƒZƒ‹‚ğ’´‚¦‚é‚Æk¬•\¦‚³‚ê‚Ü‚·B</li></ul>';
 
 use constant S_THUMB => 'ƒTƒ€ƒlƒCƒ‹‚ğ•\¦‚µ‚Ä‚¢‚Ü‚·.ƒNƒŠƒbƒN‚·‚é‚ÆŒ³‚ÌƒTƒCƒY‚ğ•\¦‚µ‚Ü‚·.';
+use constant S_HIDDEN => 'Image reply hidden, click name for full image.';
 use constant S_NOTHUMB => 'No<br />thumbnail';
 use constant S_PICNAME => '‰æ‘œƒ^ƒCƒgƒ‹F';
 use constant S_REPLY => '•ÔM';
 use constant S_OLD => '‚±‚ÌƒXƒŒ‚ÍŒÃ‚¢‚Ì‚ÅA‚à‚¤‚·‚®Á‚¦‚Ü‚·B';
 use constant S_ABBR => 'ƒŒƒX%dŒÈ—ªB‘S‚Ä“Ç‚Ş‚É‚Í•ÔMƒ{ƒ^ƒ“‚ğ‰Ÿ‚µ‚Ä‚­‚¾‚³‚¢B';
+use constant S_ABBRIMG => 'ƒŒƒX%d,%dŒÈ—ªB‘S‚Ä“Ç‚Ş‚É‚Í•ÔMƒ{ƒ^ƒ“‚ğ‰Ÿ‚µ‚Ä‚­‚¾‚³‚¢B';
 
 use constant S_REPDEL => 'y‹L–íœz';
 use constant S_DELPICONLY => '‰æ‘œ‚¾‚¯Á‚·';
@@ -65,9 +67,8 @@ use constant S_MPRESET => 'ƒŠƒZƒbƒg';
 use constant S_MPONLYPIC => '‰æ‘œ‚¾‚¯Á‚·';
 use constant S_MPDELETEALL => 'Del all';
 use constant S_MPBAN => 'Ban';
-use constant S_MPTABLE => '<th>Delete?</th><th>Post No.</th><th>Time</th><th>Subject</th>'.
-                          '<th>Name</th><th>Comment</th><th>IP</th><th>Filename<br />(Size)</th>'.
-                          '<th>MD5</th>';
+use constant S_MPTABLE => '<th>Post No.</th><th>Time</th><th>Subject</th>'.
+                          '<th>Name</th><th>Comment</th><th>IP</th>';
 #define(S_MDTABLE1, '<th>íœ</th><th>‹L–No</th><th>“Še“ú</th><th>‘è–¼</th>');
 #define(S_MDTABLE2, '<th>“ŠeÒ</th><th>ƒRƒƒ“ƒg</th><th>ƒzƒXƒg–¼</th><th>“Y•t<br />(Bytes)</th><th>md5</th>');
 use constant S_IMGSPACEUSAGE => 'y ‰æ‘œƒf[ƒ^‡Œv : <b>%d</b> KB z';

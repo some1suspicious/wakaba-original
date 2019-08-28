@@ -18,11 +18,13 @@ use constant S_RULES => '<ul><li>Supported file types are: GIF, JPG, PNG</li>'.
              '<li>Images greater than '.MAX_W.'x'.MAX_H.' pixels will be thumbnailed.</li></ul>';	# Prints rules under posting section
 
 use constant S_THUMB => 'Thumbnail displayed, click image for full size.';				# Prints instructions for viewing real source
+use constant S_HIDDEN => 'Image reply hidden, click name for full image.';				# Prints instructions for viewing hidden image reply
 use constant S_NOTHUMB => 'No<br />thumbnail';							# Printed when there's no thumbnail
 use constant S_PICNAME => 'File: ';									# Prints text before upload name/link
 use constant S_REPLY => 'Reply';									# Prints text for reply link
 use constant S_OLD => 'Marked for deletion (old).';							# Prints text to be displayed before post is marked for deletion, see: retention
 use constant S_ABBR => '%d posts omitted. Click Reply to view.';						# Prints text to be shown when replies are hidden
+use constant S_ABBRIMG => '%d posts and %d images omitted. Click Reply to view.';						# Prints text to be shown when replies and images are hidden
 
 use constant S_REPDEL => 'Delete Post ';								# Prints text next to S_DELPICONLY (left)
 use constant S_DELPICONLY => 'File Only';								# Prints text next to checkbox for file deletion (right)
@@ -63,9 +65,8 @@ use constant S_MPRESET => 'Reset';									# Defines name for field reset button
 use constant S_MPONLYPIC => 'File Only';								# Sets whether or not to delete only file, or entire post/thread
 use constant S_MPDELETEALL => 'Del all';								# Sets whether or not to delete only file, or entire post/thread
 use constant S_MPBAN => 'Ban';								# Sets whether or not to delete only file, or entire post/thread
-use constant S_MPTABLE => '<th>Delete?</th><th>Post No.</th><th>Time</th><th>Subject</th>'.
-                          '<th>Name</th><th>Comment</th><th>IP</th><th>Filename<br />(Size)</th>'.
-                          '<th>MD5</th>';								# Explains names for Management Panel
+use constant S_MPTABLE => '<th>Post No.</th><th>Time</th><th>Subject</th>'.
+                          '<th>Name</th><th>Comment</th><th>IP</th>';		# Explains names for Management Panel
 use constant S_IMGSPACEUSAGE => '[ Space used: %d KB ]';								# Prints space used KB by the board under Management Panel
 
 use constant S_BANTITLE => 'Ban Panel';

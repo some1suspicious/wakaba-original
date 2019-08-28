@@ -81,7 +81,7 @@ sub print_admin_post_panel($$@)
 	my ($sth,$row,$count,$size);
 
 	print_page_header($file);
-	print_admin_header($file);
+	print_admin_header($file,$admin);
 
 	print $file '<div class="dellist">'.S_MPTITLE.'</div>';
 
@@ -97,8 +97,6 @@ sub print_admin_post_panel($$@)
 	print $file '<table align="center"><tbody>';
 	print $file '<tr class="managehead">'.S_MPTABLE.'</tr>';
 
-
-
 	$count=1;
 	$size=0;
 
@@ -107,30 +105,36 @@ sub print_admin_post_panel($$@)
 		my ($comment)=$$row{comment}=~m!^([^<]{1,40})!;
 
 		print $file '<tr class="row'.$count.'">';
-		$count^=3;
 
-		print $file '<td>';
+		print $file '<td>' unless($$row{image});
+		print $file '<td rowspan="2">' if($$row{image});
+		print $file '<label>';
 		print $file '&gt;&gt; ' if($$row{parent});
-		print $file '<input type="checkbox" name="delete" value="'.$$row{num}.'" /></td>';
-		print $file '<td>'.$$row{num}.'</td>';
+		print $file '<input type="checkbox" name="delete" value="'.$$row{num}.'" />';
+		print $file ' <big><b>'.$$row{num}.'</b></big>&nbsp;&nbsp;</td>';
 		print $file '<td>'.make_date($$row{timestamp},2).'</td>';
 		print $file '<td>'.$$row{subject}.'</td>';
-		print $file '<td>'.$$row{name};
+		print $file '<td><b>'.$$row{name};
 		print $file TRIPKEY.$$row{trip} if($$row{trip});
-		print $file '</td>';
+		print $file '</b></td>';
 		print $file '<td>'.$comment.'</td>';
 		print $file '<td>'.dec_to_dot($$row{ip});
-		print '<br />[&nbsp;<a href="'.get_script_name().'?admin='.$admin.'&action=deleteall&ip='.$$row{ip}.'">'.S_MPDELETEALL.'</a>&nbsp;]';
+		print ' [&nbsp;<a href="'.get_script_name().'?admin='.$admin.'&action=deleteall&ip='.$$row{ip}.'">'.S_MPDELETEALL.'</a>&nbsp;]';
 		print ' [&nbsp;<a href="'.get_script_name().'?admin='.$admin.'&action=addip&type=ipban&ip='.$$row{ip}.'">'.S_MPBAN.'</a>&nbsp;]</td>';
-		print $file '<td>';
-		print $file '<a href="'.expand_filename($$row{image}).'">'.$$row{image}.
-		'</a><br />('.$$row{size}.' B)' if($$row{image}); # what about deleted images?
-		print $file '</td>';
-		print $file '<td>'.$$row{md5}.'</td>';
-
 		print $file '</tr>';
 
+		if($$row{image})
+		{
+			print $file '<tr class="row'.$count.'">';
+			print $file '<td colspan="6"><small>';
+			print $file S_PICNAME.'<a href="'.expand_filename($$row{image}).'">'.$$row{image}.'</a>';
+			print $file ' ('.$$row{size}.' B, '.$$row{width}.'x'.$$row{height}.')';
+			print $file ' &nbsp; MD5: '.$$row{md5};
+			print $file '</small></td></tr>';
+		}
+
 		$size+=$$row{size} if($$row{size});
+		$count^=3;
 	}
 
 	print $file '</tbody></table>';
@@ -167,7 +171,7 @@ sub print_admin_ban_panel($$@)
 	my ($sth,$row,$count);
 
 	print_page_header($file);
-	print_admin_header($file);
+	print_admin_header($file,$admin);
 
 	print $file '<div class="dellist">'.S_BANTITLE.'</div>';
 
@@ -260,19 +264,25 @@ sub print_admin_post($$)
 	my ($sth,$row,$count);
 
 	print_page_header($file);
-	print_admin_header($file);
+	print_admin_header($file,$admin);
+
+	print $file '<div align="center"><em>'.S_NOTAGS.'</em></div>';
 
 	print_posting_form($file,0,$admin);
 
 	print_page_footer($file);
 }
 
-sub print_admin_header($)
+sub print_admin_header($$)
 {
-	my ($file)=@_;
+	my ($file,$admin)=@_;
 
 	print $file '[<a href="'.expand_filename(HTML_SELF).'">'.S_MANARET.'</a>]';
-#	print $file '[<a href="'.get_script_name().'">'.S_MANAUPD.'</a>]';
+	print $file ' [<a href="'.get_script_name().'?action=mpanel&admin='.$admin.'">'.S_MANAPANEL.'</a>]';
+	print $file ' [<a href="'.get_script_name().'?action=bans&admin='.$admin.'">'.S_MANABANS.'</a>]';
+	print $file ' [<a href="'.get_script_name().'?action=mpost&admin='.$admin.'">'.S_MANAPOST.'</a>]';
+	print $file ' [<a href="'.get_script_name().'?action=rebuild&admin='.$admin.'">'.S_MANAREBUILD.'</a>]';
+
 	print $file '<div class="passvalid">'.S_MANAMODE.'</div><br />';
 }
 
@@ -312,6 +322,7 @@ sub print_page_header($)
 
 	print $file '<title>'.TITLE.'</title>';
 	print $file '<meta http-equiv="Content-Type"  content="text/html;charset='.CHARSET.'" />' if(CHARSET);
+#	print $file '<meta http-equiv="pragma" content="no-cache">';
 	print $file '<link rel="stylesheet" type="text/css" href="'.expand_filename(CSS_FILE).'" title="Standard stylesheet" />';
 	print $file '<link rel="shortcut icon" href="'.expand_filename(FAVICON).'" />' if(FAVICON);
 	print $file '<script src="'.expand_filename(JS_FILE).'"></script>'; # could be better
@@ -412,7 +423,7 @@ sub print_thread($$@)
  	$parent=shift @thread;
 
 	# display image
-	print_image($file,$parent) if($$parent{image});
+	print_image($file,$parent,0) if($$parent{image});
 
 	# display the original thread comment
 	print_comment_header($file,$parent,!$threadview,1);
@@ -424,19 +435,29 @@ sub print_thread($$@)
 	if($replies>REPLIES_PER_THREAD and !$threadview)
 	{
 		my $omit=$replies-(REPLIES_PER_THREAD);
-		print $file '<span class="omittedposts">'.(sprintf S_ABBR,$omit).'</span>';
+		my $images=0;
 
 		# drop the articles at the beginning of the thread
-		@thread=@thread[$omit..$#thread];
+		for(my $i=0;$i<$omit;$i++)
+		{
+			my $res=shift @thread;
+			$images++ if($$res{image});
+		}
+
+		if($images)
+		{
+			print $file '<span class="omittedposts">'.(sprintf S_ABBRIMG,$omit,$images).'</span>';
+		}
+		else
+		{
+			print $file '<span class="omittedposts">'.(sprintf S_ABBR,$omit).'</span>';
+		}
 	}
 
 	# display replies
 
 	foreach my $res (@thread)
 	{
-#		print $file '<div style="display: table;">';
-#		print $file '<div class="doubledash" style="float: left; padding: 2px; margin: 2px;">&gt;&gt;</div>';
-#		print $file '<div class="reply" style="float: left; padding: 2px; margin: 2px;">';
 		print $file '<table><tbody><tr><td class="doubledash">&gt;&gt;</td>';
 		print $file '<td class="reply">';
 
@@ -445,12 +466,11 @@ sub print_thread($$@)
 		if($$res{image})
 		{
 			print $file '<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;';
-			print_image($file,$res);
+			print_image($file,$res,!$threadview);
 		}
 
 		print $file '<blockquote>'.$$res{comment}.'</blockquote>';
 
-#		print $file '</div></div>';
 		print $file '</td></tr></tbody></table>';
 	}
 
@@ -465,6 +485,7 @@ sub print_comment_header($$$$)
 	$titleclass=$toplevel?"filetitle":"replytitle";
 	$nameclass=$toplevel?"postername":"commentpostername";
 
+	print $file '<a name="'.$$res{num}.'"></a>';
 	print $file '<label><input type="checkbox" name="delete" value="'.$$res{num}.'" />';
 	print $file '<span class="'.$titleclass.'">'.$$res{subject}.'</span>';
 	print $file ' <span class="'.$nameclass.'">';
@@ -488,25 +509,31 @@ sub print_comment_header($$$$)
 	print $file ' [<a href="'.get_reply_link($$res{num}).'">'.S_REPLY.'</a>]' if($reply);
 }
 
-sub print_image($$)
+sub print_image($$$)
 {
-	my ($file,$res)=@_;
-#	my ($imagename)=$$res{image}=~/([0-9]+\.\w+)$/;
+	my ($file,$res,$hidden)=@_;
  	$$res{image}=~m!([^/]+)$!;
  	my ($imagename)=$1;
 
+	$hidden=0 unless(HIDE_IMAGE_REPLIES);
+
 	print $file '<span class="filesize">'.S_PICNAME.'<a target="_blank" href="'.expand_filename($$res{image}).'">'.$imagename.'</a>';
-	print $file '-('.$$res{size}.' B, '.$$res{width}.'x'.$$res{height}.')</span>';
-	print $file ' <span class="thumbnailmsg">'.S_THUMB.'</span>';
+	print $file '-(<em>'.$$res{size}.' B, '.$$res{width}.'x'.$$res{height}.'</em>)</span>';
+	print $file ' <span class="thumbnailmsg">'.S_THUMB.'</span>' unless($hidden);
+	print $file ' <span class="thumbnailmsg">'.S_HIDDEN.'</span>' if($hidden);
 	print $file '<br /><a target="_blank" href="'.expand_filename($$res{image}).'">';
-	if($$res{thumbnail})
+
+	unless($hidden)
 	{
-		print $file '<img src="'.expand_filename($$res{thumbnail}).'" border="0" align="left"';
-		print $file ' width="'.$$res{tn_width}.'" height="'.$$res{tn_height}.'" hspace="20" alt="'.$$res{size}.'">';
-	}
-	else
-	{
-		print $file '<div hspace="20" style="float:left;text-align:center;padding:20px;">'.S_NOTHUMB.'</div>';
+		if($$res{thumbnail})
+		{
+			print $file '<img src="'.expand_filename($$res{thumbnail}).'" border="0" align="left"';
+			print $file ' width="'.$$res{tn_width}.'" height="'.$$res{tn_height}.'" hspace="20" alt="'.$$res{size}.'">';
+		}
+		else
+		{
+			print $file '<div hspace="20" style="float:left;text-align:center;padding:20px;">'.S_NOTHUMB.'</div>';
+		}
 	}
 	print $file '</a>';
 }

@@ -2,6 +2,7 @@
 
 # System config
 use constant ADMIN_PASS => 'CHANGEME';		# Admin password. For fucks's sake, change this.
+use constant NUKE_PASS => 'CHANGEME';		# Password to nuke a board. Change this too, NOW!
 use constant SQL_DBI_SOURCE => 'DBI:mysql:database=CHANGEME;host=localhost';			# DBI data source string (put server and database name in here)
 use constant SQL_USERNAME => 'CHANGEME';							# MySQL login name
 use constant SQL_PASSWORD => 'CHANGEME';						# MySQL password
@@ -9,7 +10,7 @@ use constant SQL_PASSWORD => 'CHANGEME';						# MySQL password
 #use constant SQL_USERNAME => '';					# Not used by SQLite
 #use constant SQL_PASSWORD => '';					# Not used by SQLite
 use constant SQL_TABLE => 'comments';					# Table (NOT DATABASE) used by image board
-use constant SQL_ADMIN_TABLE => 'admin';
+use constant SQL_ADMIN_TABLE => 'admin';			# Table used for admin information
 use constant USE_TEMPFILES => 1;				# Set this to 1 under Unix and 0 under Windows! (Use tempfiles when creating pages)
 
 # Page look
@@ -37,16 +38,16 @@ use constant MAX_FIELD_LENGTH => 100;	# Maximum number of characters in subject,
 use constant MAX_COMMENT_LENGTH => 1000;	# Maximum number of characters in a comment
 use constant MAX_LINES => 15;			# Max lines per post (0 = no limit)
 use constant MAX_IMAGE_WIDTH => 16384;		# Maximum width of image before rejecting
-use constant MAX_IMAGE_HEIGHT => 16384;		# Maximum width of image before rejecting
-use constant MAX_IMAGE_PIXELS => 50000000;	# Maximum width of image before rejecting
+use constant MAX_IMAGE_HEIGHT => 16384;		# Maximum height of image before rejecting
+use constant MAX_IMAGE_PIXELS => 50000000;	# Maximum width*height of image before rejecting
 
 # Captcha
 use constant ENABLE_CAPTCHA => 1;
 use constant SQL_CAPTCHA_TABLE => 'captcha';	# Use a different captcha table for each board, if you have more than one!
-use constant CAPTCHA_LIFETIME => 1440;	# Captcha lifetime in seconds
-use constant CAPTCHA_CLARITY => 15;
-use constant CAPTCHA_SPACING => 2;
-use constant CAPTCHA_SCRIPT => 'captcha.pl';
+use constant CAPTCHA_LIFETIME => 1500;	# Captcha lifetime in seconds
+use constant CAPTCHA_CLARITY => 15;		# Noise level
+use constant CAPTCHA_SPACING => 2;		# Randomized spacing
+use constant CAPTCHA_SCRIPT => 'captcha.pl';		# Name of script
 
 # Tweaks
 use constant THUMBNAIL_SMALL => 1;		# Thumbnail small images (1: yes, 0: no)
@@ -56,10 +57,12 @@ use constant ALLOW_IMAGES => 1;			# Allow image posting (1: yes, 0: no)
 use constant ALLOW_TEXT_REPLIES => 1;	# Allow replies (1: yes, 0: no)
 use constant ALLOW_IMAGE_REPLIES => 1;	# Allow replies with images (1: yes, 0: no)
 use constant ALLOW_UNKNOWN => 1;		# Allow unknown filetypes (1: yes, 0: no)
+use constant HIDE_IMAGE_REPLIES => 0;	# Hide image replies on the main page (1: yes, 0:no)
 use constant RENZOKU => 5;				# Seconds between posts (floodcheck)
 use constant RENZOKU2 => 10;			# Seconds between image posts (floodcheck)
 use constant RENZOKU3 => 900;			# Seconds between identical posts (floodcheck)
-use constant PROXY_CHECK => ();		# Ports to scan for proxies.
+use constant NOSAGE_WINDOW => 1200;		# Seconds that you can post to your own thread without increasing the sage count
+use constant PROXY_CHECK => ();		# Ports to scan for proxies - not implemented.
 #use constant PROXY_CHECK => (80,8080);	# Ports to scan for proxies.
 use constant CHARSET => 'utf-8';		# Character set to use, typically 'utf-8' or 'shift_jis'. Disable charset handling by setting to ''. Remember to set Apache to use the same character set for .html files! (AddCharset shift_jis html)
 use constant TRIM_METHOD => 0;			# Which threads to trim (0: oldest - like futaba 1: least active - furthest back)
