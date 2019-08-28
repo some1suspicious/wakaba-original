@@ -1,14 +1,15 @@
 #!/usr/bin/perl
 
+use CGI::Carp qw(fatalsToBrowser);
+
 use strict;
 
 use CGI;
-use DBI;
+use Digest::MD5 qw(md5);
 use List::Util qw(max);
 
 use lib '.';
 BEGIN { require "config.pl"; }
-BEGIN { require "strings_e.pl"; }
 
 
 
@@ -54,40 +55,12 @@ my %font=(
 );
 
 
-my ($query,$key);
+my $query=new CGI;
+my $key=$query->param("key");
 
-$query=new CGI;
-$key=($query->param("key") or 'default');
+my $word=make_word($key);
 
-my ($dbh);
-
-$dbh=DBI->connect(SQL_DBI_SOURCE,SQL_USERNAME,SQL_PASSWORD,{AutoCommit=>1}) or die S_SQLCONF;
-
-init_captcha_database() unless(table_exists(SQL_CAPTCHA_TABLE));
-
-
-
-my ($ip,$word,$timestamp);
-
-$ip=($ENV{REMOTE_ADDR} or '0.0.0.0');
-($word,$timestamp)=get_word($ip,$key);
-
-if(!$word)
-{
-	$word=make_word();
-	$timestamp=time();
-	save_word($ip,$key,$word,$timestamp);
-}
-
-srand $timestamp;
-
-
-
-print $query->header(
-	-type=>'image/gif',
-#	-expires=>'+'.($timestamp+(CAPTCHA_LIFETIME)-time()),
-	-expires=>'now',
-);
+print "Content-Type: image/gif\n\n";
 
 binmode STDOUT;
 
@@ -103,8 +76,9 @@ make_image($word);
 # Code generation
 #
 
-sub make_word()
+sub make_word($)
 {
+	my ($key)=@_;
 	my %grammar=(
 		W => ["%C%%T%","%C%%T%","%C%%X%","%C%%D%%F%","%C%%V%%F%%T%","%C%%D%%F%%U%","%C%%T%%U%","%I%%T%","%I%%C%%T%","%A%"],
 		A => ["%K%%V%%K%%V%tion"],
@@ -124,6 +98,8 @@ sub make_word()
 		X => ["e","i","o","aw","ow","oy"]
 	);
 
+	srand unpack "N",md5(SECRET.$key);
+
 	return cfg_expand("%W%",%grammar);
 }
 
@@ -135,79 +111,6 @@ sub cfg_expand($%)
 		cfg_expand($expansions[rand @expansions],%grammar);
 	/ge;
 	return $str;
-}
-
-
-
-#
-# Finding and saving words
-#
-
-sub get_word($$)
-{
-	my ($ip,$key)=@_;
-	my ($sth,$row);
-
-	$sth=$dbh->prepare("SELECT word,timestamp FROM ".SQL_CAPTCHA_TABLE." WHERE ip=? AND pagekey=?;") or die S_SQLFAIL;
-	$sth->execute($ip,$key) or die S_SQLFAIL;
-	return @{$row} if($row=$sth->fetchrow_arrayref());
-
-	return undef;
-}
-
-sub save_word($$$$)
-{
-	my ($ip,$key,$word,$time)=@_;
-	my ($sth);
-
-	$sth=$dbh->prepare("DELETE FROM ".SQL_CAPTCHA_TABLE." WHERE ip=? AND pagekey=?;") or die S_SQLFAIL;
-	$sth->execute($ip,$key) or die S_SQLFAIL;
-
-	$sth=$dbh->prepare("INSERT INTO ".SQL_CAPTCHA_TABLE." VALUES(?,?,?,?);") or die S_SQLFAIL;
-	$sth->execute($ip,$key,$word,$time) or die S_SQLFAIL;
-
-	trim_captcha_database(); # only cleans up on create - good idea or not?
-}
-
-
-
-#
-# Database utils
-#
-
-sub init_captcha_database()
-{
-	my ($sth);
-
-	$sth=$dbh->do("DROP TABLE ".SQL_CAPTCHA_TABLE.";") if(table_exists(SQL_ADMIN_TABLE));
-	$sth=$dbh->prepare("CREATE TABLE ".SQL_CAPTCHA_TABLE." (".
-	"ip TEXT,".
-	"pagekey TEXT,".
-	"word TEXT,".
-	"timestamp INTEGER".
-#	",PRIMARY KEY(ip,key)".
-	");") or die S_SQLFAIL;
-	$sth->execute() or die S_SQLFAIL;
-}
-
-sub trim_captcha_database()
-{
-	my ($sth);
-
-	my $mintime=time()-(CAPTCHA_LIFETIME);
-
-	$sth=$dbh->prepare("DELETE FROM ".SQL_CAPTCHA_TABLE." WHERE timestamp<=$mintime;") or die S_SQLFAIL;
-	$sth->execute() or die S_SQLFAIL;
-}
-
-sub table_exists($)
-{
-	my ($table)=@_;
-	my ($sth);
-
-	return 0 unless($sth=$dbh->prepare("SELECT * FROM ".$table." LIMIT 1;"));
-	return 0 unless($sth->execute());
-	return 1;
 }
 
 

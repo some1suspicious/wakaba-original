@@ -11,11 +11,8 @@ function get_cookie(name)
 	}
 };
 
-function get_password(name)
+function make_password()
 {
-	var pass=get_cookie(name);
-	if(pass) return pass;
-
 	var chars="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 	var pass='';
 
@@ -26,4 +23,11 @@ function get_password(name)
 	}
 
 	return(pass);
+}
+
+function get_password(name)
+{
+	var pass=get_cookie(name);
+	if(pass) return pass;
+	return make_password();
 }
