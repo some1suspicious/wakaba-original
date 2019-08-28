@@ -384,7 +384,7 @@ sub format_comment($)
 	$comment=~s!^(&gt;.*)$!\<span class="unkfunc"\>$1\</span\>!gm;
 
 	# make URLs into links - is this magic or what
-	$comment=~s!(http://[^\s\<\>"]*[^\s\<\>"\.\)\],])!\<a href="$1"\>$1\</a\>!sgi;
+	$comment=~s{(http://[^\s<>"]*?)((?:\s|<|>|"|\.|\)|\]|!|\?|,|&#44;|&quot;)*(?:\s|$))}{\<a href="$1"\>$1\</a\>$2}sgi;
 
 	# count number of newlines if MAX_LINES is not 0 - wow, magic. also, admin posts can be longer.
 	if(MAX_LINES and scalar(()=$comment=~m/\n/g)>=MAX_LINES)
@@ -1008,7 +1008,7 @@ sub make_thumbnail($$$$)
 	my $quality=THUMBNAIL_QUALITY;
 	`$convert -size ${width}x$height -geometry ${width}x${height}! -quality $quality $magickname $thumbnail 2>&1`;
 
-	return(1) unless($?);
+	return 1 unless($?);
 
 	# if that fails, try pnmtools instead
 
@@ -1016,17 +1016,39 @@ sub make_thumbnail($$$$)
 	{
 		`djpeg $filename | pnmscale -width $width -height $height | cjpeg -quality $quality > $thumbnail`;
 		# could use -scale 1/n
-		return(1) unless($?);
+		return 1 unless($?);
 	}
 	elsif($filename=~/\.png$/)
 	{
 		`pngtopnm $filename | pnmscale -width $width -height $height | cjpeg -quality $quality > $thumbnail`;
-		return(1) unless($?);
+		return 1 unless($?);
 	}
 	elsif($filename=~/\.gif$/)
 	{
 		`giftopnm $filename | pnmscale -width $width -height $height | cjpeg -quality $quality > $thumbnail`;
-		return(1) unless($?);
+		return 1 unless($?);
 	}
-	return(0);
+
+	# try PerlMagick last, because it sucks ass.
+
+	eval 'use Image::Magick';
+	unless($@)
+	{
+		my ($res,$magick);
+
+		$filename.="[0]" if($filename=~/\.gif$/);
+
+		$magick=Image::Magick->new;
+
+		$res=$magick->Read($filename);
+		return 0 if "$res";
+		$res=$magick->Scale(width=>$width, height=>$height);
+		#return 0 if "$res";
+		$res=$magick->Write(filename=>$thumbnail, quality=>70);
+		#return 0 if "$res";
+
+		return 1;
+	}
+
+	return 0;
 }
