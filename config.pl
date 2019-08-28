@@ -3,6 +3,7 @@
 # System config
 use constant ADMIN_PASS => 'CHANGEME';		# Admin password. For fucks's sake, change this.
 use constant NUKE_PASS => 'CHANGEME';		# Password to nuke a board. Change this too, NOW!
+use constant SECRET => 'CHANGEME';	# Cryptographic secret. CHANGE THIS to something totally random, and long.
 use constant SQL_DBI_SOURCE => 'DBI:mysql:database=CHANGEME;host=localhost';			# DBI data source string (put server and database name in here)
 use constant SQL_USERNAME => 'CHANGEME';							# MySQL login name
 use constant SQL_PASSWORD => 'CHANGEME';						# MySQL password
@@ -27,7 +28,7 @@ use constant S_ANOTEXT => '';				# Defines what to print if there is no text ent
 use constant S_ANOTITLE => '';			# Defines what to print if there is no text entered into subject field
 
 # Limitations
-use constant MAX_KB => 500;			# Maximum upload size in KB
+use constant MAX_KB => 1000;			# Maximum upload size in KB
 use constant MAX_W => 200;			# Images exceeding this width will be thumbnailed
 use constant MAX_H => 200;			# Images exceeding this height will be thumbnailed
 use constant MAX_RES => 20;			# Maximum topic bumps
@@ -44,9 +45,7 @@ use constant MAX_IMAGE_PIXELS => 50000000;	# Maximum width*height of image befor
 # Captcha
 use constant ENABLE_CAPTCHA => 1;
 use constant SQL_CAPTCHA_TABLE => 'captcha';	# Use a different captcha table for each board, if you have more than one!
-use constant CAPTCHA_LIFETIME => 1500;	# Captcha lifetime in seconds
-use constant CAPTCHA_CLARITY => 15;		# Noise level
-use constant CAPTCHA_SPACING => 2;		# Randomized spacing
+use constant CAPTCHA_LIFETIME => 1440;	# Captcha lifetime in seconds
 use constant CAPTCHA_SCRIPT => 'captcha.pl';		# Name of script
 
 # Tweaks
@@ -56,7 +55,9 @@ use constant ALLOW_TEXTONLY => 1;		# Allow textonly posts (1: yes, 0: no)
 use constant ALLOW_IMAGES => 1;			# Allow image posting (1: yes, 0: no)
 use constant ALLOW_TEXT_REPLIES => 1;	# Allow replies (1: yes, 0: no)
 use constant ALLOW_IMAGE_REPLIES => 1;	# Allow replies with images (1: yes, 0: no)
-use constant ALLOW_UNKNOWN => 1;		# Allow unknown filetypes (1: yes, 0: no)
+use constant ALLOW_UNKNOWN => 0;		# Allow unknown filetypes (1: yes, 0: no)
+use constant MUNGE_UNKNOWN => '.unknown';	# Munge unknown file type extensions with this. If you remove this, make sure your web server is locked down properly.
+use constant FORBIDDEN_EXTENSIONS => ('php','php3','php4','phtml','shtml','cgi','pl','pm','py','r','exe','dll','scr','pif','asp','cfm','jsp'); # file extensions which are forbidden
 use constant HIDE_IMAGE_REPLIES => 0;	# Hide image replies on the main page (1: yes, 0:no)
 use constant RENZOKU => 5;				# Seconds between posts (floodcheck)
 use constant RENZOKU2 => 10;			# Seconds between image posts (floodcheck)
@@ -64,6 +65,7 @@ use constant RENZOKU3 => 900;			# Seconds between identical posts (floodcheck)
 use constant NOSAGE_WINDOW => 1200;		# Seconds that you can post to your own thread without increasing the sage count
 use constant PROXY_CHECK => ();		# Ports to scan for proxies - not implemented.
 #use constant PROXY_CHECK => (80,8080);	# Ports to scan for proxies.
+use constant USE_SECURE_ADMIN => 0;		# Use HTTPS for the admin panel.
 use constant CHARSET => 'utf-8';		# Character set to use, typically 'utf-8' or 'shift_jis'. Disable charset handling by setting to ''. Remember to set Apache to use the same character set for .html files! (AddCharset shift_jis html)
 use constant TRIM_METHOD => 0;			# Which threads to trim (0: oldest - like futaba 1: least active - furthest back)
 use constant DATE_STYLE => 0;			# Date style (0: futaba 1: localtime 2: compact)

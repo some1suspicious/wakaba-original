@@ -27,14 +27,10 @@ my %filetypes=%filetypes::filetypes;
 # Optional modules
 #
 
-my ($has_md5,$has_magick,$has_gd,$has_unicode);
+my ($has_md5,$has_unicode);
 
-eval 'use Digest::MD5 qw(md5_hex)';
+eval 'use Digest::MD5 qw(md5_hex md5_base64)';
 $has_md5=1 unless($@);
-eval 'use Image::Magick';
-$has_magick=1 unless($@);
-#eval 'use ...';
-#$has_gd=1 unless($@);
 
 if(CHARSET) # don't use Unicode at all if CHARSET is not set.
 {
@@ -189,8 +185,8 @@ sub build_cache()
 
 	$page=0;
 
-	# grab all posts, in thread order
-	$sth=$dbh->prepare("SELECT * FROM ".SQL_TABLE." ORDER BY lasthit DESC,num ASC") or make_error(S_SQLFAIL);
+	# grab all posts, in thread order (ugh, ugly kludge)
+	$sth=$dbh->prepare("SELECT * FROM ".SQL_TABLE." ORDER BY lasthit DESC,CASE parent WHEN 0 THEN num ELSE parent END ASC,num ASC") or make_error(S_SQLFAIL);
 	$sth->execute() or make_error(S_SQLFAIL);
 
 	$row=get_decoded_hashref($sth);
@@ -481,7 +477,7 @@ sub post_stuff($$$$$$$$$$$$)
 	}
 
 	# set the name, email and password cookies
-	make_cookies(); # yum!
+	make_cookies(name=>$c_name,email=>$c_email,password=>$c_password); # yum!
 
 	# forward back to the main page
 	make_http_forward(HTML_SELF);
@@ -510,10 +506,21 @@ sub ban_check($$$$)
 
 	make_error(S_BADHOST) if(($sth->fetchrow_array())[0]);
 
-	$sth=$dbh->prepare("SELECT count(*) FROM ".SQL_ADMIN_TABLE." WHERE type='wordban' AND ? LIKE '%' || sval1 || '%';") or make_error(S_SQLFAIL);
-	$sth->execute($comment) or make_error(S_SQLFAIL);
+# fucking mysql...
+#	$sth=$dbh->prepare("SELECT count(*) FROM ".SQL_ADMIN_TABLE." WHERE type='wordban' AND ? LIKE '%' || sval1 || '%';") or make_error(S_SQLFAIL);
+#	$sth->execute($comment) or make_error(S_SQLFAIL);
+#
+#	make_error(S_STRREF) if(($sth->fetchrow_array())[0]);
 
-	make_error(S_STRREF) if(($sth->fetchrow_array())[0]);
+	$sth=$dbh->prepare("SELECT sval1 FROM ".SQL_ADMIN_TABLE." WHERE type='wordban';") or make_error(S_SQLFAIL);
+	$sth->execute() or make_error(S_SQLFAIL);
+
+	my $row;
+	while($row=$sth->fetchrow_arrayref())
+	{
+		my $regexp=quotemeta $$row[0];
+		make_error(S_STRREF) if($comment=~/$regexp/);
+	}
 
 	# etc etc etc
 
@@ -566,15 +573,30 @@ sub process_tripcode($)
 
 	if($name=~/^([^\#!]*)[\#!](.*)$/)
 	{
-		my ($namepart,$trip)=($1,$2);
-		my ($salt,$hash);
+		my ($namepart,$trippart)=($1,$2);
+		my ($normtrip,$sectrip,$trip);
 
-		($salt)=($trip."H.")=~/^.(..)/;
-		$salt=~s/[^\.-z]/./g;
-		$salt=~tr/:;<=>?@[\\]^_`/ABCDEFGabcdef/; 
+		if($trippart=~/^([^\#!]*)[\#!]+(.*)$/) { $normtrip=$1; $sectrip=$2; }
+		else { $normtrip=$trippart; }
 
-		return ($namepart,substr crypt($trip,$salt),-10);
+		if($normtrip)
+		{
+			my $salt;
+			($salt)=($normtrip."H.")=~/^.(..)/;
+			$salt=~s/[^\.-z]/./g;
+			$salt=~tr/:;<=>?@[\\]^_`/ABCDEFGabcdef/; 
+			$trip.=substr crypt($normtrip,$salt),-10;
+		}
+
+		if($sectrip)
+		{
+			$trip.=TRIPKEY if($normtrip);
+			$trip.=TRIPKEY.substr md5_base64(SECRET.$sectrip),0,8;
+		}
+
+		return ($namepart,$trip);
 	}
+
 	return ($name,"");
 }
 
@@ -597,11 +619,11 @@ sub clean_string($$)
 	if($admin ne ADMIN_PASS) # admins can use tags
 	{
 		$str=~s/&/&amp;/g;
-		$str=~s/</&lt;/g;
-		$str=~s/>/&gt;/g;
-		#$str=~s/"/&quot;/g;
-		#$str=~s/'/&#039;/g;
-		#$str=~s/,/&#44;/g;
+		$str=~s/\</&lt;/g;
+		$str=~s/\>/&gt;/g;
+		$str=~s/"/&quot;/g;
+		$str=~s/'/&#039;/g;
+		$str=~s/,/&#44;/g;
 	}
 
 	# repair unicode entities if we haven't converted them earlier
@@ -618,14 +640,6 @@ sub format_comment($$)
 	# fix newlines
 	$comment=~s/\r\n/\n/g;
 	$comment=~s/\r/\n/g;
-
-	# hmm, what about this weirdness?
-#// Continuous lines
-#$com = ereg_replace("\n((!@| )*\n){3,}","\n",$com);
-#	$comment=~s/\n(\s*?\n){3,}/\n\n/sg;
-
-	# make URLs into links - is this magic or what
-	$comment=~s!(http://\S*?(\(\S*?\)\S*?)?)(\)|\.?\s|$)!<a href="$1">$1</a>$3!sgi;
 
 	# fix up >> links
 	$comment=~s!&gt;&gt;([0-9]+)!
@@ -648,7 +662,10 @@ sub format_comment($$)
 	!gem;
 
 	# colour quoted sections
-	$comment=~s!^(&gt;.*)$!<span class="unkfunc">$1</span>!gm;
+	$comment=~s!^(&gt;.*)$!\<span class="unkfunc"\>$1\</span\>!gm;
+
+	# make URLs into links - is this magic or what
+	$comment=~s!(http://[^\s\<\>"]*[^\s\<\>"\.\)\],])!\<a href="$1"\>$1\</a\>!sgi;
 
 	# count number of newlines if MAX_LINES is not 0 - wow, magic. also, admin posts can be longer.
 	if($admin ne ADMIN_PASS and MAX_LINES and scalar(()=$comment=~m/\n/g)>=MAX_LINES)
@@ -657,7 +674,7 @@ sub format_comment($$)
 	}
 	else
 	{
-		$comment=~s!\n!<br />!g; # replace newlines with <br />
+		$comment=~s!\n!\<br /\>!g; # replace newlines with <br />
 	}
 
 	return $comment;
@@ -724,7 +741,7 @@ sub check_captcha($$$)
 	$word=get_captcha_word($ip,$key);
 
 	make_error(S_NOCAPTCHA) unless($word);
-	make_error(S_BADCAPTCHA) if($word ne $captcha);
+	make_error(S_BADCAPTCHA) if($word ne lc($captcha));
 
 	delete_captcha_word($ip,$key); # should the captcha word be deleted on an UNSUCCESSFUL try, too, maybe?
 }
@@ -784,7 +801,8 @@ sub process_file($$)
 	# analyze file and check that it's in a supported format
 	($ext,$width,$height)=analyze_image($file);
 
-	make_error(S_BADFORMAT) if(!ALLOW_UNKNOWN and !$width and !$filetypes{$ext});
+	make_error(S_BADFORMAT) unless(ALLOW_UNKNOWN or $width or $filetypes{$ext});
+	make_error(S_BADFORMAT) if(grep { $_ eq $ext } FORBIDDEN_EXTENSIONS);
 	make_error(S_TOOBIG) if(MAX_IMAGE_WIDTH and $width>MAX_IMAGE_WIDTH);
 	make_error(S_TOOBIG) if(MAX_IMAGE_HEIGHT and $height>MAX_IMAGE_HEIGHT);
 	make_error(S_TOOBIG) if(MAX_IMAGE_PIXELS and $width*$height>MAX_IMAGE_PIXELS);
@@ -799,6 +817,8 @@ sub process_file($$)
 	}
 	else # generate random filename - fudges the microseconds
 	{
+		$ext.=MUNGE_UNKNOWN unless($width);
+
 		$filebase=$time.sprintf("%03d",int(rand(1000)));
 		$filename=IMG_DIR.$filebase.'.'.$ext;
 	}
@@ -1022,7 +1042,7 @@ sub make_admin_post_panel($)
 
 	make_error(S_WRONGPASS) if($admin ne ADMIN_PASS); # check admin password
 
-	$sth=$dbh->prepare("SELECT * FROM ".SQL_TABLE." ORDER BY lasthit DESC,num ASC;") or make_error(S_SQLFAIL);
+	$sth=$dbh->prepare("SELECT * FROM ".SQL_TABLE." ORDER BY lasthit DESC,CASE parent WHEN 0 THEN num ELSE parent END ASC,num ASC;") or make_error(S_SQLFAIL);
 	$sth->execute() or make_error(S_SQLFAIL);
 	while($row=get_decoded_hashref($sth)) { push(@posts,$row); }
 
@@ -1139,15 +1159,9 @@ sub do_nuke_database($)
 
 sub make_http_header()
 {
-	if($has_unicode)
-	{
-		print "Content-Type: text/html; charset=".CHARSET."\n";
-	}
-	else
-	{
-		print "Content-Type: text/html\n";
-	}
-
+	print "Content-Type: text/html";
+	print "; charset=".CHARSET if(CHARSET);
+	print "\n";
 	# print "Expires: ";
 	print "\n";
 
@@ -1160,7 +1174,9 @@ sub make_http_forward($)
 
 	print "Status: 301 Go West\n";
 	print "Location: $location\n";
-	print "Content-Type: text/html\n";
+	print "Content-Type: text/html";
+	print "; charset=".CHARSET if(CHARSET);
+	print "\n";
 	print "\n";
 	print '<html><body><a href="'.$location.'">'.$location.'</a></body></html>';
 }
@@ -1170,7 +1186,9 @@ sub make_error($)
 	my ($error)=@_;
 
 	print "Status: 500 $error\n";
-	print "Content-Type: text/html\n";
+	print "Content-Type: text/html";
+	print "; charset=".CHARSET if(CHARSET);
+	print "\n";
 	print "\n";
 
 	print_error(\*STDOUT,$error);
@@ -1192,28 +1210,36 @@ sub make_error($)
 	exit;
 }
 
-sub make_cookies()
+sub make_cookies(%)
 {
+	my (%cookies)=@_;
 	my ($cookie);
 
-	$c_name="" unless(defined($c_name));
-	$c_email="" unless(defined($c_email));
-	$c_password="" unless(defined($c_password));
+	foreach my $name (keys %cookies)
+	{
+		my $value=defined($cookies{$name})?$cookies{$name}:'';
+		my $cookie;
 
-	$cookie=$query->cookie(-name=>'name',
-	                       -value=>$c_name,
-	                       -expires=>'+14d');
-	print "Set-Cookie: $cookie\n";
+		if($has_unicode)
+		{
+			$value=decode(CHARSET,$value);
+			$value=join '',map { my $c=ord($_); sprintf($c>255?'%%u%04x':'%%%02x',$c); } split //,$value;
 
-	$cookie=$query->cookie(-name=>'email',
-	                       -value=>$c_email,
-	                       -expires=>'+14d');
-	print "Set-Cookie: $cookie\n";
+			$cookie=$query->cookie(-name=>$name,
+			                          -value=>$value,
+			                          -expires=>'+14d');
 
-	$cookie=$query->cookie(-name=>'password',
-	                       -value=>$c_password,
-	                       -expires=>'+14d');
-	print "Set-Cookie: $cookie\n";
+			$cookie=~s/%25/%/g; # repair encoding damage
+		}
+		else
+		{
+			$cookie=$query->cookie(-name=>$name,
+			                       -value=>$value,
+			                       -expires=>'+14d');
+		}
+
+		print "Set-Cookie: $cookie\n";
+	}
 }
 
 sub save_cookies()
@@ -1234,6 +1260,12 @@ sub save_path()
 
 sub get_script_name()
 {
+	return $ENV{SCRIPT_NAME};
+}
+
+sub get_secure_script_name()
+{
+	return 'https://'.$ENV{SERVER_NAME}.$ENV{SCRIPT_NAME} if(USE_SECURE_ADMIN);
 	return $ENV{SCRIPT_NAME};
 }
 
@@ -1563,7 +1595,8 @@ sub analyze_jpeg($)
 			last unless(read($file,$buffer,3)==3);
 			my ($mark,$size)=unpack("Cn",$buffer);
 			last if($mark==0xda or $mark==0xd9);  # SOS/EOI
-			last if($size<2);
+#			last if($size<2);
+			make_error(S_VIRUS) if($size<2); # MS GDI+ JPEG exploit uses short chunks
 
 			if($mark>=0xc0 and $mark<=0xc2) # SOF0..SOF2 - what the hell are the rest? 
 			{
@@ -1619,57 +1652,35 @@ sub make_thumbnail($$$$)
 {
 	my ($filename,$thumbnail,$width,$height)=@_;
 
-	if($has_magick)
+	# use external commands
+	# first try ImageMagick
+
+	my $magickname=$filename;
+	$magickname.="[0]" if($magickname=~/\.gif$/);
+
+	my $convert=CONVERT_COMMAND;
+	my $quality=THUMBNAIL_QUALITY;
+	`$convert -size ${width}x$height -geometry ${width}x${height}! -quality $quality $magickname $thumbnail 2>&1`;
+
+	return(1) unless($?);
+
+	# if that fails, try pnmtools instead
+
+	if($filename=~/\.jpg$/)
 	{
-		my ($res,$magick);
-
-		$filename.="[0]" if($filename=~/\.gif$/);
-
-		$magick=Image::Magick->new;
-
-		$res=$magick->Read($filename);
-		return 0 if "$res";
-		$res=$magick->Scale(width=>$width, height=>$height);
-		return 0 if "$res";
-		$res=$magick->Write(filename=>$thumbnail, quality=>THUMBNAIL_QUALITY);
-		return 0 if "$res";
-
-		return 1;
-	}
-#	elsif($has_gd) # not yet implemented
-#	{
-#	}
-	else # use external commands
-	{
-		# first try ImageMagick
-
-		my $magickname=$filename;
-		$magickname.="[0]" if($magickname=~/\.gif$/);
-
-		my $convert=CONVERT_COMMAND;
-		my $quality=THUMBNAIL_QUALITY;
-		`$convert -size ${width}x$height -geometry ${width}x${height}! -quality $quality $magickname $thumbnail 2>&1`;
-
+		`djpeg $filename | pnmscale -width $width -height $height | cjpeg -quality $quality > $thumbnail`;
+		# could use -scale 1/n
 		return(1) unless($?);
-
-		# if that fails, try pnmtools instead
-
-		if($filename=~/\.jpg$/)
-		{
-			`djpeg $filename | pnmscale -width $width -height $height | cjpeg -quality $quality > $thumbnail`;
-			# could use -scale 1/n
-			return(1) unless($?);
-		}
-		elsif($filename=~/\.png$/)
-		{
-			`pngtopnm $filename | pnmscale -width $width -height $height | cjpeg -quality $quality > $thumbnail`;
-			return(1) unless($?);
-		}
-		elsif($filename=~/\.gif$/)
-		{
-			`giftopnm $filename | pnmscale -width $width -height $height | cjpeg -quality $quality > $thumbnail`;
-			return(1) unless($?);
-		}
+	}
+	elsif($filename=~/\.png$/)
+	{
+		`pngtopnm $filename | pnmscale -width $width -height $height | cjpeg -quality $quality > $thumbnail`;
+		return(1) unless($?);
+	}
+	elsif($filename=~/\.gif$/)
+	{
+		`giftopnm $filename | pnmscale -width $width -height $height | cjpeg -quality $quality > $thumbnail`;
+		return(1) unless($?);
 	}
 
 	return(0);

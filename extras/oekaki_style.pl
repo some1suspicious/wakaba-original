@@ -4,56 +4,6 @@ BEGIN { require 'oekaki_config.pl'; }
 BEGIN { require 'oekaki_strings_e.pl'; }
 BEGIN { require 'futaba_style.pl'; }
 
-#
-# Externally called functions
-#
-
-sub print_page($$$@)
-{
-	my ($file,$page,$total,@threads)=@_;
-
-	print_page_header($file);
-	print_posting_form($file,0,"");
-
-	print $file '<form name="delform" action="'.get_script_name().'" method="post">';
-
-	foreach my $thread (@threads)
-	{
-		print_thread($file,0,@{$thread});
-	}
-
-	print_deletion_footer($file);
-
-	print $file '</form>';
-
-	print_navi_footer($file,$page,$total);
-	print_page_footer($file);
-
-}
-
-sub print_reply($@)
-{
-	my ($file,@thread)=@_;
-	my ($sth,$row);
-
-	print_page_header($file);
-
-	print $file '[<a href="'.expand_filename(HTML_SELF).'">'.S_RETURN.'</a>]';
-	print $file '<div class="theader">'.S_POSTING.'</div>';
-
-	print_posting_form($file,$thread[0]{num},"");
-
-	print $file '<form name="delform" action="'.get_script_name().'" method="post">';
-
-	print_thread($file,1,@thread);
-
-	print_deletion_footer($file);
-
-	print $file '</form>';
-
-	print_page_footer($file);
-}
-
 
 
 #
@@ -85,7 +35,7 @@ sub print_page_header($)
 
 	print $file '<div class="adminbar">';
 	print $file '[<a href="'.expand_filename(HOME).'" target="_top">'.S_HOME.'</a>]';
-	print $file ' [<a href="'.get_script_name().'?action=admin">'.S_ADMIN.'</a>]';
+	print $file ' [<a href="'.get_secure_script_name().'?action=admin">'.S_ADMIN.'</a>]';
 	print $file '</div>';
 
 	print $file '<div class="logo">';
@@ -104,9 +54,9 @@ sub print_page_footer($)
 	print $file '</body></html>';
 }
 
-sub print_posting_form($$$)
+sub print_posting_form($$$@)
 {
-	my ($file,$parent,$admin)=@_;
+	my ($file,$parent,$admin,@thread)=@_;
 	my ($image_inp,$textonly_inp);
 
 	if($admin) { $image_inp=$textonly_inp=1; }
@@ -134,6 +84,22 @@ sub print_posting_form($$$)
 		print $file S_OEKPAINT.'<select class=button name="oek_painter">'.S_OEKOPTIONS.'</select>&nbsp;';
 		print $file S_OEKX.'<input type="text" name="oek_x" size="3" value="'.OEKAKI_DEFAULT_X.'" />&nbsp;';
 		print $file S_OEKY.'<input type="text" name="oek_y" size="3" value="'.OEKAKI_DEFAULT_Y.'" />&nbsp;';
+
+		if(OEKAKI_ENABLE_MODIFY and $parent)
+		{
+			print $file S_OEKSOURCE.'<select class=button name="oek_src"><option value="">'.S_OEKNEW.'</option>';
+			foreach my $res (@thread)
+			{
+				if($$res{image})
+				{
+					print $file '<option value="'.$$res{image}.'">';
+					print $file sprintf S_OEKMODIFY,$$res{num};
+					print $file '</option>';
+				}
+			}
+			print $file '</select>&nbsp;';
+		}
+
 		print $file '<input type="submit" value="'.S_OEKSUBMIT.'" />';
 		print $file '</form>';
 		print $file '</div><hr />';
@@ -178,6 +144,68 @@ sub print_posting_form($$$)
 	print $file '</tbody></table></form></div>';
 	print $file '<script>with(document.postform) {name.value=get_cookie("name"); email.value=get_cookie("email"); password.value=get_password("password"); }</script>';
 	print $file '<hr />';
+}
+
+
+sub print_comment_header($$$$)
+{
+	my ($file,$res,$reply,$toplevel)=@_;
+	my ($titleclass,$nameclass);
+
+	$titleclass=$toplevel?"filetitle":"replytitle";
+	$nameclass=$toplevel?"postername":"commentpostername";
+
+	print $file '<a name="'.$$res{num}.'"></a>';
+	print $file '<label><input type="checkbox" name="delete" value="'.$$res{num}.'" />';
+	print $file '<span class="'.$titleclass.'">'.$$res{subject}.'</span>';
+	print $file ' <span class="'.$nameclass.'">';
+	print $file '<a href="mailto:'.$$res{email}.'">' if($$res{email});
+	print $file $$res{name};
+	print $file '</a>' if($$res{email});
+	print $file '</span>';
+
+	if($$res{trip})
+	{
+		print $file '<span class="postertrip">';
+		print $file '<a href="mailto:'.$$res{email}.'">' if($$res{email});
+		print $file TRIPKEY.$$res{trip};
+		print $file '</a>' if($$res{email});
+		print $file '</span>';
+	}
+
+	print $file ' '.$$res{date};
+	# calc and show ID
+	print $file ' No.'.$$res{num}.'</label>&nbsp;';
+	print $file ' [<a href="'.get_reply_link($$res{num}).'">'.S_REPLY.'</a>]' if($reply);
+}
+
+sub print_image($$$)
+{
+	my ($file,$res,$hidden)=@_;
+ 	$$res{image}=~m!([^/]+)$!;
+ 	my ($imagename)=$1;
+
+	$hidden=0 unless(HIDE_IMAGE_REPLIES);
+
+	print $file '<span class="filesize">'.S_PICNAME.'<a target="_blank" href="'.expand_filename($$res{image}).'">'.$imagename.'</a>';
+	print $file '-(<em>'.$$res{size}.' B, '.$$res{width}.'x'.$$res{height}.'</em>)</span>';
+	print $file ' <span class="thumbnailmsg">'.S_THUMB.'</span>' unless($hidden);
+	print $file ' <span class="thumbnailmsg">'.S_HIDDEN.'</span>' if($hidden);
+	print $file '<br /><a target="_blank" href="'.expand_filename($$res{image}).'">';
+
+	unless($hidden)
+	{
+		if($$res{thumbnail})
+		{
+			print $file '<img src="'.expand_filename($$res{thumbnail}).'" border="0" align="left"';
+			print $file ' width="'.$$res{tn_width}.'" height="'.$$res{tn_height}.'" hspace="20" alt="'.$$res{size}.'">';
+		}
+		else
+		{
+			print $file '<div hspace="20" style="float:left;text-align:center;padding:20px;">'.S_NOTHUMB.'</div>';
+		}
+	}
+	print $file '</a>';
 }
 
 sub print_thread($$@)
@@ -243,67 +271,6 @@ sub print_thread($$@)
 	print $file '<br clear="left" /><hr />';
 }
 
-sub print_comment_header($$$$)
-{
-	my ($file,$res,$reply,$toplevel)=@_;
-	my ($titleclass,$nameclass);
-
-	$titleclass=$toplevel?"filetitle":"replytitle";
-	$nameclass=$toplevel?"postername":"commentpostername";
-
-	print $file '<a name="'.$$res{num}.'"></a>';
-	print $file '<label><input type="checkbox" name="delete" value="'.$$res{num}.'" />';
-	print $file '<span class="'.$titleclass.'">'.$$res{subject}.'</span>';
-	print $file ' <span class="'.$nameclass.'">';
-	print $file '<a href="mailto:'.$$res{email}.'">' if($$res{email});
-	print $file $$res{name};
-	print $file '</a>' if($$res{email});
-	print $file '</span>';
-
-	if($$res{trip})
-	{
-		print $file '<span class="postertrip">';
-		print $file '<a href="mailto:'.$$res{email}.'">' if($$res{email});
-		print $file TRIPKEY.$$res{trip};
-		print $file '</a>' if($$res{email});
-		print $file '</span>';
-	}
-
-	print $file ' '.$$res{date};
-	# calc and show ID
-	print $file ' No.'.$$res{num}.'</label>&nbsp;';
-	print $file ' [<a href="'.get_reply_link($$res{num}).'">'.S_REPLY.'</a>]' if($reply);
-}
-
-sub print_image($$$)
-{
-	my ($file,$res,$hidden)=@_;
- 	$$res{image}=~m!([^/]+)$!;
- 	my ($imagename)=$1;
-
-	$hidden=0 unless(HIDE_IMAGE_REPLIES);
-
-	print $file '<span class="filesize">'.S_PICNAME.'<a target="_blank" href="'.expand_filename($$res{image}).'">'.$imagename.'</a>';
-	print $file '-(<em>'.$$res{size}.' B, '.$$res{width}.'x'.$$res{height}.'</em>)</span>';
-	print $file ' <span class="thumbnailmsg">'.S_THUMB.'</span>' unless($hidden);
-	print $file ' <span class="thumbnailmsg">'.S_HIDDEN.'</span>' if($hidden);
-	print $file '<br /><a target="_blank" href="'.expand_filename($$res{image}).'">';
-
-	unless($hidden)
-	{
-		if($$res{thumbnail})
-		{
-			print $file '<img src="'.expand_filename($$res{thumbnail}).'" border="0" align="left"';
-			print $file ' width="'.$$res{tn_width}.'" height="'.$$res{tn_height}.'" hspace="20" alt="'.$$res{size}.'">';
-		}
-		else
-		{
-			print $file '<div hspace="20" style="float:left;text-align:center;padding:20px;">'.S_NOTHUMB.'</div>';
-		}
-	}
-	print $file '</a>';
-}
-
 sub print_deletion_footer($)
 {
 	my ($file)=@_;
@@ -351,4 +318,60 @@ sub print_navi_footer($$$)
 	print $file '</td></tr></tbody></table><br clear="all">';
 }
 
+
+
+
+#
+# Externally called functions
+#
+
+sub print_page($$$@)
+{
+	my ($file,$page,$total,@threads)=@_;
+
+	print_page_header($file);
+	print_posting_form($file,0,"");
+
+	print $file '<form name="delform" action="'.get_script_name().'" method="post">';
+
+	foreach my $thread (@threads)
+	{
+		print_thread($file,0,@{$thread});
+	}
+
+	print_deletion_footer($file);
+
+	print $file '</form>';
+
+	print_navi_footer($file,$page,$total);
+	print_page_footer($file);
+
+}
+
+sub print_reply($@)
+{
+	my ($file,@thread)=@_;
+	my ($sth,$row);
+
+	print_page_header($file);
+
+	print $file '[<a href="'.expand_filename(HTML_SELF).'">'.S_RETURN.'</a>]';
+	print $file '<div class="theader">'.S_POSTING.'</div>';
+
+	print_posting_form($file,$thread[0]{num},"",@thread);
+
+	print $file '<form name="delform" action="'.get_script_name().'" method="post">';
+
+	print_thread($file,1,@thread);
+
+	print_deletion_footer($file);
+
+	print $file '</form>';
+
+	print_page_footer($file);
+}
+
+
+
 1;
+

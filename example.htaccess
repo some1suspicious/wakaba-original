@@ -1,0 +1,4 @@
+AddCharset utf-8 html
+<Files *.html>
+Header add Pragma no-cache
+</Files>

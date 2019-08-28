@@ -63,7 +63,7 @@ if(!$action)
 	my $oek_parent=$query->param("oek_parent");
 
 	make_http_header();
-	print_page(\*STDOUT,$tmpname,$oek_parent,$oek_ip);
+	print_page(\*STDOUT,$tmpname,$oek_parent);
 }
 elsif($action eq "post")
 {
@@ -213,9 +213,9 @@ sub expand_filename($)
 	return $self_path.$filename;
 }
 
-sub print_page($$$$)
+sub print_page($$$)
 {
-	my ($file,$tmpname,$oek_parent,$oek_ip)=@_;
+	my ($file,$tmpname,$oek_parent)=@_;
 
 	print $file '<html><head>';
 
@@ -225,8 +225,6 @@ sub print_page($$$$)
 	print $file '<link rel="shortcut icon" href="'.expand_filename(FAVICON).'" />' if(FAVICON);
 	print $file '<script src="'.expand_filename(JS_FILE).'"></script>'; # could be better
 	print $file '</head><body>';
-
-	print $file S_HEAD;
 
 	print $file '<div class="adminbar">';
 	print $file '[<a href="'.expand_filename(HOME).'" target="_top">'.S_HOME.'</a>]';
@@ -243,7 +241,6 @@ sub print_page($$$$)
 	print $file '<div class="postarea" align="center">';
 	print $file '<form name="postform" action="'.get_script_name().'" method="post" enctype="multipart/form-data">';
 	print $file '<input type="hidden" name="action" value="post" />';
-	print $file '<input type="hidden" name="oek_ip" value="'.$oek_ip.'" />';
 	print $file '<table><tbody>';
 	print $file '<tr><td class="postblock" align="left">'.S_NAME.'</td><td align="left"><input type="text" name="name" size="28" /></td></tr>';
 	print $file '<tr><td class="postblock" align="left">'.S_EMAIL.'</td><td align="left"><input type="text" name="email" size="28" /></td></tr>';
@@ -277,7 +274,6 @@ sub print_page($$$$)
 
 	print $file '<div align="center"><img src="'.expand_filename($tmpname).'"></div>';
 
-	print $file '<hr />';
-	print $file S_FOOT;
+	print $file '<hr /><div class="footer">'.S_FOOT.'</div>';
 	print $file '</body></html>';
 }

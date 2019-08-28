@@ -74,7 +74,7 @@ sub print_page_header($)
 
 	print $file '<div class="adminbar">';
 	print $file '[<a href="'.expand_filename(HOME).'" target="_top">'.S_HOME.'</a>]';
-	print $file ' [<a href="'.get_script_name().'?action=admin">'.S_ADMIN.'</a>]';
+	print $file ' [<a href="'.get_secure_script_name().'?action=admin">'.S_ADMIN.'</a>]';
 	print $file '</div>';
 
 	print $file '<div class="logo">';

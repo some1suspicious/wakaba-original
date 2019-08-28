@@ -198,7 +198,7 @@ sub print_admin_ban_panel($$@)
 	print $file '<input type="hidden" name="type" value="wordban" />';
 	print $file '<input type="hidden" name="admin" value="'.$admin.'" />';
 	print $file '<table><tbody>';
-	print $file '<tr><td class="postblock" align="left">'.S_BANWORDLABEL.'</td><td align="left"><input type="text" name="word" size="24" /></td></tr>';
+	print $file '<tr><td class="postblock" align="left">'.S_BANWORDLABEL.'</td><td align="left"><input type="text" name="string" size="24" /></td></tr>';
 	print $file '<tr><td class="postblock" align="left">'.S_BANCOMMENTLABEL.'</td><td align="left"><input type="text" name="comment" size="16" />';
 	print $file ' <input type="submit" value="'.S_BANWORD.'" /></td></tr>';
 	print $file '</form>';
@@ -337,7 +337,7 @@ sub print_page_header($)
 
 	print $file '<div class="adminbar">';
 	print $file '[<a href="'.expand_filename(HOME).'" target="_top">'.S_HOME.'</a>]';
-	print $file ' [<a href="'.get_script_name().'?action=admin">'.S_ADMIN.'</a>]';
+	print $file ' [<a href="'.get_secure_script_name().'?action=admin">'.S_ADMIN.'</a>]';
 	print $file '</div>';
 
 	print $file '<div class="logo">';

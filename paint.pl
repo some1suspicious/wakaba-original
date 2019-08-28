@@ -23,8 +23,7 @@ my $oek_src=$query->param("oek_src");
 my $ip=$ENV{REMOTE_ADDR};
 
 make_error(S_HAXORING) if($oek_x=~/[^0-9]/ or $oek_y=~/[^0-9]/ or $oek_parent=~/[^0-9]/);
-make_error(S_HAXORING) if($oek_src and !OEKAKI_ENABLE_MODIFY);
-make_error(S_HAXORING) if($oek_src=~m![^0-9a-zA-Z/\.]!);
+make_error(S_HAXORING) if($oek_src=~m![^0-9a-zA-Z/]!);
 make_error(S_OEKTOOBIG) if($oek_x>OEKAKI_MAX_X or $oek_y>OEKAKI_MAX_Y);
 make_error(S_OEKTOOSMALL) if($oek_x<OEKAKI_MIN_X or $oek_y<OEKAKI_MIN_Y);
 
@@ -48,7 +47,6 @@ Content-Type: text/html; charset=Shift_JIS
 <applet code="c.ShiPainter.class" name="paintbbs" archive="spainter_all.jar" width="100%" height="100%">
 <param name="image_width" value="$oek_x" />
 <param name="image_height" value="$oek_y" />
-<param name="image_canvas" value="$oek_src" />
 <param name="dir_resource" value="./" />
 <param name="tt.zip" value="tt_def.zip" />
 <param name="res.zip" value="res.zip" />
@@ -77,7 +75,6 @@ Content-Type: text/html
 <applet code="c.ShiPainter.class" name="paintbbs" archive="spainter_all.jar" width="100%" height="100%">
 <param name="image_width" value="$oek_x" />
 <param name="image_height" value="$oek_y" />
-<param name="image_canvas" value="$oek_src" />
 <param name="dir_resource" value="./" />
 <param name="tt.zip" value="tt_def.zip" />
 <param name="res.zip" value="res.zip" />

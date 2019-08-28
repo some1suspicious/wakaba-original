@@ -111,6 +111,7 @@ use constant S_DUPE => 'Error: Duplicate file entry detected.';						# Returns e
 use constant S_NOTHREADERR => 'Error: Thread specified does not exist.';				# Returns error when a non-existant thread is accessed
 use constant S_BADDELPASS => 'Error: Password incorrect.';						# Returns error for wrong password (when user tries to delete file)
 use constant S_WRONGPASS => 'Error: Management password incorrect.';					# Returns error for wrong password (when trying to access Manager modes)
+use constant S_VIRUS => 'Error: Possible virus-infected file.';						# Returns error for malformed files suspected of being virus-infected.
 #define(S_CANNOTWRITE, 'Error: Cannot write to directory.<br>');						//Returns error when the script cannot write to the directory, this is used on initial setup--check your chmod (777)
 use constant S_NOTWRITE => 'Error: Cannot write to directory.';						# Returns error when the script cannot write to the directory, the chmod (777) is wrong
 #define(S_NOTREAD, 'Error: Cannot read from directory.<br>');						//Returns error when the script cannot read from the directory, the chmod (777) is wrong
