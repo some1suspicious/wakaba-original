@@ -35,10 +35,14 @@ use constant S_PREV => 'Previous';									# Defines previous button
 use constant S_FIRSTPG => 'Previous';									# Defines previous button
 use constant S_NEXT => 'Next';										# Defines next button
 use constant S_LASTPG => 'Next';									# Defines next button
-use constant S_FOOT => '- <a href="http://php.s3.to">GazouBBS</a>'.
-	               ' + <a href="http://www.2chan.net/">futaba</a>'.
-	               ' + <a href="http://www.1chan.net/futallaby/">futallaby</a>'.
-	               ' + <a href="http://wakaba.c3.cx/">wakaba</a> -';				# Prints footer
+
+use constant S_HEAD => '';
+
+use constant S_FOOT => '<div class="footer">'.
+                       '- <a href="http://wakaba.c3.cx/">wakaba</a>'.
+                       ' + <a href="http://www.2chan.net/">futaba</a>'.
+                       ' + <a href="http://www.1chan.net/futallaby/">futallaby</a>'.
+                       ' -</div>';					# Prints footer
 
 use constant S_RELOAD => 'Return';									# Reloads the image board (refresh)
 use constant S_MANAGEMENT => 'Manager : ';								# Defines prefix for Manager Post name
@@ -63,7 +67,7 @@ use constant S_MPDELETEIP => 'Delete all';
 use constant S_MPDELETE => 'Delete';									# Defines for deletion button in Management Panel
 use constant S_MPRESET => 'Reset';									# Defines name for field reset button in Management Panel
 use constant S_MPONLYPIC => 'File Only';								# Sets whether or not to delete only file, or entire post/thread
-use constant S_MPDELETEALL => 'Del all';								# Sets whether or not to delete only file, or entire post/thread
+use constant S_MPDELETEALL => 'Del&nbsp;all';								# 
 use constant S_MPBAN => 'Ban';								# Sets whether or not to delete only file, or entire post/thread
 use constant S_MPTABLE => '<th>Post No.</th><th>Time</th><th>Subject</th>'.
                           '<th>Name</th><th>Comment</th><th>IP</th>';		# Explains names for Management Panel
