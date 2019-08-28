@@ -78,8 +78,8 @@ sub print_page_header($)
 	print $file '</div>';
 
 	print $file '<div class="logo">';
-	print $file '<img src="'.TITLEIMG.'" alt="'.expand_filename(TITLE).'" />' if(SHOWTITLEIMG==1);
-	print $file '<img src="'.TITLEIMG.'" onclick="this.src=this.src;" alt="'.TITLE.'" />' if(SHOWTITLEIMG==2);
+	print $file '<img src="'.expand_filename(TITLEIMG).'" alt="'.TITLE.'" />' if(SHOWTITLEIMG==1);
+	print $file '<img src="'.expand_filename(TITLEIMG).'" onclick="this.src=this.src;" alt="'.TITLE.'" />' if(SHOWTITLEIMG==2);
 	print $file '<br />' if(SHOWTITLEIMG and SHOWTITLETXT);
 	print $file TITLE if(SHOWTITLETXT);
 	print $file '</div><hr />';
@@ -96,10 +96,9 @@ sub print_page_footer($)
 sub print_posting_form($$$)
 {
 	my ($file,$parent,$admin)=@_;
-	my ($image_inp,$textonly_inp,$captcha_inp);
+	my ($image_inp,$textonly_inp);
 
-
-	if($admin) { $image_inp=$textonly_inp=1; $captcha_inp=0; }
+	if($admin) { $image_inp=$textonly_inp=1; }
 	else
 	{
 		if($parent)
@@ -113,10 +112,7 @@ sub print_posting_form($$$)
 			$image_inp=1 if(ALLOW_IMAGES);
 			$textonly_inp=1 if(ALLOW_IMAGES and ALLOW_TEXTONLY);
 		}
-
-		$captcha_inp=ENABLE_CAPTCHA;
 	}
-
 
 	print $file '<div class="postarea" align="center">';
 	print $file '<form name="postform" action="'.get_script_name().'" method="post" enctype="multipart/form-data">';
@@ -141,7 +137,7 @@ sub print_posting_form($$$)
 		print $file '<input type="hidden" name="nofile" value="1" />';
 	}
 
-	if($captcha_inp)
+	if(ENABLE_CAPTCHA)
 	{
 		my $key=get_captcha_key($parent);
 

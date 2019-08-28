@@ -1,5 +1,9 @@
 use strict;
 
+BEGIN { require 'oekaki_config.pl'; }
+BEGIN { require 'oekaki_strings_e.pl'; }
+BEGIN { require 'futaba_style.pl'; }
+
 #
 # Externally called functions
 #
@@ -49,262 +53,6 @@ sub print_reply($@)
 
 	print_page_footer($file);
 }
-
-sub print_admin_login($)
-{
-	my ($file)=@_;
-
-	print_page_header($file);
-	print_admin_header($file,"");
-
-	print $file '<div align="center">';
-	print $file '<form action="'.get_script_name().'" method="get">';
-	print $file 'Admin password: ';
-	print $file '<input type="password" name="admin" size="8" maxlength="16" value="" /> ';
-	print $file '<select name="action">';
-	print $file '<option value="mpanel">'.S_MANAPANEL.'</option>';
-	print $file '<option value="bans">'.S_MANABANS.'</option>';
-	print $file '<option value="mpost">'.S_MANAPOST.'</option>';
-	print $file '<option value="rebuild">'.S_MANAREBUILD.'</option>';
-	print $file '<option value=""></option>';
-	print $file '<option value="nuke">'.S_MANANUKE.'</option>';
-	print $file '</select>';
-	print $file '<input type="submit" value="'.S_MANASUB.'" />';
-	print $file '</form></div>';
-
-	print_page_footer($file);
-}
-
-sub print_admin_post_panel($$@)
-{
-	my ($file,$admin,@posts)=@_;
-	my ($sth,$row,$count,$size);
-
-	print_page_header($file);
-	print_admin_header($file,$admin);
-
-	print $file '<div class="dellist">'.S_MPTITLE.'</div>';
-
-	print $file '<form action="'.get_script_name().'" method="post">';
-	print $file '<input type="hidden" name="action" value="delete" />';
-	print $file '<input type="hidden" name="admin" value="'.$admin.'" />';
-	print $file '<div class="delbuttons">';
-	print $file '<input type="submit" value="'.S_MPDELETE.'" />';
-	print $file '<input type="reset" value="'.S_MPRESET.'" />';
-	print $file '[<label><input type="checkbox" name="fileonly" value="on" />'.S_MPONLYPIC.'</label>]';
-	print $file '</div>';
-
-	print $file '<table align="center"><tbody>';
-	print $file '<tr class="managehead">'.S_MPTABLE.'</tr>';
-
-	$count=1;
-	$size=0;
-
-	foreach $row (@posts)
-	{
-		my ($comment)=$$row{comment}=~m!^([^<]{1,30})!;
-		my ($subject)=$$row{subject}=~m!^([^<]{1,30})!;
-		my ($name)=$$row{name}=~m!^([^<]{1,30})!;
-
-		print $file '<tr class="row'.$count.'">';
-
-		print $file '<td>' unless($$row{image});
-		print $file '<td rowspan="2">' if($$row{image});
-		print $file '<label>';
-		print $file '<input type="checkbox" name="delete" value="'.$$row{num}.'" />';
-		print $file '&nbsp;&gt;&gt;' if($$row{parent});
-		print $file '&nbsp;<big><b>'.$$row{num}.'</b></big>&nbsp;&nbsp;</td>';
-		print $file '<td>'.make_date($$row{timestamp},2).'</td>';
-		print $file '<td>'.$subject.'</td>';
-		print $file '<td><b>'.$name;
-		print $file TRIPKEY.$$row{trip} if($$row{trip});
-		print $file '</b></td>';
-		print $file '<td>'.$comment.'</td>';
-		print $file '<td>'.dec_to_dot($$row{ip});
-		print ' [&nbsp;<a href="'.get_script_name().'?admin='.$admin.'&action=deleteall&ip='.$$row{ip}.'">'.S_MPDELETEALL.'</a>&nbsp;]';
-		print '&nbsp;[&nbsp;<a href="'.get_script_name().'?admin='.$admin.'&action=addip&type=ipban&ip='.$$row{ip}.'">'.S_MPBAN.'</a>&nbsp;]</td>';
-		print $file '</tr>';
-
-		if($$row{image})
-		{
-			print $file '<tr class="row'.$count.'">';
-			print $file '<td colspan="6"><small>';
-			print $file S_PICNAME.'<a href="'.expand_filename($$row{image}).'">'.$$row{image}.'</a>';
-			print $file ' ('.$$row{size}.' B, '.$$row{width}.'x'.$$row{height}.')';
-			print $file ' &nbsp; MD5: '.$$row{md5};
-			print $file '</small></td></tr>';
-		}
-
-		$size+=$$row{size} if($$row{size});
-		$count^=3;
-	}
-
-	print $file '</tbody></table>';
-
-	print $file '<div class="delbuttons">';
-	print $file '<input type="submit" value="'.S_MPDELETE.'" />';
-	print $file '<input type="reset" value="'.S_MPRESET.'" />';
-	print $file '[<label><input type="checkbox" name="fileonly" value="on" />'.S_MPONLYPIC.'</label>]';
-	print $file '</div>';
-
-	print $file '</form>';
-
-	print $file '<br /><div class="postarea" align="center">';
-
-	print $file '<form action="'.get_script_name().'" method="post">';
-	print $file '<input type="hidden" name="action" value="deleteall" />';
-	print $file '<input type="hidden" name="admin" value="'.$admin.'" />';
-	print $file '<table><tbody>';
-	print $file '<tr><td class="postblock" align="left">'.S_BANIPLABEL.'</td><td align="left"><input type="text" name="ip" size="24" /></td></tr>';
-	print $file '<tr><td class="postblock" align="left">'.S_BANMASKLABEL.'</td><td align="left"><input type="text" name="mask" size="24" />';
-	print $file ' <input type="submit" value="'.S_MPDELETEIP.'" /></td></tr>';
-	print $file '</tbody></table></form>';
-
-	print $file '</div><br />';
-
-	print $file sprintf S_IMGSPACEUSAGE,int($size/1024);
-
-	print_page_footer($file);
-}
-
-sub print_admin_ban_panel($$@)
-{
-	my ($file,$admin,@bans)=@_;
-	my ($sth,$row,$count);
-
-	print_page_header($file);
-	print_admin_header($file,$admin);
-
-	print $file '<div class="dellist">'.S_BANTITLE.'</div>';
-
-	print $file '<div class="postarea" align="center">';
-	print $file '<table><tbody><tr><td align="bottom">';
-
-	print $file '<form action="'.get_script_name().'" method="post">';
-	print $file '<input type="hidden" name="action" value="addip" />';
-	print $file '<input type="hidden" name="type" value="ipban" />';
-	print $file '<input type="hidden" name="admin" value="'.$admin.'" />';
-	print $file '<table><tbody>';
-	print $file '<tr><td class="postblock" align="left">'.S_BANIPLABEL.'</td><td align="left"><input type="text" name="ip" size="24" /></td></tr>';
-	print $file '<tr><td class="postblock" align="left">'.S_BANMASKLABEL.'</td><td align="left"><input type="text" name="mask" size="24" /></td></tr>';
-	print $file '<tr><td class="postblock" align="left">'.S_BANCOMMENTLABEL.'</td><td align="left"><input type="text" name="comment" size="16" />';
-	print $file ' <input type="submit" value="'.S_BANIP.'" /></td></tr>';
-	print $file '</tbody></table></form>';
-
-	print $file '</td><td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td valign="bottom">';
-
-	print $file '<form action="'.get_script_name().'" method="post">';
-	print $file '<input type="hidden" name="action" value="addstring" />';
-	print $file '<input type="hidden" name="type" value="wordban" />';
-	print $file '<input type="hidden" name="admin" value="'.$admin.'" />';
-	print $file '<table><tbody>';
-	print $file '<tr><td class="postblock" align="left">'.S_BANWORDLABEL.'</td><td align="left"><input type="text" name="word" size="24" /></td></tr>';
-	print $file '<tr><td class="postblock" align="left">'.S_BANCOMMENTLABEL.'</td><td align="left"><input type="text" name="comment" size="16" />';
-	print $file ' <input type="submit" value="'.S_BANWORD.'" /></td></tr>';
-	print $file '</form>';
-	print $file '</tbody></table></form>';
-
-	print $file '</td><td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td valign="bottom">';
-
-	print $file '<form action="'.get_script_name().'" method="post">';
-	print $file '<input type="hidden" name="action" value="addip" />';
-	print $file '<input type="hidden" name="type" value="whitelist" />';
-	print $file '<input type="hidden" name="admin" value="'.$admin.'" />';
-	print $file '<table><tbody>';
-	print $file '<tr><td class="postblock" align="left">'.S_BANIPLABEL.'</td><td align="left"><input type="text" name="ip" size="24" /></td></tr>';
-	print $file '<tr><td class="postblock" align="left">'.S_BANMASKLABEL.'</td><td align="left"><input type="text" name="mask" size="24" /></td></tr>';
-	print $file '<tr><td class="postblock" align="left">'.S_BANCOMMENTLABEL.'</td><td align="left"><input type="text" name="comment" size="16" />';
-	print $file ' <input type="submit" value="'.S_BANWHITELIST.'" /></td></tr>';
-	print $file '</tbody></table></form>';
-
-	print $file '</td></tr></tbody></table>';
-	print $file '</div><br />';
-
-#	print $file '<input type="reset" value="'.S_MPRESET.'" />';
-#	print $file '[<label><input type="checkbox" name="fileonly" value="on" />'.S_MPONLYPIC.'</label>]';
-#	print $file '</div>';
-
-	print $file '<table align="center"><tbody>';
-	print $file '<tr class="managehead">'.S_BANTABLE.'</tr>';
-
-	$count=1;
-
-	foreach $row (@bans)
-	{
-		print $file '<tr class="row'.$count.'">';
-		$count^=3;
-
-		if($$row{type} eq 'ipban')
-		{
-			print $file '<td>IP</td>';
-			print $file '<td>'.dec_to_dot($$row{ival1}).'/'.dec_to_dot($$row{ival2}).'</td>';
-		}
-		elsif($$row{type} eq 'wordban')
-		{
-			print $file '<td>Word</td>';
-			print $file '<td>'.$$row{sval1}.'</td>';
-		}
-		if($$row{type} eq 'whitelist')
-		{
-			print $file '<td>Whitelist</td>';
-			print $file '<td>'.dec_to_dot($$row{ival1}).'/'.dec_to_dot($$row{ival2}).'</td>';
-		}
-
-		print $file '<td>'.$$row{comment}.'</td>';
-		print $file '<td><a href="'.get_script_name().'?admin='.$admin.'&action=removeban&num='.$$row{num}.'">'.S_BANREMOVE.'</a></td>';
-		print $file '</tr>';
-	}
-
-	print $file '</tbody></table><br />';
-
-	print_page_footer($file);
-}
-
-sub print_admin_post($$)
-{
-	my ($file,$admin)=@_;
-	my ($sth,$row,$count);
-
-	print_page_header($file);
-	print_admin_header($file,$admin);
-
-	print $file '<div align="center"><em>'.S_NOTAGS.'</em></div>';
-
-	print_posting_form($file,0,$admin);
-
-	print_page_footer($file);
-}
-
-sub print_admin_header($$)
-{
-	my ($file,$admin)=@_;
-
-	print $file '[<a href="'.expand_filename(HTML_SELF).'">'.S_MANARET.'</a>]';
-	if($admin)
-	{
-		print $file ' [<a href="'.get_script_name().'?action=mpanel&admin='.$admin.'">'.S_MANAPANEL.'</a>]';
-		print $file ' [<a href="'.get_script_name().'?action=bans&admin='.$admin.'">'.S_MANABANS.'</a>]';
-		print $file ' [<a href="'.get_script_name().'?action=mpost&admin='.$admin.'">'.S_MANAPOST.'</a>]';
-		print $file ' [<a href="'.get_script_name().'?action=rebuild&admin='.$admin.'">'.S_MANAREBUILD.'</a>]';
-	}
-
-	print $file '<div class="passvalid">'.S_MANAMODE.'</div><br />';
-}
-
-sub print_error($$)
-{
-	my ($file,$error)=@_;
-
-	print_page_header($file);
-
-	print $file '<div style="text-align: center; width=100%; font-size: 2em;"><br />';
-	print $file $error;
-	print $file '<br /><br /><a href="'.$ENV{HTTP_REFERER}.'">'.S_RETURN.'</a>';
-	print $file '</div>';
-
-	print $file '</body></html>';
-}
-
 
 
 
@@ -377,6 +125,19 @@ sub print_posting_form($$$)
 		}
 	}
 
+	unless($parent)
+	{
+		print $file '<div align="center">';
+		print $file '<form action="'.expand_filename('paint.pl').'" method="get">';
+		print $file '<input type="hidden" name="action" value="oekaki" />';
+		print $file S_OEKPAINT.'<select class=button name="oek_painter">'.S_OEKOPTIONS.'</select>&nbsp;';
+		print $file S_OEKX.'<input type="text" name="oek_x" size="3" value="'.OEKAKI_DEFAULT_X.'" />&nbsp;';
+		print $file S_OEKY.'<input type="text" name="oek_y" size="3" value="'.OEKAKI_DEFAULT_Y.'" />&nbsp;';
+		print $file '<input type="submit" value="'.S_OEKSUBMIT.'" />';
+		print $file '</form>';
+		print $file '</div><hr />';
+	}
+
 	print $file '<div class="postarea" align="center">';
 	print $file '<form name="postform" action="'.get_script_name().'" method="post" enctype="multipart/form-data">';
 	print $file '<input type="hidden" name="action" value="post" />';
@@ -413,8 +174,9 @@ sub print_posting_form($$$)
 	print $file '<tr><td class="postblock" align="left">'.S_DELPASS.'</td><td align="left"><input type="password" name="password" size="8" maxlength="8" /> '.S_DELEXPL.'</td></tr>';
 	print $file '<tr><td colspan="2">';
 	print $file '<div align="left" class="rules">'.S_RULES.'</div></td></tr>';
-	print $file '</tbody></table></form></div><hr />';
+	print $file '</tbody></table></form></div>';
 	print $file '<script>with(document.postform) {name.value=get_cookie("name"); email.value=get_cookie("email"); password.value=get_password("password"); }</script>';
+	print $file '<hr />';
 }
 
 sub print_thread($$@)

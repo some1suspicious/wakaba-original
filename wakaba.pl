@@ -76,7 +76,7 @@ elsif(!$action)
 }
 elsif($action eq "post")
 {
-	my ($parent,$name,$email,$subject,$comment,$file,$password,$nofile,$captcha,$admin);
+	my ($parent,$name,$email,$subject,$comment,$file,$password,$nofile,$captcha,$admin,$fake_ip);
 
 	$parent=$query->param("parent");
 	$name=$query->param("name");
@@ -88,8 +88,9 @@ elsif($action eq "post")
 	$nofile=$query->param("nofile");
 	$captcha=$query->param("captcha");
 	$admin=$query->param("admin");
+	$fake_ip=$query->param("fake_ip");
 
-	post_stuff($parent,$name,$email,$subject,$comment,$file,$password,$nofile,$captcha,$admin);
+	post_stuff($parent,$name,$email,$subject,$comment,$file,$password,$nofile,$captcha,$admin,$fake_ip);
 }
 elsif($action eq "delete")
 {
@@ -319,9 +320,9 @@ sub build_thread_cache_all()
 # Posting
 #
 
-sub post_stuff($$$$$$$$$$$)
+sub post_stuff($$$$$$$$$$$$)
 {
-	my ($parent,$name,$email,$subject,$comment,$file,$password,$nofile,$captcha,$admin)=@_;
+	my ($parent,$name,$email,$subject,$comment,$file,$password,$nofile,$captcha,$admin,$fake_ip)=@_;
 	my ($sth,$row,$ip,$numip,$host,$whitelisted,$trip,$time,$date,$lasthit,$parent_res);
 	my ($filename,$size,$md5,$width,$height,$thumbnail,$tn_width,$tn_height);
 
@@ -370,6 +371,8 @@ sub post_stuff($$$$$$$$$$$)
 
 	# find hostname
 	$ip=$ENV{REMOTE_ADDR};
+	$ip=$fake_ip if($admin eq ADMIN_PASS and $fake_ip);
+
 	#$host = gethostbyaddr($ip);
 	$numip=dot_to_dec($ip);
 
@@ -377,7 +380,7 @@ sub post_stuff($$$$$$$$$$$)
 	$whitelisted=is_whitelisted($numip);
 
 	# check captcha - should whitelists affect captcha?
-	check_captcha($captcha,$ip,$parent) if(ENABLE_CAPTCHA and $admin ne ADMIN_PASS);
+	check_captcha($captcha,$ip,$parent) if(ENABLE_CAPTCHA);
 
 	# check for bans
 	ban_check($numip,$name,$subject,$comment) unless($whitelisted);
@@ -411,7 +414,7 @@ sub post_stuff($$$$$$$$$$$)
 	$comment=clean_string($comment,$admin);
 
 	# format comment
-	$comment=format_comment($comment);
+	$comment=format_comment($comment,$admin);
 
 	# insert default values for empty fields
 	$parent=0 unless($parent);
@@ -1155,7 +1158,7 @@ sub make_http_forward($)
 {
 	my ($location)=@_;
 
-	print "Status: 302 Go West\n";
+	print "Status: 301 Go West\n";
 	print "Location: $location\n";
 	print "Content-Type: text/html\n";
 	print "\n";
@@ -1363,7 +1366,7 @@ sub init_admin_database()
 	"num ".get_sql_autoincrement().",".	# Entry number, auto-increments
 	"type TEXT,".				# Type of entry (ipban, wordban, etc)
 	"comment TEXT,".			# Comment for the entry
-	"ival1 TEXT,".			# Integer value 1 (usually IP - has to be TEXT because of issues with signed integers)
+	"ival1 TEXT,".			# Integer value 1 (usually IP)
 	"ival2 TEXT,".			# Integer value 2 (usually netmask)
 	"sval1 TEXT".				# String value 1
 

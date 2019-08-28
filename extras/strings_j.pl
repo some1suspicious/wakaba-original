@@ -37,10 +37,14 @@ use constant S_PREV => '前のページ';
 use constant S_FIRSTPG => '最初のページ';
 use constant S_NEXT => '次のページ';
 use constant S_LASTPG => '最後のページ';
-use constant S_FOOT => '- <a href="http://php.s3.to">GazouBBS</a>'.
-	               ' + <a href="http://www.2chan.net/">futaba</a>'.
-	               ' + <a href="http://www.1chan.net/futallaby/">futallaby</a>'.
-	               ' + <a href="http://wakaba.c3.cx/">wakaba</a> -';
+
+use constant S_HEAD => '';
+
+use constant S_FOOT => '<div class="footer">'.
+                       '- <a href="http://wakaba.c3.cx/">wakaba</a>'.
+                       ' + <a href="http://www.2chan.net/">futaba</a>'.
+                       ' + <a href="http://www.1chan.net/futallaby/">futallaby</a>'.
+                       ' -</div>';					# Prints footer
 
 use constant S_RELOAD => 'リロード';
 use constant S_MANAGEMENT => '削除';
