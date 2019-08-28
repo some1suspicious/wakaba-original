@@ -114,16 +114,22 @@ use constant PAGE_TEMPLATE => compile_template(NORMAL_HEAD_INCLUDE.q{
 	<loop $posts>
 		<if !$parent>
 			<if $image>
-				<span class="filesize"><const S_PICNAME><a target="_blank" href="<var expand_filename($image)>"><var get_filename($image)></a>
+				<span class="filesize"><const S_PICNAME><a target="_blank" href="<var expand_image_filename($image)>"><var get_filename($image)></a>
 				-(<em><var $size> B, <var $width>x<var $height></em>)</span>
 				<span class="thumbnailmsg"><const S_THUMB></span><br />
 
 				<if $thumbnail>
-					<a target="_blank" href="<var expand_filename($image)>">
+					<a target="_blank" href="<var expand_image_filename($image)>">
 					<img src="<var expand_filename($thumbnail)>" width="<var $tn_width>" height="<var $tn_height>" alt="<var $size>" class="thumb" /></a>
 				</if>
 				<if !$thumbnail>
-					<div class="nothumb"><a target="_blank" href="<var expand_filename($image)>"><const S_NOTHUMB></a></div>
+					<if DELETED_THUMBNAIL>
+						<a target="_blank" href="<var expand_image_filename(DELETED_IMAGE)>">
+						<img src="<var expand_filename(DELETED_THUMBNAIL)>" width="<var $tn_width>" height="<var $tn_height>" alt="" class="thumb" /></a>
+					</if>
+					<if !DELETED_THUMBNAIL>
+						<div class="nothumb"><a target="_blank" href="<var expand_image_filename($image)>"><const S_NOTHUMB></a></div>
+					</if>
 				</if>
 			</if>
 
@@ -168,16 +174,22 @@ use constant PAGE_TEMPLATE => compile_template(NORMAL_HEAD_INCLUDE.q{
 
 			<if $image>
 				<br />
-				<span class="filesize"><const S_PICNAME><a target="_blank" href="<var expand_filename($image)>"><var get_filename($image)></a>
+				<span class="filesize"><const S_PICNAME><a target="_blank" href="<var expand_image_filename($image)>"><var get_filename($image)></a>
 				-(<em><var $size> B, <var $width>x<var $height></em>)</span>
 				<span class="thumbnailmsg"><const S_THUMB></span><br />
 
 				<if $thumbnail>
-					<a target="_blank" href="<var expand_filename($image)>">
+					<a target="_blank" href="<var expand_image_filename($image)>">
 					<img src="<var expand_filename($thumbnail)>" width="<var $tn_width>" height="<var $tn_height>" alt="<var $size>" class="thumb" /></a>
 				</if>
 				<if !$thumbnail>
-					<div class="nothumb"><a target="_blank" href="<var expand_filename($image)>"><const S_NOTHUMB></a></div>
+					<if DELETED_THUMBNAIL>
+						<a target="_blank" href="<var expand_image_filename(DELETED_IMAGE)>">
+						<img src="<var expand_filename(DELETED_THUMBNAIL)>" width="<var $tn_width>" height="<var $tn_height>" alt="" class="thumb" /></a>
+					</if>
+					<if !DELETED_THUMBNAIL>
+						<div class="nothumb"><a target="_blank" href="<var expand_image_filename($image)>"><const S_NOTHUMB></a></div>
+					</if>
 				</if>
 			</if>
 
@@ -245,11 +257,13 @@ use constant MANAGER_HEAD_INCLUDE => NORMAL_HEAD_INCLUDE.q{
 <if $admin>
 	[<a href="<var $self>?task=mpanel&amp;admin=<var $admin>"><const S_MANAPANEL></a>]
 	[<a href="<var $self>?task=bans&amp;admin=<var $admin>"><const S_MANABANS></a>]
+	[<a href="<var $self>?task=proxy&amp;admin=<var $admin>"><const S_MANAPROXY></a>]
 	[<a href="<var $self>?task=spam&amp;admin=<var $admin>"><const S_MANASPAM></a>]
 	[<a href="<var $self>?task=sqldump&amp;admin=<var $admin>"><const S_MANASQLDUMP></a>]
 	[<a href="<var $self>?task=sql&amp;admin=<var $admin>"><const S_MANASQLINT></a>]
 	[<a href="<var $self>?task=mpost&amp;admin=<var $admin>"><const S_MANAPOST></a>]
 	[<a href="<var $self>?task=rebuild&amp;admin=<var $admin>"><const S_MANAREBUILD></a>]
+	[<a href="<var $self>?task=logout"><const S_MANALOGOUT></a>]
 </if>
 <div class="passvalid"><const S_MANAMODE></div><br />
 };
@@ -260,9 +274,13 @@ use constant ADMIN_LOGIN_TEMPLATE => compile_template(MANAGER_HEAD_INCLUDE.q{
 <input type="hidden" name="task" value="admin" />
 <const S_ADMINPASS>
 <input type="password" name="berra" size="8" value="" />
+<br />
+<label><input type="checkbox" name="savelogin" /> <const S_MANASAVE></label>
+<br />
 <select name="nexttask">
 <option value="mpanel"><const S_MANAPANEL></option>
 <option value="bans"><const S_MANABANS></option>
+<option value="proxy"><const S_MANAPROXY></option>
 <option value="spam"><const S_MANASPAM></option>
 <option value="sqldump"><const S_MANASQLDUMP></option>
 <option value="sql"><const S_MANASQLINT></option>
@@ -313,7 +331,7 @@ use constant POST_PANEL_TEMPLATE => compile_template(MANAGER_HEAD_INCLUDE.q{
 	<if $image>
 		<tr class="row<var $rowtype>">
 		<td colspan="6"><small>
-		<const S_PICNAME><a href="<var expand_filename($image)>"><var $image></a>
+		<const S_PICNAME><a href="<var expand_filename(clean_path($image))>"><var clean_string($image)></a>
 		(<var $size> B, <var $width>x<var $height>)&nbsp; MD5: <var $md5>
 		</small></td></tr>
 	</if>
@@ -370,6 +388,19 @@ use constant BAN_PANEL_TEMPLATE => compile_template(MANAGER_HEAD_INCLUDE.q{
 </td><td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td valign="bottom">
 
 <form action="<var $self>" method="post">
+<input type="hidden" name="task" value="addip" />
+<input type="hidden" name="type" value="whitelist" />
+<input type="hidden" name="admin" value="<var $admin>" />
+<table><tbody>
+<tr><td class="postblock"><const S_BANIPLABEL></td><td><input type="text" name="ip" size="24" /></td></tr>
+<tr><td class="postblock"><const S_BANMASKLABEL></td><td><input type="text" name="mask" size="24" /></td></tr>
+<tr><td class="postblock"><const S_BANCOMMENTLABEL></td><td><input type="text" name="comment" size="16" />
+<input type="submit" value="<const S_BANWHITELIST>" /></td></tr>
+</tbody></table></form>
+
+</td><td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr><tr><td valign="bottom">
+
+<form action="<var $self>" method="post">
 <input type="hidden" name="task" value="addstring" />
 <input type="hidden" name="type" value="wordban" />
 <input type="hidden" name="admin" value="<var $admin>" />
@@ -382,14 +413,13 @@ use constant BAN_PANEL_TEMPLATE => compile_template(MANAGER_HEAD_INCLUDE.q{
 </td><td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td valign="bottom">
 
 <form action="<var $self>" method="post">
-<input type="hidden" name="task" value="addip" />
-<input type="hidden" name="type" value="whitelist" />
+<input type="hidden" name="task" value="addstring" />
+<input type="hidden" name="type" value="trust" />
 <input type="hidden" name="admin" value="<var $admin>" />
 <table><tbody>
-<tr><td class="postblock"><const S_BANIPLABEL></td><td><input type="text" name="ip" size="24" /></td></tr>
-<tr><td class="postblock"><const S_BANMASKLABEL></td><td><input type="text" name="mask" size="24" /></td></tr>
+<tr><td class="postblock"><const S_BANTRUSTTRIP></td><td><input type="text" name="string" size="24" /></td></tr>
 <tr><td class="postblock"><const S_BANCOMMENTLABEL></td><td><input type="text" name="comment" size="16" />
-<input type="submit" value="<const S_BANWHITELIST>" /></td></tr>
+<input type="submit" value="<const S_BANTRUST>" /></td></tr>
 </tbody></table></form>
 
 </td></tr></tbody></table>
@@ -411,6 +441,10 @@ use constant BAN_PANEL_TEMPLATE => compile_template(MANAGER_HEAD_INCLUDE.q{
 		<td>Word</td>
 		<td><var $sval1></td>
 	</if>
+	<if $type eq 'trust'>
+		<td>NoCap</td>
+		<td><var $sval1></td>
+	</if>
 	<if $type eq 'whitelist'>
 		<td>Whitelist</td>
 		<td><var dec_to_dot($ival1)>/<var dec_to_dot($ival2)></td>
@@ -419,6 +453,59 @@ use constant BAN_PANEL_TEMPLATE => compile_template(MANAGER_HEAD_INCLUDE.q{
 	<td><var $comment></td>
 	<td><a href="<var $self>?admin=<var $admin>&amp;task=removeban&amp;num=<var $num>"><const S_BANREMOVE></a></td>
 	</tr>
+</loop>
+
+</tbody></table><br />
+
+}.NORMAL_FOOT_INCLUDE);
+
+
+use constant PROXY_PANEL_TEMPLATE => compile_template(MANAGER_HEAD_INCLUDE.q{
+
+<div class="dellist"><const S_MANAPROXY></div>
+        
+<div class="postarea">
+<table><tbody><tr><td valign="bottom">
+
+<if !ENABLE_PROXY_CHECK>
+	<div class="dellist"><const S_PROXYDISABLED></div>
+	<br />
+</if>        
+<form action="<var $self>" method="post">
+<input type="hidden" name="task" value="addproxy" />
+<input type="hidden" name="type" value="white" />
+<input type="hidden" name="admin" value="<var $admin>" />
+<table><tbody>
+<tr><td class="postblock"><const S_PROXYIPLABEL></td><td><input type="text" name="ip" size="24" /></td></tr>
+<tr><td class="postblock"><const S_PROXYTIMELABEL></td><td><input type="text" name="timestamp" size="24" />
+<input type="submit" value="<const S_PROXYWHITELIST>" /></td></tr>
+</tbody></table></form>
+
+</td></tr></tbody></table>
+</div><br />
+
+<table align="center"><tbody>
+<tr class="managehead"><const S_PROXYTABLE></tr>
+
+<loop $scanned>
+        <if $divider><tr class="managehead"><th colspan="6"></th></tr></if>
+
+        <tr class="row<var $rowtype>">
+
+        <if $type eq 'white'>
+                <td>White</td>
+	        <td><var $ip></td>
+        	<td><var $timestamp+PROXY_WHITE_AGE-time()></td>
+        </if>
+        <if $type eq 'black'>
+                <td>Black</td>
+	        <td><var $ip></td>
+        	<td><var $timestamp+PROXY_BLACK_AGE-time()></td>
+        </if>
+
+        <td><var $date></td>
+        <td><a href="<var $self>?admin=<var $admin>&amp;task=removeproxy&amp;num=<var $num>"><const S_PROXYREMOVEBLACK></a></td>
+        </tr>
 </loop>
 
 </tbody></table><br />
@@ -528,7 +615,7 @@ no strict;
 $stylesheets=get_stylesheets(); # make stylesheets visible to the templates
 use strict;
 
-sub get_filename($) { my $path=shift; $path=~m!([^/]+)$!; $1 }
+sub get_filename($) { my $path=shift; $path=~m!([^/]+)$!; clean_string($1) }
 
 sub get_stylesheets()
 {

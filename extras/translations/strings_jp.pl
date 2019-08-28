@@ -47,17 +47,19 @@ use constant S_ADMINPASS => 'Admin password:';
 
 use constant S_MANAPANEL => '記事削除';
 use constant S_MANABANS => 'Bans';
+use constant S_MANAPROXY => 'Proxy Panel';
 use constant S_MANASPAM => 'スパム';
 use constant S_MANASQLDUMP => 'SQL Dump';
 use constant S_MANASQLINT=> 'SQL Interface';
 use constant S_MANAPOST => '管理人投稿';
 use constant S_MANAREBUILD => 'キャッシュの再構築';
 use constant S_MANANUKE => 'Nuke board';
+use constant S_MANALOGOUT => 'Log out';									# 
+use constant S_MANASAVE => 'Remember me on this computer';				# Defines Label for the login cookie checbox
 use constant S_MANASUB => ' 認証';
 
 use constant S_NOTAGS => 'タグがつかえます';
 
-#use constant S_MPTITLE => '削除したい記事のチェックボックスにチェックを入れ、削除ボタンを押して下さい。';
 use constant S_MPDELETEIP => 'Delete all';
 use constant S_MPDELETE => '削除する';
 use constant S_MPRESET => 'リセット';
@@ -66,8 +68,6 @@ use constant S_MPDELETEALL => 'Del all';
 use constant S_MPBAN => 'Ban';
 use constant S_MPTABLE => '<th>Post No.</th><th>Time</th><th>Subject</th>'.
                           '<th>Name</th><th>Comment</th><th>IP</th>';
-#define(S_MDTABLE1, '<th>削除</th><th>記事No</th><th>投稿日</th><th>題名</th>');
-#define(S_MDTABLE2, '<th>投稿者</th><th>コメント</th><th>ホスト名</th><th>添付<br />(Bytes)</th><th>md5</th>');
 use constant S_IMGSPACEUSAGE => '【 画像データ合計 : <b>%d</b> KB 】';
 
 use constant S_BANTABLE => '<th>Type</th><th>Value</th><th>Comment</th><th>Action</th>';
@@ -80,6 +80,16 @@ use constant S_BANWORD => 'Ban word';
 use constant S_BANWHITELIST => 'Whitelist';
 use constant S_BANREMOVE => 'Remove';
 use constant S_BANCOMMENT => 'Comment';
+use constant S_BANTRUST => 'No captcha';
+use constant S_BANTRUSTTRIP => 'Tripcode';
+
+use constant S_PROXYTABLE => '<th>Type</th><th>IP</th><th>Expires</th><th>Date</th>'; # Explains names for Proxy Panel
+use constant S_PROXYIPLABEL => 'IP';
+use constant S_PROXYTIMELABEL => 'Seconds to live';
+use constant S_PROXYREMOVEBLACK => 'Remove';
+use constant S_PROXYWHITELIST => 'Whitelist';
+use constant S_PROXYDISABLED => 'Proxy detection is currently disabled in configuration.';
+use constant S_BADIP => 'Bad IP value';
 
 use constant S_SPAMEXPL => 'This is the list of domain names Wakaba considers to be spam.<br />'.
                            'You can find an up-to-date version <a href="http://wakaba.c3.cx/antispam/antispam.pl?action=view&format=wakaba">here</a>, '.
@@ -107,6 +117,7 @@ use constant S_TOOLONG => '本文が長すぎますっ！';
 use constant S_NOTALLOWED => '管理人以外は投稿できません';
 use constant S_UNUSUAL => '異常です';
 use constant S_BADHOST => '拒絶されました(host)';
+use constant S_BADHOSTPROXY => 'Error: Proxy is banned for being open.';				# Returns error for banned proxy ($badip string)
 use constant S_RENZOKU => '連続投稿はもうしばらく時間を置いてからお願い致します';
 use constant S_RENZOKU2 => '画像連続投稿はもうしばらく時間を置いてからお願い致します';
 use constant S_RENZOKU3 => '連続投稿はもうしばらく時間を置いてからお願い致します';
@@ -122,9 +133,14 @@ use constant S_SPAM => 'スパムを投稿しないで下さい';					# Returns error when de
 use constant S_SQLCONF => '接続失敗';
 use constant S_SQLFAIL => 'sql失敗';
 
+use constant S_REDIR => 'If the redirect didn\'t work, please choose one of the following mirrors:';    # Redir message for html in REDIR_DIR
+
 #define(S_ANONAME, '名無し');
 #define(S_ANOTEXT, '本文なし');
 #define(S_ANOTITLE, '無題');
+#use constant S_MPTITLE => '削除したい記事のチェックボックスにチェックを入れ、削除ボタンを押して下さい。';
+#define(S_MDTABLE1, '<th>削除</th><th>記事No</th><th>投稿日</th><th>題名</th>');
+#define(S_MDTABLE2, '<th>投稿者</th><th>コメント</th><th>ホスト名</th><th>添付<br />(Bytes)</th><th>md5</th>');
 
 no encoding;
 1;

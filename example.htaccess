@@ -5,6 +5,10 @@ AddCharset utf-8 html # If you change this, remember to change the RewriteRule e
 Deny from all
 </Files>
 
+<Files config.pl>
+Deny from all
+</Files>
+
 <IfModule mod_headers.c>
 <Files *.html>
 Header add Expires "Mon, 26 Jul 1997 05:00:00 GMT"

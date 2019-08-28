@@ -101,16 +101,16 @@ use constant PAGE_TEMPLATE => compile_template(NORMAL_HEAD_INCLUDE.q{
 	<loop $posts>
 		<if !$parent>
 			<if $image>
-				<span class="filesize"><const S_PICNAME><a target="_blank" href="<var expand_filename($image)>"><var get_filename($image)></a>
+				<span class="filesize"><const S_PICNAME><a target="_blank" href="<var expand_image_filename($image)>"><var get_filename($image)></a>
 				-(<em><var $size> B, <var $width>x<var $height></em>)</span>
 				<span class="thumbnailmsg"><const S_THUMB></span><br />
 
 				<if $thumbnail>
-					<a target="_blank" href="<var expand_filename($image)>">
+					<a target="_blank" href="<var expand_image_filename($image)>">
 					<img src="<var expand_filename($thumbnail)>" width="<var $tn_width>" height="<var $tn_height>" alt="<var $size>" class="thumb" /></a>
 				</if>
 				<if !$thumbnail>
-					<div class="nothumb"><a target="_blank" href="<var expand_filename($image)>"><const S_NOTHUMB></a></div>
+					<div class="nothumb"><a target="_blank" href="<var expand_image_filename($image)>"><const S_NOTHUMB></a></div>
 				</if>
 			</if>
 
@@ -155,16 +155,16 @@ use constant PAGE_TEMPLATE => compile_template(NORMAL_HEAD_INCLUDE.q{
 
 			<if $image>
 				<br />
-				<span class="filesize"><const S_PICNAME><a target="_blank" href="<var expand_filename($image)>"><var get_filename($image)></a>
+				<span class="filesize"><const S_PICNAME><a target="_blank" href="<var expand_image_filename($image)>"><var get_filename($image)></a>
 				-(<em><var $size> B, <var $width>x<var $height></em>)</span>
 				<span class="thumbnailmsg"><const S_THUMB></span><br />
 
 				<if $thumbnail>
-					<a target="_blank" href="<var expand_filename($image)>">
+					<a target="_blank" href="<var expand_image_filename($image)>">
 					<img src="<var expand_filename($thumbnail)>" width="<var $tn_width>" height="<var $tn_height>" alt="<var $size>" class="thumb" /></a>
 				</if>
 				<if !$thumbnail>
-					<div class="nothumb"><a target="_blank" href="<var expand_filename($image)>"><const S_NOTHUMB></a></div>
+					<div class="nothumb"><a target="_blank" href="<var expand_image_filename($image)>"><const S_NOTHUMB></a></div>
 				</if>
 			</if>
 

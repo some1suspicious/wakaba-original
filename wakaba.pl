@@ -53,6 +53,9 @@ my $task=($query->param("task") or $query->param("action"));
 # check for admin table
 init_admin_database() if(!table_exists(SQL_ADMIN_TABLE));
 
+# check for proxy table
+init_proxy_database() if(!table_exists(SQL_PROXY_TABLE));
+
 if(!table_exists(SQL_TABLE)) # check for comments table
 {
 	init_database();
@@ -61,6 +64,7 @@ if(!table_exists(SQL_TABLE)) # check for comments table
 }
 elsif(!$task)
 {
+	build_cache() unless -e HTML_SELF;
 	make_http_forward(HTML_SELF,ALTERNATE_REDIRECT);
 }
 elsif($task eq "post")
@@ -94,9 +98,14 @@ elsif($task eq "admin")
 {
 	my $password=$query->param("berra"); # lol obfuscation
 	my $nexttask=$query->param("nexttask");
+	my $savelogin=$query->param("savelogin");
+	my $admincookie=$query->cookie("wakaadmin");
 
-	if($password) { do_login($password,$nexttask) }
-	else { make_admin_login() }
+	do_login($password,$nexttask,$savelogin,$admincookie);
+}
+elsif($task eq "logout")
+{
+	do_logout();
 }
 elsif($task eq "mpanel")
 {
@@ -137,6 +146,26 @@ elsif($task eq "removeban")
 	my $admin=$query->param("admin");
 	my $num=$query->param("num");
 	remove_admin_entry($admin,$num);
+}
+elsif($task eq "proxy")
+{
+	my $admin=$query->param("admin");
+	make_admin_proxy_panel($admin);
+}
+elsif($task eq "addproxy")
+{
+	my $admin=$query->param("admin");
+	my $type=$query->param("type");
+	my $ip=$query->param("ip");
+	my $timestamp=$query->param("timestamp");
+	my $date=make_date(time(),DATE_STYLE);
+	add_proxy_entry($admin,$type,$ip,$timestamp,$date);
+}
+elsif($task eq "removeproxy")
+{
+	my $admin=$query->param("admin");
+	my $num=$query->param("num");
+	remove_proxy_entry($admin,$num);
 }
 elsif($task eq "spam")
 {
@@ -438,22 +467,31 @@ sub post_stuff($$$$$$$$$$$$$$)
 	#$host = gethostbyaddr($ip);
 	my $numip=dot_to_dec($ip);
 
+	# set up cookies
+	my $c_name=$name;
+	my $c_email=$email;
+	my $c_password=$password;
+
 	# check if IP is whitelisted
 	my $whitelisted=is_whitelisted($numip);
 
+	# process the tripcode - maybe the string should be decoded later
+	my $trip;
+	($name,$trip)=process_tripcode(decode_string($name),TRIPKEY,SECRET);
+
 	# check captcha - should whitelists affect captcha?
-	check_captcha($dbh,$captcha,$ip,$parent) if(ENABLE_CAPTCHA and !$no_captcha);
+	check_captcha($dbh,$captcha,$ip,$parent) if(ENABLE_CAPTCHA and !$no_captcha and !is_trusted($trip));
 
 	# check for bans
-	ban_check($numip,$name,$subject,$comment) unless($whitelisted);
+	ban_check($numip,$c_name,$subject,$comment) unless($whitelisted);
 
 	# spam check
 	make_error(S_SPAM) if(spam_check($comment,SPAM_FILE));
 	make_error(S_SPAM) if(spam_check($subject,SPAM_FILE));
-	make_error(S_SPAM) if(spam_check($name,SPAM_FILE));
+	make_error(S_SPAM) if(spam_check($c_name,SPAM_FILE));
 
 	# proxy check
-	proxy_check($ip) unless($whitelisted);
+	proxy_check($ip) if (!$whitelisted and ENABLE_PROXY_CHECK);
 
 	# check if thread exists, and get lasthit value
 	my ($parent_res,$lasthit);
@@ -467,15 +505,12 @@ sub post_stuff($$$$$$$$$$$$$$)
 		$lasthit=$time;
 	}
 
-	# set up cookies
-	my $c_name=$name;
-	my $c_email=$email;
-	my $c_password=$password;
 
 	# kill the name if anonymous posting is being enforced
 	if(FORCED_ANON)
 	{
 		$name='';
+		$trip='';
 		if($email=~/sage/i) { $email='sage'; }
 		else { $email=''; }
 	}
@@ -487,10 +522,6 @@ sub post_stuff($$$$$$$$$$$$$$)
 	# fix up the email/link
 	$email="mailto:$email" if($email and $email!~/^$protocol_re:/);
 
-	# process the tripcode - maybe the string should be decoded later
-	my $trip;
-	($name,$trip)=process_tripcode(decode_string($name),TRIPKEY,SECRET);
-
 	# format comment
 	$comment=decode_string($comment);
 	$comment=format_comment(clean_string($comment)) unless($no_format);
@@ -498,7 +529,7 @@ sub post_stuff($$$$$$$$$$$$$$)
 
 	# insert default values for empty fields
 	$parent=0 unless($parent);
-	$name=S_ANONAME unless($name or $trip);
+	$name=make_anonymous($ip,$time) unless($name or $trip);
 	$subject=S_ANOTITLE unless($subject);
 	$comment=S_ANOTEXT unless($comment);
 
@@ -581,6 +612,18 @@ sub is_whitelisted($)
 	return 0;
 }
 
+sub is_trusted($)
+{
+	my ($trip)=@_;
+	my ($sth);
+        $sth=$dbh->prepare("SELECT count(*) FROM ".SQL_ADMIN_TABLE." WHERE type='trust' AND sval1 = ?;") or make_error(S_SQLFAIL);
+        $sth->execute($trip) or make_error(S_SQLFAIL);
+
+        return 1 if(($sth->fetchrow_array())[0]);
+
+	return 0;
+}
+
 sub ban_check($$$$)
 {
 	my ($numip,$name,$subject,$comment)=@_;
@@ -646,12 +689,108 @@ sub flood_check($$$$)
 sub proxy_check($)
 {
 	my ($ip)=@_;
+	my ($sth);
 
-	for my $port (PROXY_CHECK)
-	{
-		# needs to be implemented
-		# make_error(sprintf S_PROXY,$port);
+	proxy_clean();
+
+	# check if IP is from a known banned proxy
+	$sth=$dbh->prepare("SELECT count(*) FROM ".SQL_PROXY_TABLE." WHERE type='black' AND ip = ?;") or make_error(S_SQLFAIL);
+	$sth->execute($ip) or make_error(S_SQLFAIL);
+
+	make_error(S_BADHOSTPROXY) if(($sth->fetchrow_array())[0]);
+
+	# check if IP is from a known non-proxy
+	$sth=$dbh->prepare("SELECT count(*) FROM ".SQL_PROXY_TABLE." WHERE type='white' AND ip = ?;") or make_error(S_SQLFAIL);
+	$sth->execute($ip) or make_error(S_SQLFAIL);
+
+        my $timestamp=time();
+        my $date=make_date($timestamp,DATE_STYLE);
+
+	if(($sth->fetchrow_array())[0])
+	{	# known good IP, refresh entry
+		$sth=$dbh->prepare("UPDATE ".SQL_PROXY_TABLE." SET timestamp=?, date=? WHERE ip=?;") or make_error(S_SQLFAIL);
+		$sth->execute($timestamp,$date,$ip) or make_error(S_SQLFAIL);
 	}
+	else
+	{	# unknown IP, check for proxy
+		my $command = PROXY_COMMAND . " " . $ip;
+		$sth=$dbh->prepare("INSERT INTO ".SQL_PROXY_TABLE." VALUES(null,?,?,?,?);") or make_error(S_SQLFAIL);
+
+		if(`$command`)
+		{
+			$sth->execute('black',$ip,$timestamp,$date) or make_error(S_SQLFAIL);
+			make_error(S_PROXY);
+		} 
+		else
+		{
+			$sth->execute('white',$ip,$timestamp,$date) or make_error(S_SQLFAIL);
+		}
+	}
+}
+
+sub add_proxy_entry($$$$$)
+{
+	my ($admin,$type,$ip,$timestamp,$date)=@_;
+	my ($sth);
+
+	check_password($admin,ADMIN_PASS);
+
+	# Verifies IP range is sane. The price for a human-readable db...
+	unless ($ip =~ /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/ && $1 <= 255 && $2 <= 255 && $3 <= 255 && $4 <= 255) {
+		make_error(S_BADIP);
+	}
+	if ($type = 'white') { 
+		$timestamp = $timestamp - PROXY_WHITE_AGE + time(); 
+	}
+	else
+	{
+		$timestamp = $timestamp - PROXY_BLACK_AGE + time(); 
+	}	
+
+	# This is to ensure user doesn't put multiple entries for the same IP
+	$sth=$dbh->prepare("DELETE FROM ".SQL_PROXY_TABLE." WHERE ip=?;") or make_error(S_SQLFAIL);
+	$sth->execute($ip) or make_error(S_SQLFAIL);
+
+	# Add requested entry
+	$sth=$dbh->prepare("INSERT INTO ".SQL_PROXY_TABLE." VALUES(null,?,?,?,?);") or make_error(S_SQLFAIL);
+	$sth->execute($type,$ip,$timestamp,$date) or make_error(S_SQLFAIL);
+
+        make_http_forward(get_script_name()."?admin=$admin&task=proxy",ALTERNATE_REDIRECT);
+}
+
+sub proxy_clean()
+{
+	my ($sth,$timestamp);
+
+	if(PROXY_BLACK_AGE == PROXY_WHITE_AGE)
+	{
+		$timestamp = time() - PROXY_BLACK_AGE;
+		$sth=$dbh->prepare("DELETE FROM ".SQL_PROXY_TABLE." WHERE timestamp<?;") or make_error(S_SQLFAIL);
+		$sth->execute($timestamp) or make_error(S_SQLFAIL);
+	} 
+	else
+	{
+		$timestamp = time() - PROXY_BLACK_AGE;
+		$sth=$dbh->prepare("DELETE FROM ".SQL_PROXY_TABLE." WHERE type='black' AND timestamp<?;") or make_error(S_SQLFAIL);
+		$sth->execute($timestamp) or make_error(S_SQLFAIL);
+
+		$timestamp = time() - PROXY_WHITE_AGE;
+		$sth=$dbh->prepare("DELETE FROM ".SQL_PROXY_TABLE." WHERE type='white' AND timestamp<?;") or make_error(S_SQLFAIL);
+		$sth->execute($timestamp) or make_error(S_SQLFAIL);
+	}
+}
+
+sub remove_proxy_entry($$)
+{
+	my ($admin,$num)=@_;
+	my ($sth);
+
+	check_password($admin,ADMIN_PASS);
+
+	$sth=$dbh->prepare("DELETE FROM ".SQL_PROXY_TABLE." WHERE num=?;") or make_error(S_SQLFAIL);
+	$sth->execute($num) or make_error(S_SQLFAIL);
+
+	make_http_forward(get_script_name()."?admin=$admin&task=proxy",ALTERNATE_REDIRECT);
 }
 
 sub format_comment($)
@@ -667,7 +806,7 @@ sub format_comment($)
 
 		$line=~s!&gtgt;([0-9]+)!
 			my $res=get_post($1);
-			if($res) { '<a href="'.get_reply_link($$res{num},$$res{parent}).'">&gt;&gt;'.$1.'</a>' }
+			if($res) { '<a href="'.get_reply_link($$res{num},$$res{parent}).'" onclick="highlight('.$1.')">&gt;&gt;'.$1.'</a>' }
 			else { "&gt;&gt;$1"; }
 		!ge;
 
@@ -727,14 +866,48 @@ sub encode_string($)
 	return encode(CHARSET,$str,0x0400);
 }
 
+sub make_anonymous($$)
+{
+	my ($ip,$time)=@_;
+
+	return S_ANONAME unless(SILLY_ANONYMOUS);
+
+	my $string=$ip;
+	$string.=",".int($time/86400) if(SILLY_ANONYMOUS=~/day/i);
+	$string.=",".$ENV{SCRIPT_NAME} if(SILLY_ANONYMOUS=~/board/i);
+
+	srand unpack "N",hide_data($string,4,"silly",SECRET);
+
+	return cfg_expand("%G% %W%",
+		W => ["%B%%V%%M%%I%%V%%F%","%B%%V%%M%%E%","%O%%E%","%B%%V%%M%%I%%V%%F%","%B%%V%%M%%E%","%O%%E%","%B%%V%%M%%I%%V%%F%","%B%%V%%M%%E%"],
+		B => ["B","B","C","D","D","F","F","G","G","H","H","M","N","P","P","S","S","W","Ch","Br","Cr","Dr","Bl","Cl","S"],
+		I => ["b","d","f","h","k","l","m","n","p","s","t","w","ch","st"],
+		V => ["a","e","i","o","u"],
+		M => ["ving","zzle","ndle","ddle","ller","rring","tting","nning","ssle","mmer","bber","bble","nger","nner","sh","ffing","nder","pper","mmle","lly","bling","nkin","dge","ckle","ggle","mble","ckle","rry"],
+		F => ["t","ck","tch","d","g","n","t","t","ck","tch","dge","re","rk","dge","re","ne","dging"],
+		O => ["Small","Snod","Bard","Billing","Black","Shake","Tilling","Good","Worthing","Blythe","Green","Duck","Pitt","Grand","Brook","Blather","Bun","Buzz","Clay","Fan","Dart","Grim","Honey","Light","Murd","Nickle","Pick","Pock","Trot","Toot","Turvey"],
+		E => ["shaw","man","stone","son","ham","gold","banks","foot","worth","way","hall","dock","ford","well","bury","stock","field","lock","dale","water","hood","ridge","ville","spear","forth","will"],
+		G => ["Albert","Alice","Angus","Archie","Augustus","Barnaby","Basil","Beatrice","Betsy","Caroline","Cedric","Charles","Charlotte","Clara","Cornelius","Cyril","David","Doris","Ebenezer","Edward","Edwin","Eliza","Emma","Ernest","Esther","Eugene","Fanny","Frederick","George","Graham","Hamilton","Hannah","Hedda","Henry","Hugh","Ian","Isabella","Jack","James","Jarvis","Jenny","John","Lillian","Lydia","Martha","Martin","Matilda","Molly","Nathaniel","Nell","Nicholas","Nigel","Oliver","Phineas","Phoebe","Phyllis","Polly","Priscilla","Rebecca","Reuben","Samuel","Sidney","Simon","Sophie","Thomas","Walter","Wesley","William"],
+	);
+}
+
 sub make_id_code($$$)
 {
-	my ($ip,$time,$email)=@_;
+	my ($ip,$time,$link)=@_;
 
-	return EMAIL_ID if($email and DISPLAY_ID==1);
+	return EMAIL_ID if($link and DISPLAY_ID=~/link/i);
+	return EMAIL_ID if($link=~/sage/i and DISPLAY_ID=~/sage/i);
 
-	my $day=int(($time+9*60*60)/86400); # weird time offset copied from futaba
-	return encode_base64(rc4(null_string(6),"i".$ip.$day.SECRET),"");
+	return resolve_host($ENV{REMOTE_ADDR}) if(DISPLAY_ID=~/host/i);
+	return $ENV{REMOTE_ADDR} if(DISPLAY_ID=~/ip/i);
+
+	my $string="";
+	$string.=",".int($time/86400) if(DISPLAY_ID=~/day/i);
+	$string.=",".$ENV{SCRIPT_NAME} if(DISPLAY_ID=~/board/i);
+
+	return mask_ip($ENV{REMOTE_ADDR},make_key("mask",SECRET,32).$string) if(DISPLAY_ID=~/mask/i);
+
+	return hide_data($ip.$string,6,"id",SECRET,1);
 }
 
 sub get_post($)
@@ -906,7 +1079,6 @@ sub process_file($$$)
 	{
 		my $newfilename=$uploadname;
 		$newfilename=~s!^.*[\\/]!!; # cut off any directory in filename
-		$newfilename=~s/[#<>"']/_/g; # remove special characters from filename
 		$newfilename=IMG_DIR.$newfilename;
 
 		unless(-e $newfilename) # verify no name clash
@@ -921,6 +1093,14 @@ sub process_file($$$)
 			make_error(S_DUPENAME);
 		}
 	}
+
+        if(ENABLE_LOAD)
+        {       # only called if files to be distributed across web     
+                $ENV{SCRIPT_NAME}=~m!^(.*/)[^/]+$!;
+		my $root=$1;
+                system(LOAD_SENDER_SCRIPT." $filename $root $md5 &");
+        }
+
 
 	return ($filename,$md5,$width,$height,$thumbnail,$tn_width,$tn_height);
 }
@@ -944,7 +1124,7 @@ sub delete_stuff($$$@)
 
 	foreach $post (@posts)
 	{
-		delete_post($post,$password,$fileonly);
+		delete_post($post,$password,$fileonly,0);
 	}
 
 	# update the cached HTML pages
@@ -956,11 +1136,13 @@ sub delete_stuff($$$@)
 	{ make_http_forward(HTML_SELF,ALTERNATE_REDIRECT); }
 }
 
-sub delete_post($$$)
+sub delete_post($$$$)
 {
-	my ($post,$password,$fileonly)=@_;
+	my ($post,$password,$fileonly,$archiving)=@_;
 	my ($sth,$row,$res,$reply);
 	my $thumb=THUMB_DIR;
+	my $archive=ARCHIVE_DIR;
+	my $src=IMG_DIR;
 
 	$sth=$dbh->prepare("SELECT * FROM ".SQL_TABLE." WHERE num=?;") or make_error(S_SQLFAIL);
 	$sth->execute($post) or make_error(S_SQLFAIL);
@@ -977,9 +1159,20 @@ sub delete_post($$$)
 
 			while($res=$sth->fetchrow_hashref())
 			{
-				# delete images if they exist
-				unlink $$res{image};
-				unlink $$row{thumbnail} if($$row{thumbnail}=~/^$thumb/);
+				system(LOAD_SENDER_SCRIPT." $$res{image} &") if(ENABLE_LOAD);
+	
+				if($archiving)
+				{
+					# archive images
+					rename $$res{image}, ARCHIVE_DIR.$$res{image};
+					rename $$res{thumbnail}, ARCHIVE_DIR.$$res{thumbnail} if($$res{thumbnail}=~/^$thumb/);
+				}
+				else
+				{
+					# delete images if they exist
+					unlink $$res{image};
+					unlink $$res{thumbnail} if($$res{thumbnail}=~/^$thumb/);
+				}
 			}
 
 			# remove post and possible replies
@@ -990,6 +1183,8 @@ sub delete_post($$$)
 		{
 			if($$row{image})
 			{
+				system(LOAD_SENDER_SCRIPT." $$row{image} &") if(ENABLE_LOAD);
+
 				# remove images
 				unlink $$row{image};
 				unlink $$row{thumbnail} if($$row{thumbnail}=~/^$thumb/);
@@ -1004,6 +1199,31 @@ sub delete_post($$$)
 		{
 			unless($fileonly) # removing an entire thread
 			{
+				if($archiving)
+				{
+					my $captcha = CAPTCHA_SCRIPT;
+					my $line;
+
+					open RESIN, '<', RES_DIR.$$row{num}.PAGE_EXT;
+					open RESOUT, '>', ARCHIVE_DIR.RES_DIR.$$row{num}.PAGE_EXT;
+					while($line = <RESIN>)
+					{
+						$line =~ s/img src="(.*?)$thumb/img src="$1$archive$thumb/g;
+						if(ENABLE_LOAD)
+						{
+							my $redir = REDIR_DIR;
+							$line =~ s/href="(.*?)$redir(.*?).html/href="$1$archive$src$2/g;
+						}
+						else
+						{
+							$line =~ s/href="(.*?)$src/href="$1$archive$src/g;
+						}
+						$line =~ s/src="[^"]*$captcha[^"]*"/src=""/g if(ENABLE_CAPTCHA);
+						print RESOUT $line;	
+					}
+					close RESIN;
+					close RESOUT;
+				}
 				unlink RES_DIR.$$row{num}.PAGE_EXT;
 			}
 			else # removing parent image
@@ -1064,7 +1284,7 @@ sub make_admin_ban_panel($)
 
 	check_password($admin,ADMIN_PASS);
 
-	$sth=$dbh->prepare("SELECT * FROM ".SQL_ADMIN_TABLE." WHERE type='ipban' OR type='wordban' OR type='whitelist' ORDER BY type ASC,num ASC;") or make_error(S_SQLFAIL);
+	$sth=$dbh->prepare("SELECT * FROM ".SQL_ADMIN_TABLE." WHERE type='ipban' OR type='wordban' OR type='whitelist' OR type='trust' ORDER BY type ASC,num ASC;") or make_error(S_SQLFAIL);
 	$sth->execute() or make_error(S_SQLFAIL);
 	while($row=get_decoded_hashref($sth))
 	{
@@ -1076,6 +1296,29 @@ sub make_admin_ban_panel($)
 
 	make_http_header();
 	print encode_string(BAN_PANEL_TEMPLATE->(admin=>$admin,bans=>\@bans));
+}
+
+sub make_admin_proxy_panel($)
+{
+	my ($admin)=@_;
+	my ($sth,$row,@scanned,$prevtype);
+
+	check_password($admin,ADMIN_PASS);
+
+	proxy_clean();
+
+	$sth=$dbh->prepare("SELECT * FROM ".SQL_PROXY_TABLE." ORDER BY timestamp ASC;") or make_error(S_SQLFAIL);
+	$sth->execute() or make_error(S_SQLFAIL);
+	while($row=get_decoded_hashref($sth))
+	{
+		$$row{divider}=1 if($prevtype ne $$row{type});
+		$prevtype=$$row{type};
+		$$row{rowtype}=@scanned%2+1;
+		push @scanned,$row;
+	}
+
+	make_http_header();
+	print encode_string(PROXY_PANEL_TEMPLATE->(admin=>$admin,scanned=>\@scanned));
 }
 
 sub make_admin_spam_panel($)
@@ -1155,12 +1398,38 @@ sub make_admin_post($)
 	print encode_string(ADMIN_POST_TEMPLATE->(admin=>$admin));
 }
 
-sub do_login($$)
+sub do_login($$$$)
 {
-	my ($password,$nexttask)=@_;
-	my $crypt=crypt_password($password);
+	my ($password,$nexttask,$savelogin,$admincookie)=@_;
+	my $crypt;
 
-	make_http_forward(get_script_name()."?task=$nexttask&admin=$crypt",ALTERNATE_REDIRECT)
+	if($password)
+	{
+		$crypt=crypt_password($password);
+	}
+	elsif($admincookie eq crypt_password(ADMIN_PASS))
+	{
+		$crypt=$admincookie;
+		$nexttask="mpanel";
+	}
+
+	if($crypt)
+	{
+		if($savelogin and $nexttask ne "nuke")
+		{
+			make_cookies(wakaadmin=>$crypt,
+			-charset=>CHARSET,-autopath=>COOKIE_PATH,-expires=>time+365*24*3600);
+		}
+
+		make_http_forward(get_script_name()."?task=$nexttask&admin=$crypt",ALTERNATE_REDIRECT)
+	}
+	else { make_admin_login() }
+}
+
+sub do_logout()
+{
+	make_cookies(wakaadmin=>"",-expires=>1);
+	make_http_forward(get_script_name()."?task=admin",ALTERNATE_REDIRECT)
 }
 
 sub do_rebuild_cache($)
@@ -1239,6 +1508,8 @@ sub do_nuke_database($)
 	check_password($admin,NUKE_PASS);
 
 	init_database();
+	#init_admin_database();
+	#init_proxy_database();
 
 	# remove images, thumbnails and threads
 	unlink glob IMG_DIR.'*';
@@ -1262,7 +1533,7 @@ sub check_password($$)
 
 sub crypt_password($)
 {
-	my $crypt=encode_base64(rc4(null_string(9),"a".(shift).$ENV{REMOTE_ADDR}.SECRET),"");
+	my $crypt=hide_data((shift).$ENV{REMOTE_ADDR},9,"admin",SECRET,1);
 	$crypt=~tr/+/./; # for web shit
 	return $crypt;
 }
@@ -1316,6 +1587,18 @@ sub get_secure_script_name()
 {
 	return 'https://'.$ENV{SERVER_NAME}.$ENV{SCRIPT_NAME} if(USE_SECURE_ADMIN);
 	return $ENV{SCRIPT_NAME};
+}
+
+sub expand_image_filename($)
+{
+	my $filename=shift;
+
+	return expand_filename(clean_path($filename)) unless ENABLE_LOAD;
+
+	my ($self_path)=$ENV{SCRIPT_NAME}=~m!^(.*/)[^/]+$!;
+	my $src=IMG_DIR;
+	$filename=~/$src(.*)/;
+	return $self_path.REDIR_DIR.clean_path($1).'.html';
 }
 
 sub get_reply_link($$)
@@ -1421,6 +1704,23 @@ sub init_admin_database()
 	$sth->execute() or make_error(S_SQLFAIL);
 }
 
+sub init_proxy_database()
+{
+	my ($sth);
+
+	$sth=$dbh->do("DROP TABLE ".SQL_PROXY_TABLE.";") if(table_exists(SQL_PROXY_TABLE));
+	$sth=$dbh->prepare("CREATE TABLE ".SQL_PROXY_TABLE." (".
+
+	"num ".get_sql_autoincrement().",".	# Entry number, auto-increments
+	"type TEXT,".				# Type of entry (black, white, etc)
+	"ip TEXT,".				# IP address
+	"timestamp INTEGER,".			# Age since epoch
+	"date TEXT".				# Human-readable form of date 
+
+	");") or make_error(S_SQLFAIL);
+	$sth->execute() or make_error(S_SQLFAIL);
+}
+
 sub repair_database()
 {
 	my ($sth,$row,@threads,$thread);
@@ -1444,6 +1744,7 @@ sub get_sql_autoincrement()
 {
 	return 'INTEGER PRIMARY KEY NOT NULL AUTO_INCREMENT' if(SQL_DBI_SOURCE=~/^DBI:mysql:/i);
 	return 'INTEGER PRIMARY KEY' if(SQL_DBI_SOURCE=~/^DBI:SQLite:/i);
+	return 'INTEGER PRIMARY KEY' if(SQL_DBI_SOURCE=~/^DBI:SQLite2:/i);
 
 	make_error(S_SQLCONF); # maybe there should be a sane default case instead?
 }
@@ -1464,7 +1765,7 @@ sub trim_database()
 
 		while($row=$sth->fetchrow_hashref())
 		{
-			delete_post($$row{num},"",0);
+			delete_post($$row{num},"",0,ARCHIVE_MODE);
 		}
 	}
 
@@ -1483,7 +1784,7 @@ sub trim_database()
 		{
 			my ($threadposts,$threadsize)=count_posts($$row{num});
 
-			delete_post($$row{num},"",0);
+			delete_post($$row{num},"",0,ARCHIVE_MODE);
 
 			$threads--;
 			$posts-=$threadposts;

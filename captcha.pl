@@ -190,7 +190,7 @@ sub init_captcha_database($)
 	my ($dbh)=@_;
 	my ($sth);
 
-	$sth=$dbh->do("DROP TABLE ".SQL_CAPTCHA_TABLE.";") if(table_exists_captcha($dbh,SQL_ADMIN_TABLE));
+	$sth=$dbh->do("DROP TABLE ".SQL_CAPTCHA_TABLE.";") if(table_exists_captcha($dbh,SQL_CAPTCHA_TABLE));
 	$sth=$dbh->prepare("CREATE TABLE ".SQL_CAPTCHA_TABLE." (".
 	"ip TEXT,".
 	"pagekey TEXT,".

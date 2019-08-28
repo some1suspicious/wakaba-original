@@ -2,12 +2,10 @@ function get_cookie(name)
 {
 	with(document.cookie)
 	{
-		var index=indexOf(name+"=");
-		if(index==-1) return '';
-		index=indexOf("=",index)+1;
-		var endstr=indexOf(";",index);
-		if(endstr==-1) endstr=length;
-		return unescape(substring(index,endstr));
+		var regexp=new RegExp("(^|;\\s+)"+name+"=(.*?)(;|$)");
+		var hit=regexp.exec(document.cookie);
+		if(hit&&hit.length>2) return unescape(hit[2]);
+		else return '';
 	}
 };
 
@@ -42,15 +40,22 @@ function get_password(name)
 
 
 
-function insert(text) /* hay WTSnacks what's goin on in this function? */
+function insert(text)
 {
 	var textarea=document.forms.postform.comment;
 	if(textarea)
 	{
-		if(textarea.createTextRange && textarea.caretPos)
+		if(textarea.createTextRange && textarea.caretPos) // IE
 		{
 			var caretPos=textarea.caretPos;
 			caretPos.text=caretPos.text.charAt(caretPos.text.length-1)==" "?text+" ":text;
+		}
+		else if(textarea.setSelectionRange) // Firefox
+		{
+			var start=textarea.selectionStart;
+			var end=textarea.selectionEnd;
+			textarea.value=textarea.value.substr(0,start)+text+textarea.value.substr(end);
+			textarea.setSelectionRange(start+text.length,start+text.length);
 		}
 		else
 		{
@@ -58,6 +63,23 @@ function insert(text) /* hay WTSnacks what's goin on in this function? */
 		}
 		textarea.focus();
 	}
+}
+
+function highlight(post)
+{
+	var cells=document.getElementsByTagName("td");
+	for(var i=0;i<cells.length;i++) if(cells[i].className=="highlight") cells[i].className="reply";
+
+	var reply=document.getElementById("reply"+post);
+	if(reply)
+	{
+		reply.className="highlight";
+/*		var match=/^([^#]*)/.exec(document.location.toString());
+		document.location=match[1]+"#"+post;*/
+		return false;
+	}
+
+	return true;
 }
 
 
@@ -79,21 +101,6 @@ function set_stylesheet(styletitle,norefresh)
 		}
 	}
 	if(!found) set_preferred_stylesheet();
-
-/*	if(!norefresh)
-	{
-		var images=document.images; //getElementsByTagName("img");
-		for(var i=0;i<images.length;i++)
-		{
-			var classname=images[i].getAttribute('class');
-			if(classname&&classname.indexOf('captcha')!=-1)
-			{
-				//var src=images[i].src+"";
-				images[i].src=images[i].src;
-				//images[i].src=src+"&c";
-			}
-		}
-	}*/
 }
 
 function set_preferred_stylesheet()
@@ -147,13 +154,12 @@ window.onload=function(e)
 {
 	var match;
 
-	if(match=/#i([0-9]+)/.exec(document.location.toString())) insert(">>"+match[1]);
+	if(match=/#i([0-9]+)/.exec(document.location.toString()))
+	if(!document.forms.postform.comment.value)
+	insert(">>"+match[1]);
 
 	if(match=/#([0-9]+)/.exec(document.location.toString()))
-	{
-		var reply=document.getElementById("reply"+match[1]);
-		if(reply) reply.className="highlight";
-	}
+	highlight(match[1]);
 }
 
 if(style_cookie)

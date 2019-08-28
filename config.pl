@@ -20,6 +20,7 @@
 ##use constant SQL_PASSWORD => '';				# Not used by SQLite
 #use constant SQL_TABLE => 'comments';			# Table (NOT DATABASE) used by image board
 #use constant SQL_ADMIN_TABLE => 'admin';		# Table used for admin information
+#use constant SQL_PROXY_TABLE => 'proxy';		# Table used for proxy information
 #use constant USE_TEMPFILES => 1;				# Set this to 1 under Unix and 0 under Windows! (Use tempfiles when creating pages)
 
 # Page look
@@ -35,6 +36,7 @@
 #use constant S_ANONAME => 'Anonymous';			# Defines what to print if there is no text entered in the name field
 #use constant S_ANOTEXT => '';					# Defines what to print if there is no text entered in the comment field
 #use constant S_ANOTITLE => '';					# Defines what to print if there is no text entered into subject field
+#use constant SILLY_ANONYMOUS => '';			# Make up silly names for anonymous people (0 or '': don't display, any combination of 'day' or 'board': make names change for each day or board, 'static': static names)
 #use constant DEFAULT_STYLE => 'Futaba';		# Title of the default style for the board.
 
 # Limitations
@@ -64,9 +66,24 @@
 #use constant CAPTCHA_ROTATION => 0.3;
 #use constant CAPTCHA_SPACING => 2.5;
 
+# Load Balancing
+#use constant ENABLE_LOAD => 0;					# Enable the distribution of image files across multiple hosts (0: no, 1: yes). May not work on a windows host. Do not enable if using STUPID_THUMBNAILING.
+#use constant LOAD_SENDER_SCRIPT => './sender.pl';
+#use constant LOAD_LOCAL => 120;				# Gigabytes of available bandwidth relative to other hosts (please read documentation)
+#use constant LOAD_HOSTS => (['http://somesite/loader.pl', 'password', 100]);
+#use constant LOAD_KBRATE => 25;				# minimum send rate that will be accepted without timing out
+
+# Proxy
+#use constant ENABLE_PROXY_CHECK => 0;			# Enable proxy checking (0: no, 1:yes). Please read the documentation first!
+#use constant PROXY_COMMAND => 'proxycheck -s -d CHANGEME -c chat:CHANGEME ESMTP" -aaaa';	# Only uncomment if you know what you're doing... 
+#use constant PROXY_WHITE_AGE => 604800;		# Seconds until confirmed non-proxy entry expires.
+#use constant PROXY_BLACK_AGE => 604800;		# Seconds until confirmed proxy entry expires.
+
 # Tweaks
 #use constant THUMBNAIL_SMALL => 1;				# Thumbnail small images (1: yes, 0: no)
 #use constant THUMBNAIL_QUALITY => 70;			# Thumbnail JPEG quality
+#use constant DELETED_THUMBNAIL => '';			# Thumbnail to show for deleted images (leave empty to show text message)
+#use constant DELETED_IMAGE => '';				# Image to link for deleted images (only used together with DELETED_THUMBNAIL)
 #use constant ALLOW_TEXTONLY => 1;				# Allow textonly posts (1: yes, 0: no)
 #use constant ALLOW_IMAGES => 1;				# Allow image posting (1: yes, 0: no)
 #use constant ALLOW_TEXT_REPLIES => 1;			# Allow replies (1: yes, 0: no)
@@ -82,7 +99,13 @@
 #use constant CHARSET => 'utf-8';				# Character set to use, typically 'utf-8' or 'shift_jis'. Disable charset handling by setting to ''. Remember to set Apache to use the same character set for .html files! (AddCharset shift_jis html)
 #use constant CONVERT_CHARSETS => 1;			# Do character set conversions internally
 #use constant TRIM_METHOD => 0;					# Which threads to trim (0: oldest - like futaba 1: least active - furthest back)
-#use constant DATE_STYLE => 'futaba';				# Date style ('futaba', '2ch', 'localtime', 'tiny')
+#use constant ARCHIVE_MODE => 0;				# Old images and posts are moved into an archive dir instead of deleted (0: no 1: yes). It is HIGHLY RECOMMENDED you use TRIM_METHOD => 1 with this, or you may end up with unreferenced pictures in your archive
+#use constant DATE_STYLE => 'futaba';			# Date style ('futaba', '2ch', 'localtime', 'tiny')
+#use constant DISPLAY_ID => '';					# How to display user IDs (0 or '': don't display,
+												#  'day' and 'board' in any combination: make IDs change for each day or board,
+												#  'mask': display masked IP address (similar IPs look similar, but are still encrypted)
+												#  'sage': don't display ID when user sages, 'link': don't display ID when the user fills out the link field,
+												#  'ip': display user's IP, 'host': display user's host)
 #use constant DISPLAY_ID => 0;					# Display user IDs (0: never, 1: if no email, 2:always)
 #use constant EMAIL_ID => 'Heaven';				# ID string to use when DISPLAY_ID is 1 and the user uses an email.
 #use constant TRIPKEY => '!';					# this character is displayed before tripcodes
@@ -98,6 +121,8 @@
 #use constant IMG_DIR => 'src/';				# Image directory (needs to be writeable by the script)
 #use constant THUMB_DIR => 'thumb/';			# Thumbnail directory (needs to be writeable by the script)
 #use constant RES_DIR => 'res/';				# Reply cache directory (needs to be writeable by the script)
+#use constant ARCHIVE_DIR => 'arch/';			# Root of archive directories (all need to be writeable by the script)
+#use constant REDIR_DIR => 'redir/';			# Redir directory, used for redirecting clients when load balancing
 #use constant HTML_SELF => 'wakaba.html';		# Name of main html file
 #use constant JS_FILE => 'wakaba.js';			# Location of the js file
 #use constant PAGE_EXT => '.html';				# Extension used for board pages after first

@@ -1,14 +1,21 @@
+# wakautils.pl v7.14
+
 use strict;
 
 use Time::Local;
+use Socket;
 
+my $has_md5=0;
+eval 'use Digest::MD5 qw(md5)';
+$has_md5=1 unless $@;
 
+use constant MAX_UNICODE => 1114111;
 
 #
 # HTML utilities
 #
 
-my $protocol_re=qr/(?:http|https|ftp|mailto|nntp)/;
+my $protocol_re=qr/(?:http|https|ftp|mailto|news|irc)/;
 
 sub abbreviate_html($$$)
 {
@@ -38,7 +45,7 @@ sub abbreviate_html($$$)
 			if($lines>=$max_lines)
 			{
  				# check if there's anything left other than end-tags
- 				return undef if((substr $html,pos $html)=~m!^(?:\s*</\w+>)*$!);
+ 				return undef if (substr $html,pos $html)=~m!^(?:\s*</\w+>)*\s*$!s;
 
 				my $abbrev=substr $html,0,pos $html;
 				while(my $tag=pop @stack) { $abbrev.="</$tag>" }
@@ -51,26 +58,123 @@ sub abbreviate_html($$$)
 	return undef;
 }
 
+sub sanitize_html($%)
+{
+	my ($html,%tags)=@_;
+	my (@stack,$clean);
+	my $entity_re=qr/&(?!\#[0-9]+;|\#x[0-9a-fA-F]+;|amp;|lt;|gt;)/;
+
+	while($html=~/(?:([^<]+)|<([^<>]*)>|(<))/sg)
+	{
+		my ($text,$tag,$lt)=($1,$2,$3);
+
+		if($lt)
+		{
+			$clean.="&lt;";
+		}
+		elsif($text)
+		{
+			$text=~s/$entity_re/&amp;/g;
+			$text=~s/>/&gt;/g;
+			$clean.=$text;
+		}
+		else
+		{
+			if($tag=~m!^\s*(/?)\s*([a-z0-9_:\-\.]+)(?:\s+(.*?)|)\s*(/?)\s*$!si)
+			{
+				my ($closing,$name,$args,$implicit)=($1,lc($2),$3,$4);
+
+				if($tags{$name})
+				{
+					if($closing)
+					{
+						if(grep { $_ eq $name } @stack)
+						{
+							my $entry;
+
+							do {
+								$entry=pop @stack;
+								$clean.="</$entry>";
+							} until $entry eq $name;
+						}
+					}
+					else
+					{
+						my %args;
+
+						$args=~s/\s/ /sg;
+
+						while($args=~/([a-z0-9_:\-\.]+)(?:\s*=\s*(?:'([^']*?)'|"([^"]*?)"|['"]?([^'" ]*))|)/gi)
+						{
+							my ($arg,$value)=(lc($1),defined($2)?$2:defined($3)?$3:$4);
+							$value=$arg unless defined($value);
+
+							my $type=$tags{$name}{args}{$arg};
+
+							if($type)
+							{
+								my $passes=1;
+
+								if($type=~/url/i) { $passes=0 unless $value=~/(?:^$protocol_re:|^[^:]+$)/ }
+								if($type=~/number/i) { $passes=0 unless $value=~/^[0-9]+$/  }
+
+								if($passes)
+								{
+									$value=~s/$entity_re/&amp;/g;
+
+									if($value=~/"/) { $value="'$value'" }
+									else { $value="\"$value\"" }
+
+									$args{$arg}=$value;
+								}
+							}
+						}
+
+						my $cleanargs=join " ",map { "$_=$args{$_}" } keys %args;
+
+						$implicit="/" if($tags{$name}{empty});
+
+						push @stack,$name unless $implicit;
+
+						$clean.="<$name";
+						$clean.=" $cleanargs" if $cleanargs;
+						$clean.=" $implicit" if $implicit;
+						$clean.=">";
+					}
+				}
+			}
+		}
+	}
+
+	my $entry;
+	while($entry=pop @stack) { $clean.="</$entry>" }
+
+	return clean_entities($clean);
+}
+
+sub describe_allowed(%)
+{
+	my (%tags)=@_;
+
+	return join ", ",map { $_.($tags{$_}{args}?" (".(join ", ",sort keys %{$tags{$_}{args}}).")":"") } sort keys %tags;
+}
+
 sub do_wakabamark($;$$)
 {
 	my ($text,$handler,$simplify)=@_;
 	my $res;
 
-	# fix newlines
-	$text=~s/\r\n/\n/g;
-	$text=~s/\r/\n/g;
-
-	my @lines=split /\n/,$text;
+	my @lines=split /(?:\r\n|\n|\r)/,$text;
 
 	while(defined($_=$lines[0]))
 	{
 		if(/^\s*$/) { shift @lines; } # skip empty lines
-		elsif(/^(1\.|[\*\+\-]) .*/) # lists
+		elsif(/^(1\.|[\*\+\-]) /) # lists
 		{
-			my ($tag,$re,$html);
+			my ($tag,$re,$skip,$html);
 
-			if($1 eq "1.") { $tag="ol"; $re=qr/[0-9]+\./; }
-			else { $tag="ul"; $re=qr/\Q$1\E/; }
+			if($1 eq "1.") { $tag="ol"; $re=qr/[0-9]+\./; $skip=1; }
+			else { $tag="ul"; $re=qr/\Q$1\E/; $skip=0; }
 
 			while($lines[0]=~/^($re)(?: |\t)(.*)/)
 			{
@@ -80,16 +184,18 @@ sub do_wakabamark($;$$)
 
 				while($lines[0]=~/^(?: {1,$spaces}|\t)(.*)/) { $item.="$1\n"; shift @lines }
 				$html.="<li>".do_wakabamark($item,$handler,1)."</li>";
+
+				if($skip) { while(@lines and $lines[0]=~/^\s*$/) { shift @lines; } } # skip empty lines
 			}
 			$res.="<$tag>$html</$tag>";
 		}
-		elsif(/^(?:    |\t).*/) # code sections
+		elsif(/^(?:    |\t)/) # code sections
 		{
 			my @code;
 			while($lines[0]=~/^(?:    |\t)(.*)/) { push @code,$1; shift @lines; }
 			$res.="<pre><code>".(join "<br />",@code)."</code></pre>";
 		}
-		elsif(/^&gt;.*/) # quoted sections
+		elsif(/^&gt;/) # quoted sections
 		{
 			my @quote;
 			while($lines[0]=~/^(&gt;.*)/) { push @quote,$1; shift @lines; }
@@ -107,7 +213,8 @@ sub do_wakabamark($;$$)
 		}
 		$simplify=0;
 	}
-	return $res;
+
+	return clean_entities($res);
 }
 
 sub do_spans($@)
@@ -148,21 +255,22 @@ sub do_spans($@)
 	} @_;
 }
 
-sub compile_template($%)
+sub compile_template($;$)
 {
-	my ($str)=@_;
+	my ($str,$nostrip)=@_;
 	my $code;
 
 	$str=~s/^\s+//;
 	$str=~s/\s+$//;
-	$str=~s/\n\s*/ /sg;
+	$str=~s/\n\s*/ /sg unless $nostrip;
 
-	while($str=~m!(.*?)(<(/?)(var|const|if|loop)(?:|\s+([^>]*))>|$)!sg)
+	while($str=~m!(.*?)(<(/?)(var|const|if|loop)(?:|\s+(.*?[^\\]))>|$)!sg)
 	{
 		my ($html,$tag,$closing,$name,$args)=($1,$2,$3,$4,$5);
 
 		$html=~s/(['\\])/\\$1/g;
 		$code.="\$res.='$html';" if(length $html);
+		$args=~s/\\>/>/g;
 
 		if($tag)
 		{
@@ -200,6 +308,12 @@ sub compile_template($%)
 	return $sub;
 }
 
+sub template_for($$$)
+{
+	my ($var,$start,$end)=@_;
+	return [map +{$var=>$_},($start..$end)];
+}
+
 sub include($)
 {
 	my ($filename)=@_;
@@ -218,16 +332,29 @@ sub clean_string($)
 {
 	my ($str)=@_;
 
+	$str=~s/[\x00-\x08\x0b\x0c\x0e-\x1f]//g; # remove control chars
+
 	$str=~s/&/&amp;/g;
 	$str=~s/\</&lt;/g;
 	$str=~s/\>/&gt;/g;
-	$str=~s/"/&quot;/g; #"
+	$str=~s/"/&quot;/g;
 	$str=~s/'/&#39;/g;
 	$str=~s/,/&#44;/g;
 
 	# repair unicode entities
 	$str=~s/&amp;(\#[0-9]+;)/&$1/g;
 	$str=~s/&amp;(\#x[0-9a-f]+;)/&$1/gi;
+
+	return clean_entities($str);
+}
+
+sub clean_entities($)
+{
+	my ($str)=@_;
+
+	# strip large unicode entities
+	$str=~s/&\#([0-9]+);/$1<=MAX_UNICODE?"&#$1;":""/ge;
+	$str=~s/&\#x([0-9a-f]+);/hex($1)<=MAX_UNICODE?"&#x$1;":""/gei; # haado!
 
 	return $str;
 }
@@ -239,10 +366,136 @@ sub escamp($)
 	return $str;
 }
 
+sub urlenc($)
+{
+	my ($str)=@_;
+	$str=~s/([^\w ])/"%".sprintf("%02x",ord $1)/sge;
+	$str=~s/ /+/sg;
+	return $str;
+}
+
+sub clean_path($)
+{
+	my ($str)=@_;
+	$str=~s!([^\w/._\-])!"%".sprintf("%02x",ord $1)!sge;
+	return $str;
+}
+
+
+
+#
+# Javascript utilities
+#
+
+sub clean_to_js($)
+{
+	my $str=shift;
+
+	$str=~s/&amp;/\\x26/g;
+	$str=~s/&lt;/\\x3c/g;
+	$str=~s/&gt;/\\x3e/g;
+	$str=~s/&quot;/\\x22/g; #"
+	$str=~s/(&#39;|')/\\x27/g;
+	$str=~s/&#44;/,/g;
+	$str=~s/&#[0-9]+;/sprintf "\\u%04x",$1/ge;
+	$str=~s/&#x[0-9a-f]+;/sprintf "\\u%04x",hex($1)/gie;
+	$str=~s/(\r\n|\r|\n)/\\n/g;
+
+	return "'$str'";
+}
+
+sub js_string($)
+{
+	my $str=shift;
+
+	$str=~s/\\/\\\\/g;
+	$str=~s/'/\\'/g;
+	$str=~s/([\x00-\x1f\x80-\xff<>&])/sprintf "\\x%02x",ord($1)/ge;
+	$str=~s/([\x{100}-\x{ffff}])/sprintf "\\u%04x",ord($1)/ge;
+	$str=~s/(\r\n|\r|\n)/\\n/g;
+
+	return "'$str'";
+}
+
+sub js_array(@)
+{
+	return "[".(join ",",@_)."]";
+}
+
+sub js_hash(%)
+{
+	my %hash=@_;
+	return "{".(join ",",map "'$_':$hash{$_}",keys %hash)."}";
+}
+
 
 #
 # HTTP utilities
 #
+
+# LIGHTWEIGHT HTTP/1.1 CLIENT
+# by fatalM4/coda, modified by WAHa.06x36
+
+use constant CACHEFILE_PREFIX => 'cache-'; # you can make this a directory (e.g. 'cachedir/cache-' ) if you'd like
+use constant FORCETIME => '0.04'; 	# If the cache is less than (FORCETIME) days old, don't even attempt to refresh.
+                                    # Saves everyone some bandwidth. 0.04 days is ~ 1 hour. 0.0007 days is ~ 1 min.
+use IO::Socket::INET;
+
+sub get_http($)
+{
+	my $url=shift;
+	my ($host,$port,$doc)=$url=~m!^(?:http://|)([^/]+)(:[0-9]+|)(.*)$!;
+	$port=80 unless($port);
+
+	my $hash=encode_base64(rc4(null_string(6),"$host:$port$doc",0),"");
+	$hash=~tr!/+!_-!; # remove / and +
+	my $cachefile=CACHEFILE_PREFIX.($doc=~m!([^/]{0,15})$!)[0]."-$hash"; # up to 15 chars of filename
+	my ($modified,$cache);
+
+	if(open CACHE,"<",$cachefile)  # get modified date and cache contents
+	{
+		$modified=<CACHE>;
+		$cache=join "",<CACHE>;
+		chomp $modified;
+		close CACHE;
+
+		return $cache if((-M $cachefile)<FORCETIME);
+	}
+
+	my $sock=IO::Socket::INET->new("$host:$port") or return $cache;
+	print $sock "GET $doc HTTP/1.1\r\nHost: $host\r\nConnection: close\r\n";
+	print $sock "If-Modified-Since: $modified\r\n" if $modified;
+	print $sock "\r\n"; #finished!
+
+	# header
+	my ($line,$statuscode,$lastmod);
+	do {
+		$line=<$sock>;
+		$statuscode=$1 if($line=~/^HTTP\/1\.1 (\d+)/);
+		$lastmod=$1 if($line=~/^Last-Modified: (.*)/);
+	} until ($line=~/^\r?\n/);
+
+	# body
+	my $output=join "",<$sock>;
+	undef $sock;
+
+	if($statuscode=="200")
+	{
+		#navbar changed, update cache
+		if(open CACHE,">$cachefile")
+		{
+			print CACHE "$lastmod\n";
+			print CACHE $output;
+			close CACHE or die "close cache: $!";
+		}
+		return $output;
+	}
+	else # touch and return cache, or nothing if no cache
+	{
+		utime(time,time,$cachefile);
+		return $cache;
+	}
+}
 
 sub make_http_forward($;$)
 {
@@ -259,7 +512,7 @@ sub make_http_forward($;$)
 	}
 	else
 	{
-		print "Status: 301 Go West\n";
+		print "Status: 303 Go West\n";
 		print "Location: $location\n";
 		print "Content-Type: text/html\n";
 		print "\n";
@@ -296,14 +549,6 @@ sub make_cookies(%)
 
 		print "Set-Cookie: $name=$value; path=$path; expires=$date;\n";
 	}
-}
-
-sub urlenc($)
-{
-	my ($str)=@_;
-	$str=~s/([^\w ])/"%".sprintf("%02x",ord $1)/sge;
-	$str=~s/ /+/sg;
-	return $str;
 }
 
 sub cookie_encode($;$)
@@ -389,6 +634,15 @@ sub expand_filename($)
 	return $self_path.$filename;
 }
 
+#
+# Network utilities
+#
+
+sub resolve_host($)
+{
+	my $ip=shift;
+	return (gethostbyaddr inet_aton($ip),AF_INET or $ip);
+}
 
 
 #
@@ -409,7 +663,11 @@ sub process_tripcode($;$$$)
 
 		if($secret and $trippart=~s/(?:\Q$marker\E)(?<!&#)(?:\Q$marker\E)*(.*)$//) # do we want secure trips, and is there one?
 		{
-			$trip=$tripkey.$tripkey.encode_base64(rc4(null_string(6),"t".$1.$secret),"");
+			my $str=$1;
+			my $maxlen=255-length($secret);
+			$str=substr $str,0,$maxlen if(length($str)>$maxlen);
+#			$trip=$tripkey.$tripkey.encode_base64(rc4(null_string(6),"t".$str.$secret),"");
+			$trip=$tripkey.$tripkey.hide_data($1,6,"trip",$secret,1);
 			return ($namepart,$trip) unless($trippart); # return directly if there's no normal tripcode
 		}
 
@@ -550,6 +808,77 @@ sub decode_base64($) # stolen from MIME::Base64::Perl
 	return unpack "u",join '',map { chr(32+length($_)*3/4).$_ } $str=~/(.{1,60})/gs;
 }
 
+sub dot_to_dec($)
+{
+	return unpack('N',pack('C4',split(/\./, $_[0]))); # wow, magic.
+}
+
+sub dec_to_dot($)
+{
+	return join('.',unpack('C4',pack('N',$_[0])));
+}
+
+sub mask_ip($$;$)
+{
+	my ($ip,$key,$algorithm)=@_;
+
+	$ip=dot_to_dec($ip) if $ip=~/\./;
+
+	my ($block,$stir)=setup_masking($key,$algorithm);
+	my $mask=0x80000000;
+
+	for(1..32)
+	{
+		my $bit=$ip&$mask?"1":"0";
+		$block=$stir->($block);
+		$ip^=$mask if(ord($block)&0x80);
+		$block=$bit.$block;
+		$mask>>=1;
+	}
+
+	return sprintf "%08x",$ip;
+}
+
+sub unmask_ip($$;$)
+{
+	my ($id,$key,$algorithm)=@_;
+
+	$id=hex($id);
+
+	my ($block,$stir)=setup_masking($key,$algorithm);
+	my $mask=0x80000000;
+
+	for(1..32)
+	{
+		$block=$stir->($block);
+		$id^=$mask if(ord($block)&0x80);
+		my $bit=$id&$mask?"1":"0";
+		$block=$bit.$block;
+		$mask>>=1;
+	}
+
+	return dec_to_dot($id);
+}
+
+sub setup_masking($$)
+{
+	my ($key,$algorithm)=@_;
+
+	$algorithm=$has_md5?"md5":"rc6" unless $algorithm;
+
+	my ($block,$stir);
+
+	if($algorithm eq "md5")
+	{
+		return (md5($key),sub { md5(shift) })
+	}
+	else
+	{
+		setup_rc6($key);
+		return (null_string(16),sub { encrypt_rc6(shift) })
+	}
+}
+
 sub make_random_string($)
 {
 	my ($num)=@_;
@@ -562,6 +891,22 @@ sub make_random_string($)
 }
 
 sub null_string($) { "\0"x(shift) }
+
+sub make_key($$$)
+{
+	my ($key,$secret,$length)=@_;
+	return rc4(null_string($length),$key.$secret);
+}
+
+sub hide_data($$$$;$)
+{
+	my ($data,$bytes,$key,$secret,$base64)=@_;
+
+	my $crypt=rc4(null_string($bytes),make_key($key,$secret,32).$data);
+
+	return encode_base64($crypt,"") if $base64;
+	return $crypt;
+}
 
 
 
@@ -596,7 +941,7 @@ sub write_array($@)
 	}
 	else
 	{
-		open FILE,">$file" or die "Couldn't write to directory";
+		open FILE,">$file" or die "Couldn't write to file \"$file\"";
 		print FILE join "\n",@array;
 		close FILE;
 	}
@@ -748,7 +1093,12 @@ sub make_thumbnail($$$$$;$)
 		return 1 unless($?);
 	}
 
-	# try PerlMagick last, because it sucks ass.
+	# try Mac OS X's sips
+
+	`sips -z $width $height -s formatOptions $quality -s format jpeg $filename --out $thumbnail >/dev/null`; # quality setting doesn't seem to work
+	return 1 unless($?);
+
+	# try PerlMagick (it sucks)
 
 	eval 'use Image::Magick';
 	unless($@)
@@ -765,6 +1115,36 @@ sub make_thumbnail($$$$$;$)
 		#return 0 if "$res";
 
 		return 1;
+	}
+
+	# try GD lib (also sucks, and untested)
+    eval 'use GD';
+    unless($@)
+    {
+		my $src;
+		if($filename=~/\.jpg$/i) { $src=GD::Image->newFromJpeg($filename) }
+		elsif($filename=~/\.png$/i) { $src=GD::Image->newFromPng($filename) }
+		elsif($filename=~/\.gif$/i)
+		{
+			if(defined &GD::Image->newFromGif) { $src=GD::Image->newFromGif($filename) }
+			else
+			{
+				`gif2png $filename`; # gif2png taken from futallaby
+				$filename=~s/\.gif/\.png/;
+				$src=GD::Image->newFromPng($filename);
+			}
+		}
+		else { return 0 }
+
+		my ($img_w,$img_h)=$src->getBounds();
+		my $thumb=GD::Image->new($width,$height);
+		$thumb->copyResized($src,0,0,0,0,$width,$height,$img_w,$img_h);
+		my $jpg=$thumb->jpeg($quality);
+		open THUMBNAIL,">$thumbnail";
+		binmode THUMBNAIL;
+		print THUMBNAIL $jpg;
+		close THUMBNAIL;
+		return 1 unless($!);
 	}
 
 	return 0;
@@ -824,7 +1204,7 @@ sub setup_rc6($)
 	$S[$_]=add($S[$_-1],0x9e3779b9) for(1..43);
 
 	my $v=@L>44 ? @L*3 : 132;
-	my ($A,$B,$i,$j);
+	my ($A,$B,$i,$j)=(0,0,0,0);
 
 	for(1..$v)
 	{
@@ -881,6 +1261,18 @@ sub decrypt_rc6($)
 	$B=add32($B,-$S[0]);
 		
 	return pack "V4",$A,$B,$C,$D;
+}
+
+sub setup_xtea($)
+{
+}
+
+sub encrypt_xtea($)
+{
+}
+
+sub decrypt_xtea($)
+{
 }
 
 sub add(@) { my ($sum,$term); while(defined ($term=shift)) { $sum+=$term } return $sum%4294967296 }

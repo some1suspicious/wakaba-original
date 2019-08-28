@@ -14,6 +14,8 @@ BEGIN {
 
 	eval "use constant SQL_TABLE => 'comments'" unless(defined &SQL_TABLE);
 	eval "use constant SQL_ADMIN_TABLE => 'admin'" unless(defined &SQL_ADMIN_TABLE);
+	eval "use constant SQL_PROXY_TABLE => 'proxy'" unless(defined &SQL_PROXY_TABLE);
+
 	eval "use constant USE_TEMPFILES => 1" unless(defined &USE_TEMPFILES);
 
 	eval "use constant TITLE => 'Wakaba image board'" unless(defined &TITLE);
@@ -28,6 +30,7 @@ BEGIN {
 	eval "use constant S_ANONAME => 'Anonymous'" unless(defined &S_ANONAME);
 	eval "use constant S_ANOTEXT => ''" unless(defined &S_ANOTEXT);
 	eval "use constant S_ANOTITLE => ''" unless(defined &S_ANOTITLE);
+	eval "use constant SILLY_ANONYMOUS => ''" unless(defined &SILLY_ANONYMOUS);
 	eval "use constant DEFAULT_STYLE => 'Futaba'" unless(defined &DEFAULT_STYLE);
 
 	eval "use constant MAX_KB => 1000" unless(defined &MAX_KB);
@@ -55,8 +58,20 @@ BEGIN {
 	eval "use constant CAPTCHA_ROTATION => 0.3" unless(defined &CAPTCHA_ROTATION);
 	eval "use constant CAPTCHA_SPACING => 2.5" unless(defined &CAPTCHA_SPACING);
 
+	eval "use constant ENABLE_LOAD => 0" unless(defined &ENABLE_LOAD);
+	eval "use constant LOAD_SENDER_SCRIPT => 'sender.pl'" unless(defined &LOAD_SENDER_SCRIPT);
+	eval "use constant LOAD_LOCAL => 999" unless(defined &LOAD_LOCAL);
+	eval "use constant LOAD_HOSTS => ()" unless(defined &LOAD_HOSTS);
+
+	eval "use constant ENABLE_PROXY_CHECK => 0" unless(defined &ENABLE_PROXY_CHECK);
+	eval "use constant PROXY_COMMAND => ''" unless(defined &PROXY_COMMAND);
+	eval "use constant PROXY_WHITE_AGE => 604800" unless(defined &PROXY_WHITE_AGE);
+	eval "use constant PROXY_BLACK_AGE => 604800" unless(defined &PROXY_BLACK_AGE);
+
 	eval "use constant THUMBNAIL_SMALL => 1" unless(defined &THUMBNAIL_SMALL);
 	eval "use constant THUMBNAIL_QUALITY => 70" unless(defined &THUMBNAIL_QUALITY);
+	eval "use constant DELETED_THUMBNAIL => ''" unless(defined &DELETED_THUMBNAIL);
+	eval "use constant DELETED_IMAGE => ''" unless(defined &DELETED_IMAGE);
 	eval "use constant ALLOW_TEXTONLY => 1" unless(defined &ALLOW_TEXTONLY);
 	eval "use constant ALLOW_IMAGES => 1" unless(defined &ALLOW_IMAGES);
 	eval "use constant ALLOW_TEXT_REPLIES => 1" unless(defined &ALLOW_TEXT_REPLIES);
@@ -68,11 +83,11 @@ BEGIN {
 	eval "use constant RENZOKU2 => 10" unless(defined &RENZOKU2);
 	eval "use constant RENZOKU3 => 900" unless(defined &RENZOKU3);
 	eval "use constant NOSAGE_WINDOW => 1200" unless(defined &NOSAGE_WINDOW);
-	eval "use constant PROXY_CHECK => ()" unless(defined &PROXY_CHECK);
 	eval "use constant USE_SECURE_ADMIN => 0" unless(defined &USE_SECURE_ADMIN);
 	eval "use constant CHARSET => 'utf-8'" unless(defined &CHARSET);
 	eval "use constant CONVERT_CHARSETS => 1" unless(defined &CONVERT_CHARSETS);
 	eval "use constant TRIM_METHOD => 0" unless(defined &TRIM_METHOD);
+	eval "use constant ARCHIVE_MODE => 0" unless(defined &ARCHIVE_MODE);
 	eval "use constant DATE_STYLE => 'futaba'" unless(defined &DATE_STYLE);
 	eval "use constant DISPLAY_ID => 0" unless(defined &DISPLAY_ID);
 	eval "use constant EMAIL_ID => 'Heaven'" unless(defined &EMAIL_ID);
@@ -89,6 +104,8 @@ BEGIN {
 	eval "use constant IMG_DIR => 'src/'" unless(defined &IMG_DIR);
 	eval "use constant THUMB_DIR => 'thumb/'" unless(defined &THUMB_DIR);
 	eval "use constant RES_DIR => 'res/'" unless(defined &RES_DIR);
+	eval "use constant ARCHIVE_DIR => 'arch/'" unless (defined &ARCHIVE_DIR);
+	eval "use constant REDIR_DIR => 'redir/'" unless (defined &REDIR_DIR);
 	eval "use constant HTML_SELF => 'wakaba.html'" unless(defined &HTML_SELF);
 	eval "use constant JS_FILE => 'wakaba.js'" unless(defined &JS_FILE);
 	eval "use constant CSS_DIR => 'css/'" unless(defined &CSS_DIR);
@@ -99,7 +116,7 @@ BEGIN {
 
 	eval "use constant FILETYPES => ()" unless(defined &FILETYPES);
 
-	eval "use constant WAKABA_VERSION => '2.1.5'" unless(defined &WAKABA_VERSION);
+	eval "use constant WAKABA_VERSION => '3.0.4'" unless(defined &WAKABA_VERSION);
 }
 
 1;
