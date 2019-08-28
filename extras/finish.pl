@@ -16,8 +16,9 @@ use HTTP::Request::Common;
 
 use lib '.';
 BEGIN { require 'config.pl'; }
-BEGIN { require 'oekaki_config.pl'; }
 BEGIN { require 'strings_e.pl'; }
+BEGIN { require 'oekaki_config.pl'; }
+BEGIN { require 'oekaki_strings_e.pl'; }
 
 
 
@@ -57,13 +58,16 @@ $tmpname=TMP_DIR.$ip.'.png';
 
 if(!$action)
 {
+	my ($oek_parent)=$query->cookie("oek_parent");
+
 	make_http_header();
-	print_page(\*STDOUT,$tmpname);
+	print_page(\*STDOUT,$tmpname,$oek_parent);
 }
 elsif($action eq "post")
 {
-	my ($name,$email,$subject,$comment,$password,$captcha);
+	my ($parent,$name,$email,$subject,$comment,$password,$captcha);
 
+	$parent=$query->param("parent");
 	$name=$query->param("name");
 	$email=$query->param("email");
 	$subject=$query->param("subject");
@@ -83,6 +87,7 @@ elsif($action eq "post")
 		Content_Type=>'form-data',
 		Content=>[
 			action=>'post',
+			parent=>$parent,
 			name=>$name,
 			email=>$email,
 			subject=>$subject,
@@ -219,9 +224,9 @@ sub expand_filename($)
 	return $self_path.$filename;
 }
 
-sub print_page($$)
+sub print_page($$$)
 {
-	my ($file,$tmpname)=@_;
+	my ($file,$tmpname,$oek_parent)=@_;
 
 	print $file '<html><head>';
 
@@ -256,13 +261,23 @@ sub print_page($$)
 
 	if(ENABLE_CAPTCHA)
 	{
+		my $key=$oek_parent?('res'.$oek_parent):'mainpage';
+
 		print $file '<tr><td class="postblock" align="left">'.S_CAPTCHA.'</td><td><input type="text" name="captcha" size="10" />';
-		print $file ' <img src="'.expand_filename(CAPTCHA_SCRIPT).'?key=mainpage" />';
+		print $file ' <img src="'.expand_filename(CAPTCHA_SCRIPT).'?key='.$key.'" />';
 		print $file '</td></tr>';
 	}
 
 #	print $file '<tr><td class="postblock" align="left">'.S_DELPASS.'</td><td align="left"><input type="password" name="password" size="8" maxlength="8" value="'.$c_password.'" /> '.S_DELEXPL2.'</td></tr>';
 	print $file '<tr><td class="postblock" align="left">'.S_DELPASS.'</td><td align="left"><input type="password" name="password" size="8" maxlength="8" /> '.S_DELEXPL.'</td></tr>';
+
+	if($oek_parent)
+	{
+		print $file '<input type="hidden" name="parent" value="'.$oek_parent.'" />';
+		print $file '<tr><td class="postblock" align="left">'.S_OEKIMGREPLY.'</td>';
+		print $file '<td align="left">'.sprintf(S_OEKREPEXPL,expand_filename(RES_DIR.$oek_parent.PAGE_EXT),$oek_parent).'</td></tr>';
+	}
+
 	print $file '<tr><td colspan="2">';
 	print $file '<div align="left" class="rules">'.S_RULES.'</div></td></tr>';
 	print $file '</tbody></table></form></div><hr />';

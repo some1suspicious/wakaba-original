@@ -4,6 +4,10 @@ use constant S_OEKOPTIONS => '<option value="shii_norm">Shii Normal</option>'.
 use constant S_OEKX => 'Width: ';									# Describes x dimension for oekaki
 use constant S_OEKY => 'Height: ';									# Describes y dimension for oekaki
 use constant S_OEKSUBMIT => 'Paint!';									# Oekaki button used for submit
+use constant S_OEKIMGREPLY => 'Reply';
+
+use constant S_OEKIMGREPLY => 'Reply';
+use constant S_OEKREPEXPL => 'Picture will be posted as a reply to thread <a href="%s">%s</a>.';
 
 use constant S_OEKTOOBIG => 'The requested dimensions are too large.';
 use constant S_OEKTOOSMALL => 'The requested dimensions are too small.';

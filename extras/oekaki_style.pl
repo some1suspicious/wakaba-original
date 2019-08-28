@@ -125,11 +125,12 @@ sub print_posting_form($$$)
 		}
 	}
 
-	unless($parent)
+	if($image_inp)
 	{
+		print $file '<hr />' if($parent);
 		print $file '<div align="center">';
 		print $file '<form action="'.expand_filename('paint.pl').'" method="get">';
-		print $file '<input type="hidden" name="action" value="oekaki" />';
+		print $file '<input type="hidden" name="oek_parent" value="'.$parent.'" />' if($parent);
 		print $file S_OEKPAINT.'<select class=button name="oek_painter">'.S_OEKOPTIONS.'</select>&nbsp;';
 		print $file S_OEKX.'<input type="text" name="oek_x" size="3" value="'.OEKAKI_DEFAULT_X.'" />&nbsp;';
 		print $file S_OEKY.'<input type="text" name="oek_y" size="3" value="'.OEKAKI_DEFAULT_Y.'" />&nbsp;';

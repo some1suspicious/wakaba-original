@@ -21,6 +21,7 @@ my $query=new CGI;
 my $oek_painter=$query->param("oek_painter");
 my $oek_x=$query->param("oek_x");
 my $oek_y=$query->param("oek_y");
+my $oek_parent=$query->param("oek_parent");
 
 my $mode;
 
@@ -47,7 +48,12 @@ else
 	make_error(S_OEKUNKNOWN);
 }
 
+my $cookie=$query->cookie(-name=>'oek_parent',
+                       -value=>$oek_parent?$oek_parent:'',
+                       -expires=>'+14d');
+
 print <<HTML;
+Set-Cookie: $cookie
 Content-Type: text/html
 
 <html>
