@@ -742,10 +742,10 @@ sub do_spans($@)
 		$line=~s{(https?://[^\s<>"]*?)((?:\s|<|>|"|\.|\)|\]|!|\?|,|&#44;|&quot;)*(?:[\s<>"]|$))}{\<a href="$1"\>$1\</a\>$2}sgi;
 
 		# do <strong>
-		$line=~s{([^0-9a-zA-Z\*_]|^)(\*\*|__)([^<>\s\*_](?:[^<>]*?[^<>\s\*_])?)\2([^0-9a-zA-Z\*_]|$)}{$1<strong>$3</strong>$4}g if(ENABLE_WAKABAMARK);
+		$line=~s{([^0-9a-zA-Z\*_]|^)(\*\*|__)([^<>\s\*_](?:[^<>]*?[^<>\s\*_])?)\2(?=[^0-9a-zA-Z\*_]|$)}{$1<strong>$3</strong>}g if(ENABLE_WAKABAMARK);
 
 		# do <em>
-		$line=~s{([^0-9a-zA-Z\*_]|^)(\*|_)([^<>\s\*_](?:[^<>]*?[^<>\s\*_])?)\2([^0-9a-zA-Z\*_]|$)}{$1<em>$3</em>$4}g if(ENABLE_WAKABAMARK);
+		$line=~s{([^0-9a-zA-Z\*_]|^)(\*|_)([^<>\s\*_](?:[^<>]*?[^<>\s\*_])?)\2(?=[^0-9a-zA-Z\*_]|$)}{$1<em>$3</em>}g if(ENABLE_WAKABAMARK);
 
 		$line=$handler->($line) if($handler);
 
