@@ -520,6 +520,8 @@ sub ban_check($$$$)
 	{
 		my $regexp=quotemeta $$row[0];
 		make_error(S_STRREF) if($comment=~/$regexp/);
+		make_error(S_STRREF) if($name=~/$regexp/);
+		make_error(S_STRREF) if($subject=~/$regexp/);
 	}
 
 	# etc etc etc
@@ -588,7 +590,7 @@ sub process_tripcode($)
 			$trip.=substr crypt($normtrip,$salt),-10;
 		}
 
-		if($sectrip)
+		if($sectrip and $has_md5)
 		{
 			$trip.=TRIPKEY if($normtrip);
 			$trip.=TRIPKEY.substr md5_base64(SECRET.$sectrip),0,8;
@@ -665,7 +667,7 @@ sub format_comment($$)
 	$comment=~s!^(&gt;.*)$!\<span class="unkfunc"\>$1\</span\>!gm;
 
 	# make URLs into links - is this magic or what
-	$comment=~s!(http://[^\s\<\>"]*[^\s\<\>"\.\)\],])!\<a href="$1"\>$1\</a\>!sgi;
+	$comment=~s{(http://[^\s<>"]*?)((?:\s|<|>|"|\.|\)|\]|!|\?|,|&#44;|&quot;)*(?:\s|$))}{\<a href="$1"\>$1\</a\>$2}sgi;
 
 	# count number of newlines if MAX_LINES is not 0 - wow, magic. also, admin posts can be longer.
 	if($admin ne ADMIN_PASS and MAX_LINES and scalar(()=$comment=~m/\n/g)>=MAX_LINES)
@@ -1193,8 +1195,11 @@ sub make_error($)
 
 	print_error(\*STDOUT,$error);
 
-	$dbh->{Warn}=0;
-	$dbh->disconnect();
+	if($dbh)
+	{
+		$dbh->{Warn}=0;
+		$dbh->disconnect();
+	}
 
 	if(ERRORLOG) # could print even more data, really.
 	{
@@ -1652,7 +1657,6 @@ sub make_thumbnail($$$$)
 {
 	my ($filename,$thumbnail,$width,$height)=@_;
 
-	# use external commands
 	# first try ImageMagick
 
 	my $magickname=$filename;
@@ -1660,9 +1664,9 @@ sub make_thumbnail($$$$)
 
 	my $convert=CONVERT_COMMAND;
 	my $quality=THUMBNAIL_QUALITY;
-	`$convert -size ${width}x$height -geometry ${width}x${height}! -quality $quality $magickname $thumbnail 2>&1`;
+	`$convert -size ${width}x$height -geometry ${width}x${height}! -quality $quality $magickname $thumbnail`;
 
-	return(1) unless($?);
+	return 1 unless($?);
 
 	# if that fails, try pnmtools instead
 
@@ -1670,18 +1674,39 @@ sub make_thumbnail($$$$)
 	{
 		`djpeg $filename | pnmscale -width $width -height $height | cjpeg -quality $quality > $thumbnail`;
 		# could use -scale 1/n
-		return(1) unless($?);
+		return 1 unless($?);
 	}
 	elsif($filename=~/\.png$/)
 	{
 		`pngtopnm $filename | pnmscale -width $width -height $height | cjpeg -quality $quality > $thumbnail`;
-		return(1) unless($?);
+		return 1 unless($?);
 	}
 	elsif($filename=~/\.gif$/)
 	{
 		`giftopnm $filename | pnmscale -width $width -height $height | cjpeg -quality $quality > $thumbnail`;
-		return(1) unless($?);
+		return 1 unless($?);
 	}
 
-	return(0);
+	# try PerlMagick last, because it sucks ass.
+
+	eval 'use Image::Magick';
+	unless($@)
+	{
+		my ($res,$magick);
+
+		$filename.="[0]" if($filename=~/\.gif$/);
+
+		$magick=Image::Magick->new;
+
+		$res=$magick->Read($filename);
+		return 0 if "$res";
+		$res=$magick->Scale(width=>$width, height=>$height);
+		#return 0 if "$res";
+		$res=$magick->Write(filename=>$thumbnail, quality=>70);
+		#return 0 if "$res";
+
+		return 1;
+	}
+
+	return 0;
 }

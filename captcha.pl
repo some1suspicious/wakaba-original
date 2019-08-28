@@ -1,10 +1,11 @@
 #!/usr/bin/perl
 
+use CGI::Carp qw(fatalsToBrowser);
+
 use strict;
 
 use CGI;
 use DBI;
-use List::Util qw(max);
 
 use lib '.';
 BEGIN { require "config.pl"; }
@@ -234,6 +235,13 @@ sub make_image($)
 	start_128_gif($width,$height,@background,@foreground);
 	for(my $y=0;$y<$height;$y++) { emit_pixel_block($pixels[$y],$width); }
 	end_gif();
+}
+
+sub max(@)
+{
+	my $max=pop @_;
+	$max=$_>$max?$_:$max for(@_);
+	return $max;
 }
 
 sub emit_pixel_block($$)

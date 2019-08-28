@@ -133,7 +133,7 @@ sub print_posting_form($$$@)
 		my $key=get_captcha_key($parent);
 
 		print $file '<tr><td class="postblock" align="left">'.S_CAPTCHA.'</td><td><input type="text" name="captcha" size="10" />';
-		print $file ' <img src="'.expand_filename(CAPTCHA_SCRIPT).'?key='.$key.'" />';
+		print $file ' <img src="'.expand_filename(CAPTCHA_SCRIPT).'?key='.$key.'&dummy='.$dummy.'" />';
 		print $file '</td></tr>';
 	}
 

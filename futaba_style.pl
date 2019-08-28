@@ -9,7 +9,7 @@ sub print_page($$$@)
 	my ($file,$page,$total,@threads)=@_;
 
 	print_page_header($file);
-	print_posting_form($file,0,"");
+	print_posting_form($file,0,"","");
 
 	print $file '<form name="delform" action="'.get_script_name().'" method="post">';
 
@@ -37,7 +37,7 @@ sub print_reply($@)
 	print $file '[<a href="'.expand_filename(HTML_SELF).'">'.S_RETURN.'</a>]';
 	print $file '<div class="theader">'.S_POSTING.'</div>';
 
-	print_posting_form($file,$thread[0]{num},"");
+	print_posting_form($file,$thread[0]{num},"",$thread[$#thread]{num});
 
 	print $file '<form name="delform" action="'.get_script_name().'" method="post">';
 
@@ -356,9 +356,9 @@ sub print_page_footer($)
 	print $file '</body></html>';
 }
 
-sub print_posting_form($$$)
+sub print_posting_form($$$$)
 {
-	my ($file,$parent,$admin)=@_;
+	my ($file,$parent,$admin,$dummy)=@_;
 	my ($image_inp,$textonly_inp);
 
 	if($admin) { $image_inp=$textonly_inp=1; }
@@ -405,7 +405,7 @@ sub print_posting_form($$$)
 		my $key=get_captcha_key($parent);
 
 		print $file '<tr><td class="postblock" align="left">'.S_CAPTCHA.'</td><td><input type="text" name="captcha" size="10" />';
-		print $file ' <img src="'.expand_filename(CAPTCHA_SCRIPT).'?key='.$key.'" />';
+		print $file ' <img src="'.expand_filename(CAPTCHA_SCRIPT).'?key='.$key.'&dummy='.$dummy.'" />';
 		print $file '</td></tr>';
 	}
 
