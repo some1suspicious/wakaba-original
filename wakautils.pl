@@ -409,7 +409,7 @@ sub process_tripcode($;$$$)
 
 		if($secret and $trippart=~s/(?:\Q$marker\E)(?<!&#)(?:\Q$marker\E)*(.*)$//) # do we want secure trips, and is there one?
 		{
-			$trip=$tripkey.$tripkey.encode_base64(rc4(null_string(6),"t".clean_string($1).$secret),"");
+			$trip=$tripkey.$tripkey.encode_base64(rc4(null_string(6),"t".$1.$secret),"");
 			return ($namepart,$trip) unless($trippart); # return directly if there's no normal tripcode
 		}
 

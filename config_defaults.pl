@@ -99,7 +99,7 @@ BEGIN {
 
 	eval "use constant FILETYPES => ()" unless(defined &FILETYPES);
 
-	eval "use constant WAKABA_VERSION => '2.1.4'" unless(defined &WAKABA_VERSION);
+	eval "use constant WAKABA_VERSION => '2.1.5'" unless(defined &WAKABA_VERSION);
 }
 
 1;
