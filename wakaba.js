@@ -27,3 +27,33 @@ function get_password(name)
 
 	return(pass);
 }
+
+function insert(text) /* hay WTSnacks what's goin on in this function? */
+{
+	var textarea=document.forms[0].comment;
+	if(textarea)
+	{
+		if(textarea.createTextRange && textarea.caretPos)
+		{
+			var caretPos=textarea.caretPos;
+			caretPos.text=caretPos.text.charAt(caretPos.text.length-1)==" "?text+" ":text;
+		}
+		else
+		{
+			textarea.value+=text+" ";
+		}
+		textarea.focus();
+	}
+}
+
+window.onload=function(e)
+{
+	var index=document.location.toString().indexOf("#");
+
+	if(index!=-1)
+	{
+		var num=document.location.toString().substring(index+1);
+		var reply=document.getElementById("reply"+num);
+		if(reply) reply.className="highlight";
+	}
+}

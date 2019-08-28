@@ -27,6 +27,7 @@ use constant S_REPLY => '返信';
 use constant S_OLD => 'このスレは古いので、もうすぐ消えます。';
 use constant S_ABBR => 'レス%d件省略。全て読むには返信ボタンを押してください。';
 use constant S_ABBRIMG => 'レス%d,%d件省略。全て読むには返信ボタンを押してください。';
+use constant S_ABBRTEXT => 'Comment too long. Click <a href="%s">here</a> to view the full text.';
 
 use constant S_REPDEL => '【記事削除】';
 use constant S_DELPICONLY => '画像だけ消す';
@@ -50,7 +51,6 @@ use constant S_RELOAD => 'リロード';
 use constant S_MANAGEMENT => '削除';
 use constant S_DELETION => '削除';
 use constant S_WEEKDAYS => ('日','月','火','水','木','金','土');
-#define(S_SCRCHANGE, '画面を切り替えます');
 
 use constant S_MANARET => '掲示板に戻る';
 use constant S_MANAUPD => 'ログを更新する';
@@ -88,14 +88,12 @@ use constant S_BANWORD => 'Ban word';
 use constant S_BANWHITELIST => 'Whitelist';
 use constant S_BANREMOVE => 'Remove';
 use constant S_BANCOMMENT => 'Comment';
-#define(S_RESET, 'リセット');
 
 use constant S_TOOBIG => 'アップロードに失敗しました<br />サイズが大きすぎます<br />'.MAX_KB.'Kバイトまで';
 use constant S_TOOBIGORNONE => 'アップロードに失敗しました<br />画像サイズが大きすぎるか、<br />または画像がありません。';
 use constant S_REPORTERR => '該当記事がみつかりません';
 use constant S_UPFAIL => 'アップロードに失敗しました<br />サーバがサポートしていない可能性があります';
 use constant S_NOREC => 'アップロードに失敗しました<br />画像ファイル以外は受け付けません';
-#use constant S_SAMEPIC => 'アップロードに失敗しました<br />同じ画像がありました';
 use constant S_NOCAPTCHA => 'Error: No verification code on record - it probably timed out.';
 use constant S_BADCAPTCHA => 'Error: Wrong verification code entered.';
 use constant S_BADFORMAT => 'Error: File format not supported.';
@@ -111,22 +109,15 @@ use constant S_RENZOKU => '連続投稿はもうしばらく時間を置いてからお願い致します'
 use constant S_RENZOKU2 => '画像連続投稿はもうしばらく時間を置いてからお願い致します';
 use constant S_RENZOKU3 => '連続投稿はもうしばらく時間を置いてからお願い致します';
 use constant S_PROXY => 'ＥＲＲＯＲ！　公開ＰＲＯＸＹ規制中！！(%d)';
-use constant S_DUPE => 'アップロードに失敗しました<br />同じ画像があります';
+use constant S_DUPE => 'アップロードに失敗しました<br />同じ画像があります (<a href="%s">link</a>)';
+use constant S_DUPENAME => 'Error: A file with the same name already exists.';
 use constant S_NOTHREADERR => 'スレッドがありません';
 use constant S_BADDELPASS => '該当記事が見つからないかパスワードが間違っています';
 use constant S_WRONGPASS => 'パスワードが違います';
-#define(S_CANNOTWRITE, 'カレントディレクトリに書けません<br />');
 use constant S_NOTWRITE => 'を書けません<br />';
-#define(S_NOTREAD, 'を読めません<br />');
-#define(S_NOTDIR, 'がありません<br />');
 
 use constant S_SQLCONF => '接続失敗';
 use constant S_SQLFAIL => 'sql失敗<br />';
-#define(S_SQLDBSF, 'mysql_select_db失敗<br />');
-#define(S_TCREATE, 'テーブルを作成します<br />\n');
-#define(S_TCREATEF, 'テーブル作成失敗<br />');
-
-#define(S_UPGOOD, '画像 $upfile_name のアップロードが成功しました<br /><br />');
 
 #define(S_ANONAME, '名無し');
 #define(S_ANOTEXT, '本文なし');

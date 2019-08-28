@@ -15,10 +15,11 @@ use HTTP::Request::Common;
 #
 
 use lib '.';
-BEGIN { require 'config.pl'; }
-BEGIN { require 'strings_e.pl'; }
-BEGIN { require 'oekaki_config.pl'; }
-BEGIN { require 'oekaki_strings_e.pl'; }
+BEGIN { require "config.pl"; }
+BEGIN { require "config_defaults.pl"; }
+BEGIN { require "strings_e.pl"; }
+BEGIN { require "oekaki_config.pl"; }
+BEGIN { require "oekaki_strings_e.pl"; }
 
 
 
@@ -129,14 +130,9 @@ sub clean_string($$)
 	$str=~s/&/&amp;/g;
 	$str=~s/</&lt;/g;
 	$str=~s/>/&gt;/g;
-	#$str=~s/"/&quot;/g;
-	#$str=~s/'/&#039;/g;
-	#$str=~s/,/&#44;/g;
-
-	if(MAX_LINES and scalar(()=$str=~m/\n/g)>=MAX_LINES)
-	{
-		$str=~s/\n/ /g; # remove newlines
-	}
+	$str=~s/"/&quot;/g; #"
+	$str=~s/'/&#039;/g;
+	$str=~s/,/&#44;/g;
 
 	return $str;
 }

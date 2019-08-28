@@ -8,7 +8,7 @@ package filetypes;
 	m4a => 'icons/audio-aac.png',
 	mpc => 'icons/audio-mpc.png',
 	mpp => 'icons/audio-mpp.png',
-	mpp => 'icons/audio-mod.png',
+	mod => 'icons/audio-mod.png',
 	it => 'icons/audio-it.png',
 	xm => 'icons/audio-xm.png',
 	fla => 'icons/audio-flac.png',

@@ -6,7 +6,6 @@ use strict;
 
 use CGI;
 use DBI;
-use File::Copy;
 
 
 #
@@ -14,10 +13,11 @@ use File::Copy;
 #
 
 use lib '.';
-BEGIN { require 'config.pl'; }
-BEGIN { require 'strings_e.pl'; }
-BEGIN { require 'futaba_style.pl'; }
-BEGIN { require 'filetypes_none.pl'; }
+BEGIN { require "config.pl"; }
+BEGIN { require "config_defaults.pl"; }
+BEGIN { require "strings_e.pl"; }
+BEGIN { require "futaba_style.pl"; }
+BEGIN { require "filetypes_none.pl"; }
 
 my %filetypes=%filetypes::filetypes;
 
@@ -64,7 +64,9 @@ init_admin_database() if(!table_exists(SQL_ADMIN_TABLE));
 
 if(!table_exists(SQL_TABLE)) # check for comments table
 {
-	do_nuke_database(NUKE_PASS);
+	init_database();
+	build_cache();
+	make_http_forward(HTML_SELF);
 }
 elsif(!$action)
 {
@@ -614,16 +616,15 @@ sub clean_string($$)
 		#$str=~s/&\#([0-9]+);/chr($1)/g;
 	}
 
-	$str=~s/^\s*//; # remove preceeding whitespace
-	$str=~s/\s*$//; # remove traling whitespace
-
+#	$str=~s/^\s*//; # remove preceeding whitespace
+#	$str=~s/\s*$//; # remove traling whitespace
 
 	if($admin ne ADMIN_PASS) # admins can use tags
 	{
 		$str=~s/&/&amp;/g;
 		$str=~s/\</&lt;/g;
 		$str=~s/\>/&gt;/g;
-		$str=~s/"/&quot;/g;
+		$str=~s/"/&quot;/g; #"
 		$str=~s/'/&#039;/g;
 		$str=~s/,/&#44;/g;
 	}
@@ -638,48 +639,121 @@ sub clean_string($$)
 
 sub format_comment($$)
 {
-	my ($comment,$admin)=@_;
+	my ($comment,$thread)=@_;
+
 	# fix newlines
 	$comment=~s/\r\n/\n/g;
 	$comment=~s/\r/\n/g;
 
-	# fix up >> links
-	$comment=~s!&gt;&gt;([0-9]+)!
-		my $res=get_post($1);
-		if($res)
-		{
-			if($$res{parent})
-			{
-				'<a href="'.get_reply_link($$res{parent}).'#'.$$res{num}.'">&gt;&gt;'.$1.'</a>';
-			}
-			else
-			{
-				'<a href="'.get_reply_link($$res{num}).'">&gt;&gt;'.$1.'</a>';
-			}
-		}
-		else
-		{
-			"&gt;&gt;$1";
-		}
-	!gem;
+	# hide >>1 references from the quoting code
+	$comment=~s/&gt;&gt;([0-9\-]+)/&gtgt;$1/g;
 
-	# colour quoted sections
-	$comment=~s!^(&gt;.*)$!\<span class="unkfunc"\>$1\</span\>!gm;
-
-	# make URLs into links - is this magic or what
-	$comment=~s{(http://[^\s<>"]*?)((?:\s|<|>|"|\.|\)|\]|!|\?|,|&#44;|&quot;)*(?:\s|$))}{\<a href="$1"\>$1\</a\>$2}sgi;
-
-	# count number of newlines if MAX_LINES is not 0 - wow, magic. also, admin posts can be longer.
-	if($admin ne ADMIN_PASS and MAX_LINES and scalar(()=$comment=~m/\n/g)>=MAX_LINES)
+	my $handler=sub # fix up >>1 references
 	{
-		$comment=~s/\n/ /g; # remove newlines
-	}
-	else
-	{
-		$comment=~s!\n!\<br /\>!g; # replace newlines with <br />
-	}
+		my $line=shift;
+
+		$line=~s!&gtgt;([0-9]+)!
+			my $res=get_post($1);
+			if($res) { '<a href="'.get_reply_link($$res{num},$$res{parent}).'">&gt;&gt;'.$1.'</a>' }
+			else { "&gt;&gt;$1"; }
+		!ge;
+
+		# colour quoted sections if working in old-style mode.
+		$line=~s!^(&gt;.*)$!\<span class="unkfunc"\>$1\</span\>!g unless(ENABLE_WAKABAMARK);
+
+		return $line;
+	};
+
+	my @lines=split /\n/,$comment;
+	if(ENABLE_WAKABAMARK) { $comment=do_blocks($handler,0,@lines) }
+	else { $comment="<p>".do_spans($handler,@lines)."</p>" }
+
+	# restore >>1 references hidden in code blocks
+	$comment=~s/&gtgt;/&gt;&gt;/g;
 
 	return $comment;
+}
+
+sub do_blocks($@)
+{
+	my ($handler,$simplify,@lines)=@_;
+	my $res;
+
+	while(defined($_=$lines[0]))
+	{
+		if(/^\s*$/) { shift @lines; } # skip empty lines
+		elsif(/^(1\.|[\*\+\-]) .*/) # lists
+		{
+			my ($tag,$re,$html);
+
+			if($1 eq "1.") { $tag="ol"; $re=qr/[0-9]+\./; }
+			else { $tag="ul"; $re=qr/\Q$1\E/; }
+
+			while($lines[0]=~/^($re)(?: |\t)(.*)/)
+			{
+				my $spaces=(length $1)+1;
+				my @item=($2);
+				shift @lines;
+
+				while($lines[0]=~/^(?: {1,$spaces}|\t)(.*)/) { push @item,$1; shift @lines }
+				$html.="<li>".do_blocks($handler,1,@item)."</li>";
+			}
+			$res.="<$tag>$html</$tag>";
+		}
+		elsif(/^(?:    |\t).*/) # code sections
+		{
+			my @code;
+			while($lines[0]=~/^(?:    |\t)(.*)/) { push @code,$1; shift @lines; }
+			$res.="<pre><code>".(join "<br />",@code)."</code></pre>";
+		}
+		elsif(/^&gt;.*/) # quoted sections
+		{
+			my @quote;
+			while($lines[0]=~/^(&gt;.*)/) { push @quote,$1; shift @lines; }
+			$res.="<blockquote>".do_spans($handler,@quote)."</blockquote>";
+
+			#while($lines[0]=~/^&gt;(.*)/) { push @quote,$1; shift @lines; }
+			#$res.="<blockquote>".do_blocks($handler,@quote)."</blockquote>";
+		}
+		else # normal paragraph
+		{
+			my @text;
+			while($lines[0]!~/^(?:\s*$|1\. |[\*\+\-] |&gt;|    |\t)/) { push @text,shift @lines; }
+			if(!defined($lines[0]) and $simplify) { $res.=do_spans($handler,@text) }
+			else { $res.="<p>".do_spans($handler,@text)."</p>" }
+		}
+		$simplify=0;
+	}
+	return $res;
+}
+
+sub do_spans($@)
+{
+	my $handler=shift;
+	return join "<br />",map
+	{
+		my $line=$_;
+		my @codespans;
+
+		# hide <code> sections
+		$line=~s{(`+)([^<>]+?)\1}{push @codespans,$2; "<code></code>"}ge if(ENABLE_WAKABAMARK);
+
+		# make URLs into links
+		$line=~s{(https?://[^\s<>"]*?)((?:\s|<|>|"|\.|\)|\]|!|\?|,|&#44;|&quot;)*(?:[\s<>"]|$))}{\<a href="$1"\>$1\</a\>$2}sgi;
+
+		# do <strong>
+		$line=~s{([^0-9a-zA-Z\*_]|^)(\*\*|__)([^<>\s\*_](?:[^<>]*?[^<>\s\*_])?)\2([^0-9a-zA-Z\*_]|$)}{$1<strong>$3</strong>$4}g if(ENABLE_WAKABAMARK);
+
+		# do <em>
+		$line=~s{([^0-9a-zA-Z\*_]|^)(\*|_)([^<>\s\*_](?:[^<>]*?[^<>\s\*_])?)\2([^0-9a-zA-Z\*_]|$)}{$1<em>$3</em>$4}g if(ENABLE_WAKABAMARK);
+
+		$line=$handler->($line) if($handler);
+
+		# fix up <code> sections
+		$line=~s{<code></code>}{"<code>".(shift @codespans)."</code>"}ge if(ENABLE_WAKABAMARK);
+
+		$line;
+	} @_;
 }
 
 sub make_id_code($$$)
@@ -812,10 +886,10 @@ sub process_file($$)
 	if($filetypes{$ext}) # externally defined filetype - keep the name
 	{
 		$filebase=$file;
-		$filebase=~s!^.*(\\|/)!!; # cut off any directory in filename
+		$filebase=~s!^.*[\\/;`]!!; # cut off any directory or shell attack in filename
 		$filename=IMG_DIR.$filebase;
 
-		make_error(S_DUPE) if(-e $filename); # verify no name clash
+		make_error(S_DUPENAME) if(-e $filename); # verify no name clash
 	}
 	else # generate random filename - fudges the microseconds
 	{
@@ -851,13 +925,14 @@ sub process_file($$)
 
 	if($md5) # if we managed to generate an md5 checksum, check for duplicate files
 	{
+		my $match;
 		$sth=$dbh->prepare("SELECT * FROM ".SQL_TABLE." WHERE md5=?;") or make_error(S_SQLFAIL);
 		$sth->execute($md5) or make_error(S_SQLFAIL);
 
-		if(($sth->fetchrow_array())[0])
+		if($match=$sth->fetchrow_hashref())
 		{
 			unlink $filename; # make sure to remove the file
-			make_error(S_DUPE);
+			make_error(sprintf(S_DUPE,get_reply_link($$match{num},$$match{parent})));
 		}
 	}
 
@@ -876,15 +951,11 @@ sub process_file($$)
 			($tn_ext,$tn_width,$tn_height)=analyze_image(\*THUMBNAIL);
 			close THUMBNAIL;
 
-			if(!$tn_width) # was that icon file really there?
-			{
-				$thumbnail=undef;
-			}
-			else
-			{
-				$thumbnail=THUMB_DIR.$filebase."_s.".$tn_ext;
-				make_error(S_NOTWRITE) unless(copy($filetypes{$ext},$thumbnail));
-			}
+			# was that icon file really there?
+			if(!$tn_width) { $thumbnail=undef }
+			else { $thumbnail=$filetypes{$ext} }
+#				$thumbnail=THUMB_DIR.$filebase."_s.".$tn_ext;
+#				make_error(S_NOTWRITE) unless(copy($filetypes{$ext},$thumbnail));
 		}
 		else
 		{
@@ -896,7 +967,7 @@ sub process_file($$)
 		$tn_width=$width;
 		$tn_height=$height;
 
-		if(THUMBNAIL_SMALL)
+		if(THUMBNAIL_SMALL and !STUPID_THUMBNAILING)
 		{
 			if(make_thumbnail($filename,$thumbnail,$tn_width,$tn_height))
 			{
@@ -906,15 +977,9 @@ sub process_file($$)
 					$thumbnail=$filename;
 				}
 			}
-			else
-			{
-				$thumbnail=undef;
-			}
+			else { $thumbnail=undef; }
 		}
-		else
-		{
-			$thumbnail=$filename;
-		}
+		else { $thumbnail=$filename; }
 	}
 	else
 	{
@@ -927,7 +992,11 @@ sub process_file($$)
 			$tn_height=MAX_H;
 		}
 
-		$thumbnail=undef unless(make_thumbnail($filename,$thumbnail,$tn_width,$tn_height));
+		if(STUPID_THUMBNAILING) { $thumbnail=$filename }
+		else
+		{
+			$thumbnail=undef unless(make_thumbnail($filename,$thumbnail,$tn_width,$tn_height));
+		}
 	}
 
 	return($filename,$md5,$width,$height,$thumbnail,$tn_width,$tn_height);
@@ -968,6 +1037,7 @@ sub delete_post($$$)
 {
 	my ($post,$password,$fileonly)=@_;
 	my ($sth,$row,$res,$reply);
+	my $thumb=THUMB_DIR;
 
 	$sth=$dbh->prepare("SELECT * FROM ".SQL_TABLE." WHERE num=?;") or make_error(S_SQLFAIL);
 	$sth->execute($post) or make_error(S_SQLFAIL);
@@ -984,8 +1054,9 @@ sub delete_post($$$)
 
 			while($res=$sth->fetchrow_hashref())
 			{
-				unlink $$res{image}; # delete images if they exist
-				unlink $$res{thumbnail};
+				# delete images if they exist
+				unlink $$res{image};
+				unlink $$row{thumbnail} if($$row{thumbnail}=~/^$thumb/);
 			}
 
 			# remove post and possible replies
@@ -998,7 +1069,7 @@ sub delete_post($$$)
 			{
 				# remove images
 				unlink $$row{image};
-				unlink $$row{thumbnail};
+				unlink $$row{thumbnail} if($$row{thumbnail}=~/^$thumb/);
 
 				$sth=$dbh->prepare("UPDATE ".SQL_TABLE." SET size=0,md5=null,thumbnail=null WHERE num=?;") or make_error(S_SQLFAIL);
 				$sth->execute($post) or make_error(S_SQLFAIL);
@@ -1174,13 +1245,23 @@ sub make_http_forward($)
 {
 	my ($location)=@_;
 
-	print "Status: 301 Go West\n";
-	print "Location: $location\n";
-	print "Content-Type: text/html";
-	print "; charset=".CHARSET if(CHARSET);
-	print "\n";
-	print "\n";
-	print '<html><body><a href="'.$location.'">'.$location.'</a></body></html>';
+	if(ALTERNATE_REDIRECT)
+	{
+		print "Content-Type: text/html\n";
+		print "\n";
+		print "<html><head>";
+		print '<meta http-equiv="refresh" content="0; url='.$location.'" />';
+		print '<script type="text/javascript">document.location="'.$location.'";</script>';
+		print '</head><body><a href="'.$location.'">'.$location.'</a></body></html>';
+	}
+	else
+	{
+		print "Status: 301 Go West\n";
+		print "Location: $location\n";
+		print "Content-Type: text/html\n";
+		print "\n";
+		print '<html><body><a href="'.$location.'">'.$location.'</a></body></html>';
+	}
 }
 
 sub make_error($)
@@ -1265,7 +1346,9 @@ sub save_path()
 
 sub get_script_name()
 {
-	return $ENV{SCRIPT_NAME};
+	my $name=$ENV{SCRIPT_NAME};
+	$name=~s/\?(.*)//; # Cut off query string, for buggy servers. Hello IIS!
+	return $name;
 }
 
 sub get_secure_script_name()
@@ -1274,11 +1357,12 @@ sub get_secure_script_name()
 	return $ENV{SCRIPT_NAME};
 }
 
-sub get_reply_link($)
+sub get_reply_link($$)
 {
-	my ($thread)=@_;
+	my ($reply,$parent)=@_;
 
-	return expand_filename(RES_DIR.$thread.PAGE_EXT);
+	return expand_filename(RES_DIR.$parent.PAGE_EXT).'#'.$reply if($parent);
+	return expand_filename(RES_DIR.$reply.PAGE_EXT);
 }
 
 sub get_page_links($)
@@ -1303,6 +1387,47 @@ sub expand_filename($)
 	return $filename if($filename=~m!^/!);
 	return $filename if($filename=~m!^\w+:!);
 	return $self_path.$filename;
+}
+
+sub abbreviate_html($)
+{
+	my ($html)=@_;
+	my ($lines,$chars,@stack);
+
+	return undef unless(MAX_LINES_SHOWN);
+
+	while($html=~m!(?:([^<]+)|<(/?)(\w+).*?(/?)>)!g)
+	{
+		my ($text,$closing,$tag,$implicit)=($1,$2,lc($3),$4);
+
+		if($text) { $chars+=length $text; }
+		else
+		{
+			push @stack,$tag if(!$closing and !$implicit);
+			pop @stack if($closing);
+
+			if(($closing or $implicit) and ($tag eq "p" or $tag eq "blockquote" or $tag eq "pre"
+			or $tag eq "li" or $tag eq "ol" or $tag eq "ul" or $tag eq "br"))
+			{
+				$lines+=int($chars/APPROX_LINE_LENGTH)+1;
+				$lines++ if($tag eq "p" or $tag eq "blockquote");
+				$chars=0;
+			}
+
+			if($lines>=MAX_LINES_SHOWN)
+			{
+ 				# check if there's anything left other than end-tags
+ 				return undef if((substr $html,pos $html)=~m!^(?:\s*</\w+>)*$!);
+
+				my $abbrev=substr $html,0,pos $html;
+				while(my $tag=pop @stack) { $abbrev.="</$tag>" }
+
+				return $abbrev;
+			}
+		}
+	}
+
+	return undef;
 }
 
 sub make_date($)
@@ -1417,7 +1542,6 @@ sub repair_database()
 
 	$sth=$dbh->prepare("SELECT * FROM ".SQL_TABLE." WHERE parent=0;") or make_error(S_SQLFAIL);
 	$sth->execute() or make_error(S_SQLFAIL);
-
 
 	while($row=$sth->fetchrow_hashref()) { push(@threads,$row); }
 
@@ -1694,11 +1818,9 @@ sub make_thumbnail($$$$)
 	{
 		my ($res,$magick);
 
-		$filename.="[0]" if($filename=~/\.gif$/);
-
 		$magick=Image::Magick->new;
 
-		$res=$magick->Read($filename);
+		$res=$magick->Read($magickname);
 		return 0 if "$res";
 		$res=$magick->Scale(width=>$width, height=>$height);
 		#return 0 if "$res";

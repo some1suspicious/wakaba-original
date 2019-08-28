@@ -1,8 +1,8 @@
 use constant S_OEKPAINT => 'Painter: ';									# Describes the oekaki painter to use
-use constant S_OEKOPTIONS => '<option value="shii_norm" selected="selected">Shii Normal</option>'.
-                             '<option value="shii_pro">Shii Pro</option>'.
-                             '<option value="shii_norm_selfy">Shii Normal+Selfy</option>'.
-                             '<option value="shii_pro_selfy">Shii Pro+Selfy</option>';	# Oekaki software options
+use constant S_OEKOPTIONS => '<option value="shi_norm" selected="selected">Shi Normal</option>'.
+                             '<option value="shi_pro">Shi Pro</option>'.
+                             '<option value="shi_norm_selfy">Shi Normal+Selfy</option>'.
+                             '<option value="shi_pro_selfy">Shi Pro+Selfy</option>';	# Oekaki software options
 use constant S_OEKSOURCE => 'Source: ';							# Describes the source selector
 use constant S_OEKNEW => 'New image';							# Describes the new image option
 use constant S_OEKMODIFY => 'Modify No.%d';						# Describes an option to modify an image

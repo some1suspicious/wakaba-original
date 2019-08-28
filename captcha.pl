@@ -9,6 +9,7 @@ use DBI;
 
 use lib '.';
 BEGIN { require "config.pl"; }
+BEGIN { require "config_defaults.pl"; }
 BEGIN { require "strings_e.pl"; }
 
 

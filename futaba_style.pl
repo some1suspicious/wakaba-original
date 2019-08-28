@@ -430,7 +430,7 @@ sub print_thread($$@)
 
 	# display the original thread comment
 	print_comment_header($file,$parent,!$threadview,1);
-	print $file '<blockquote>'.$$parent{comment}.'</blockquote>';
+	print_comment($file,$parent,$threadview);
 
 	# check to see if we should abbreviate the thread
 	$replies=scalar(@thread);
@@ -462,7 +462,7 @@ sub print_thread($$@)
 	foreach my $res (@thread)
 	{
 		print $file '<table><tbody><tr><td class="doubledash">&gt;&gt;</td>';
-		print $file '<td class="reply">';
+		print $file '<td class="reply" id="reply'.$$res{num}.'">';
 
 		print_comment_header($file,$res,0,0);
 
@@ -472,7 +472,7 @@ sub print_thread($$@)
 			print_image($file,$res,!$threadview);
 		}
 
-		print $file '<blockquote>'.$$res{comment}.'</blockquote>';
+		print_comment($file,$res,!$threadview);
 
 		print $file '</td></tr></tbody></table>';
 	}
@@ -482,7 +482,7 @@ sub print_thread($$@)
 
 sub print_comment_header($$$$)
 {
-	my ($file,$res,$reply,$toplevel)=@_;
+	my ($file,$res,$frontpage,$toplevel)=@_;
 	my ($titleclass,$nameclass);
 
 	$titleclass=$toplevel?"filetitle":"replytitle";
@@ -506,10 +506,27 @@ sub print_comment_header($$$$)
 		print $file '</span>';
 	}
 
-	print $file ' '.$$res{date};
-	# calc and show ID
-	print $file ' No.'.$$res{num}.'</label>&nbsp;';
-	print $file ' [<a href="'.get_reply_link($$res{num}).'">'.S_REPLY.'</a>]' if($reply);
+	print $file ' '.$$res{date}.'</label>';
+	print $file ' <span class="reflink"><a href="javascript:insert(\'>>'.$$res{num}.'\')">No.'.$$res{num}.'</a></span>&nbsp;';
+	print $file ' [<a href="'.get_reply_link($$res{num},0).'">'.S_REPLY.'</a>]' if($frontpage);
+}
+
+sub print_comment($$$)
+{
+	my ($file,$res,$abbreviate)=@_;
+	my $abbreviation;
+
+	if($abbreviate and $abbreviation=abbreviate_html($$res{comment}))
+	{
+		print $file '<blockquote>';
+		print $file $abbreviation;
+		print $file '<div class="abbrev">'.sprintf(S_ABBRTEXT,get_reply_link($$res{num},$$res{parent})).'</div>';
+		print $file '</blockquote>'; 
+	}
+	else
+	{
+		print $file '<blockquote>'.$$res{comment}.'</blockquote>';
+	}
 }
 
 sub print_image($$$)

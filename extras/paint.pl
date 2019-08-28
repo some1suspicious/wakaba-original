@@ -7,9 +7,11 @@ use strict;
 use CGI;
 
 use lib '.';
-BEGIN { require 'config.pl'; }
-BEGIN { require 'oekaki_config.pl'; }
-BEGIN { require 'oekaki_strings_e.pl'; }
+BEGIN { require "config.pl"; }
+BEGIN { require "config_defaults.pl"; }
+BEGIN { require "strings_e.pl"; }
+BEGIN { require "oekaki_config.pl"; }
+BEGIN { require "oekaki_strings_e.pl"; }
 
 
 
@@ -28,7 +30,7 @@ make_error(S_HAXORING) if($oek_src=~m![^0-9a-zA-Z/\.]!);
 make_error(S_OEKTOOBIG) if($oek_x>OEKAKI_MAX_X or $oek_y>OEKAKI_MAX_Y);
 make_error(S_OEKTOOSMALL) if($oek_x<OEKAKI_MIN_X or $oek_y<OEKAKI_MIN_Y);
 
-if($oek_painter=~/shii/)
+if($oek_painter=~/shi/)
 {
 	my $mode;
 	$mode="pro" if($oek_painter=~/pro/);
