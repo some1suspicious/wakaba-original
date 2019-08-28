@@ -1,0 +1,1633 @@
+<html><head>
+<!-- TiddlyWiki 1.0 copyright by Jeremy Ruston, 20 September 2004 --><!-- jeremy (at) osmosoft (dot) com --><!-- This work is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike License.
+     To view a copy of this license, visit http://creativecommons.org/licenses/by-nc-sa/2.0/ or send
+     a letter to Creative Commons, 559 Nathan Abbott Way, Stanford, California 94305, USA. -->
+
+<title>Wakaba and Kareha - the documentation, such as it is</title>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="copyright" content="Copyright © 2004-2005 Jeremy Ruston, Dag Ågren">
+<script type="text/javascript">
+
+// ---------------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------------
+
+var sidebar_mode="all";
+var reference_target;
+
+function main()
+{
+	refresh_titles(); // fix all dates to the user's locale
+	refresh_all(); // set up interface
+	reset_state(); // hide tiddlers
+}
+
+function reset_state()
+{
+	close_all_tiddlers();
+
+	var tiddlers;
+	var index=document.location.toString().indexOf("#");
+
+	if(index==-1) tiddlers=get_tiddler_links("DefaultTiddlers");
+	else
+	{
+		var list=document.location.toString().substring(index+1);
+		tiddlers=list.split(/[ ,]+/);
+	}
+
+	if(!tiddlers) tiddlers=["StartHere"];
+
+	for(var i=tiddlers.length-1;i>=0;i--) display_tiddler(null,tiddlers[i]);
+}
+
+
+
+// ---------------------------------------------------------------------------------
+// Interface functions
+// ---------------------------------------------------------------------------------
+
+function edit_tiddler(title)
+{
+	var tiddler=document.getElementById("tiddler"+title);
+	var title_el=document.getElementById("title"+title);
+	var toolbar_el=document.getElementById("toolbar"+title);
+	var body_el=document.getElementById("body"+title);
+	var body_width=body_el.offsetWidth;
+
+	title_el.style.display="none";
+	toolbar_el.style.display="none";
+	body_el.style.display="none";
+
+	var edittitle=create_tiddly_element("input",tiddler,"edittitle"+title,null,null);
+	var edittoolbar=create_toolbar(tiddler,"edittoolbar"+title,"toolbar",[
+		"delete","Delete this tiddler","delete_tiddler('"+title+"')",
+		"done","Finish editing this tiddler and save it","save_tiddler('"+title+"')",
+		"cancel","Cancel changes to this tiddler","cancel_tiddler('"+title+"')",
+	]);
+	var editor=create_tiddly_element("textarea",tiddler,"editor"+title,null,unwikify(body_el));
+//	editor.style.width="100%";
+
+	edittitle.value=title;
+}
+
+function cancel_tiddler(title)
+{
+	var tiddler=document.getElementById("tiddler"+title);
+	var title_el=document.getElementById("title"+title);
+	var toolbar_el=document.getElementById("toolbar"+title);
+	var body_el=document.getElementById("body"+title);
+	var edittitle_el=document.getElementById("edittitle"+title);
+	var edittoolbar_el=document.getElementById("edittoolbar"+title);
+	var editor_el=document.getElementById("editor"+title);
+
+	tiddler.removeChild(edittitle_el);
+	tiddler.removeChild(edittoolbar_el);
+	tiddler.removeChild(editor_el);
+
+	title_el.style.display="";
+	toolbar_el.style.display="";
+	body_el.style.display="";
+}
+
+function save_tiddler(title)
+{
+	var tiddler=document.getElementById("tiddler"+title);
+	var body_el=document.getElementById("body"+title);
+	var title_el=document.getElementById("title"+title);
+	var toolbar_el=document.getElementById("toolbar"+title);
+	var edittitle_el=document.getElementById("edittitle"+title);
+	var edittoolbar_el=document.getElementById("edittoolbar"+title);
+	var editor_el=document.getElementById("editor"+title);
+
+	var newtitle=edittitle_el.value;
+	var text=editor_el.value;
+
+	if(title!=newtitle)
+	{
+		// check if we're trying to overrite a tiddler '
+		var othertiddler=document.getElementById("tiddler"+newtitle);
+		if(othertiddler)
+		if(confirm('The tiddler "'+newtitle+'" already exists!\nAre you sure you want to overwrite this tiddler?'))
+		othertiddler.parentNode.removeChild(othertiddler);
+
+		var newtiddler=create_tiddler(newtitle,tiddler);
+		tiddler.parentNode.removeChild(tiddler);
+		tiddler=newtiddler;
+		body_el=document.getElementById("body"+newtitle);
+	}
+	else
+	{
+		// remove editor and body
+		tiddler.removeChild(edittitle_el);
+		tiddler.removeChild(edittoolbar_el);
+		tiddler.removeChild(editor_el);
+
+		// restore title and toolbar
+		title_el.style.display="";
+		toolbar_el.style.display="";
+	}
+
+	// build new body
+	tiddler.removeChild(body_el);
+	var newbody_el=create_tiddly_element("div",tiddler,"body"+newtitle,"body",null);
+	wikify(text,newbody_el);
+
+	// update attributes
+	var modifier=get_user_name();
+	var now=new Date();
+	tiddler.setAttribute("modified",now.getTime());
+	tiddler.setAttribute("modifier",modifier);
+	update_tiddler_title(tiddler);
+	tiddler.temporary=null;
+
+	// save the new tiddler on the server
+	server_save(title,newtitle,tiddler.innerHTML,modifier);
+
+	// Refresh the menu and sidebars to take it into account
+	refresh_all();
+}
+
+function delete_tiddler(title)
+{
+	if(!confirm("Are you sure you want to delete this tiddler?")) return false;
+
+	// Delete the tiddler
+	var tiddler=document.getElementById("tiddler"+title);
+	if(tiddler) tiddler.parentNode.removeChild(tiddler);
+
+	// tell the server to delete too
+	server_delete(title);
+
+	// Refresh the menu and sidebars to take it into account
+	refresh_all();
+}
+
+function close_tiddler(title)
+{
+	var tiddler=document.getElementById("tiddler"+title);
+	if(tiddler)
+	{
+		if(tiddler.temporary) tiddler.parentNode.removeChild(tiddler);
+		else tiddler.style.display="none";
+	}
+}
+
+function close_all_tiddlers()
+{
+	var nodes=document.getElementById("tiddlers").childNodes;
+	for(var i=0;i<nodes.length;i++)
+	if(nodes[i].className=="tiddler")
+	{
+		if(nodes[i].temporary) nodes[i].parentNode.removeChild(nodes[i]);
+		else nodes[i].style.display="none";
+	}
+}
+
+function make_tiddler_link(title)
+{
+	var location=document.location.toString();
+	var index=location.indexOf("#");
+	if(index!=-1) location=location.substring(0,index);
+
+	document.location=location+"#"+title;
+
+	close_all_tiddlers();
+	display_tiddler(null,title);
+}
+
+function find_references(title)
+{
+	reference_target=title;
+	set_sidebar("references");
+}
+
+function set_sidebar(mode)
+{
+	sidebar_mode=mode;
+	refresh_sidebar();
+}
+
+// Event handler for clicking on the logo
+function logo_click()
+{
+	reset_state();
+}
+
+// Event handler for clicking on a tiddly link
+function link_click()
+{
+	// Get the text of the link
+	var title;
+	if(this.firstChild) title=this.firstChild.nodeValue;
+    else if(this.nodeValue) title=this.nodeValue; 
+
+	// Display that tiddler
+	if(title) display_tiddler(this,title);
+
+	return false;
+}
+
+function set_user_name()
+{
+	var oldname=get_cookie("tiddlyname")||"";
+	var newname=prompt('Please enter a name to use on the wiki.\nLeave blank to remain anonymous.',oldname);
+	if(newname=="") newname="Anonymous";
+	if(newname!=null) set_cookie("tiddlyname",newname,365);
+}
+
+function get_user_name()
+{
+	var name=get_cookie("tiddlyname");
+	if(!name)
+	{
+		name=prompt('Please enter a name to use on the wiki.\nLeave blank or cancel to remain anonymous.\nUse the "Set user name" link on the sidebar to change the name later.','');
+		if(!name) name="Anonymous";
+		set_cookie("tiddlyname",name,365);
+	}
+	return(name);
+}
+
+
+// ---------------------------------------------------------------------------------
+// Tiddler-related utility functions
+// ---------------------------------------------------------------------------------
+
+// Display a tiddler with animation and scrolling, as though a link to it has been clicked on
+//  src = source element object (eg link) for animation effects and positioning
+//  title = title of tiddler to display
+function display_tiddler(src,title)
+{
+	var tiddler=document.getElementById("tiddler"+title);
+
+	if(!tiddler) // doesn''t exist, create. 
+	{
+		// Figure out the tiddler this one must go after
+		var after=find_containing_tiddler(src);
+
+		tiddler=create_tiddler(title,after);
+		var body_el=document.getElementById("body"+title);
+		wikify("*The text for "+title+" does not exist yet.*",body_el);
+		tiddler.temporary=true;
+	}
+	else if(tiddler.style.display=="none") // hidden, move into place
+	{
+		var after=find_containing_tiddler(src);
+
+		tiddler.parentNode.removeChild(tiddler);
+		insert_tiddler(tiddler,after);
+
+		tiddler.style.display="";
+	}
+
+	// Animate from the target of the event that followed the link
+	if(src) start_zoomer(document.getElementById("floater"),src,tiddler);
+}
+
+function create_tiddler(title,after)
+{
+	var tiddler=create_tiddly_element("div",null,"tiddler"+title,"tiddler",null);
+	var anchor=create_tiddly_element("a",tiddler,null,null,null);
+	var title_el=create_tiddly_element("h3",tiddler,"title"+title,null,title);
+	var toolbar_el=create_toolbar(tiddler,"toolbar"+title,"toolbar",[
+		"link","Permalink for this tiddler","make_tiddler_link('"+title+"')",
+		"references","References to this tiddler","find_references('"+title+"')",
+		"edit","Edit this tiddler","edit_tiddler('"+title+"')",
+		"close","Close this tiddler","close_tiddler('"+title+"')",
+	]);
+	var body_el=create_tiddly_element("div",tiddler,"body"+title,"body",null);
+
+	anchor.setAttribute("name",title);
+
+	// Link it in
+	insert_tiddler(tiddler,after);
+
+	// Return the created tiddler
+	return(tiddler);
+}
+
+function insert_tiddler(tiddler,after)
+{
+	var place=document.getElementById("tiddlers");
+	if(after)
+	{
+		if(after.nextSibling) place.insertBefore(tiddler,after.nextSibling);
+		else place.appendChild(tiddler);
+	}
+	else
+	{
+		if(place.firstChild)
+		{
+			place.insertBefore(tiddler,place.firstChild);
+			var dummy=document.createTextNode(" "); // these two lines work around a firefox bug
+			place.insertBefore(dummy,tiddler.nextSibling); place.removeChild(dummy);
+		}
+		else place.appendChild(tiddler);
+	}
+}
+
+function wikify(text,parent)
+{
+	do_wakabamark(text.split(/(?:\r\n|\n|\r)/),parent,false);
+}
+
+function do_wakabamark(lines,parent,simplify)
+{
+	while(lines.length)
+	{
+		var line=lines[0];
+		var matches;
+
+		if(line.match(/^\s*$/)) { lines.shift(); } // skip empty lines
+		else if(matches=line.match(/^(1\.|[\*\+\-])(?: |\t)/)) // lists
+		{
+			var list_el,re;
+
+			if(matches[1]=="1.") { list_el=document.createElement("ol"); re=/^([0-9]+\.)(?: |\t)(.*)/; }
+			else { list_el=document.createElement("ul"); re=new RegExp("^(\\"+matches[1]+")(?: |\\t)(.*)"); }
+
+			while(lines.length && (matches=lines[0].match(re)))
+			{
+				var spaces=matches[1].length+1;
+				var item=[matches[2]];
+				lines.shift();
+
+				var sub_re=new RegExp("^(?: {1,"+spaces+"}|\\t)(.*)");
+				while(lines.length && (matches=lines[0].match(sub_re))) { item.push(matches[1]); lines.shift(); }
+
+				var item_el=document.createElement("li");
+				do_wakabamark(item,item_el,true);
+				list_el.appendChild(item_el);
+			}
+			parent.appendChild(list_el);
+		}
+		else if(lines[0].match(/^(?:    |\t)/)) // code sections
+		{
+			var code=new Array();
+			while(lines.length && (matches=lines[0].match(/^(?:    |\t)(.*)/))) { code.push(matches[1]); lines.shift() }
+
+			var pre_el=document.createElement("pre");
+			var code_el=document.createElement("code");
+
+			do_lines(code,code_el,false);
+
+			pre_el.appendChild(code_el);
+			parent.appendChild(pre_el);
+		}
+		else if(lines[0].match(/^>/)) // quoted sections
+		{
+			var quote=new Array();
+			while(lines.length && (matches=lines[0].match(/^>(.*)/))) { quote.push(matches[1]); lines.shift(); }
+
+			var blockquote_el=document.createElement("blockquote");
+			do_wakabamark(quote,blockquote_el,true);
+			parent.appendChild(blockquote_el);
+
+		}
+		else // normal paragraph
+		{
+			var text=new Array();
+			while(lines.length && !lines[0].match(/^(?:\s*$|1\. |[\*\+\-] |>|    |\t)/)) text.push(lines.shift());
+
+			if(!lines.length && simplify) do_lines(text,parent,true);
+			else
+			{
+				var p_el=document.createElement("p");
+				do_lines(text,p_el,true);
+				parent.appendChild(p_el);
+			}
+		}
+		simplify=false;
+	}
+}
+
+function do_lines(lines,parent,format)
+{
+	for(var i=0;i<lines.length;i++)
+	{
+		if(i) parent.appendChild(document.createElement("br"));
+
+		if(format) do_spans(lines[i],parent);
+		else parent.appendChild(document.createTextNode(lines[i]));
+	}
+}
+
+function do_spans(line,parent)
+{
+	var matches;
+
+	if(!line) return;
+
+	if(matches=line.match(/^(.*?)(`+)(.+?)\2(.*)$/)) // code
+	{
+		do_spans(matches[1],parent);
+		var code_el=document.createElement("code");
+		code_el.appendChild(document.createTextNode(matches[3]));
+		parent.appendChild(code_el);
+		do_spans(matches[4],parent);
+	}
+	else if(matches=line.match(/^(.*?[^0-9a-zA-Z\*_])?(\*\*|__|\*|_)([^\s\*_].*?[^\s\*_]|[^\s\*_])\2([^0-9a-zA-Z\*_].*)?$/)) // strong
+	{
+		do_spans(matches[1],parent);
+		var strong_el=document.createElement(matches[2].length==2?"strong":"em");
+		do_spans(matches[3],strong_el);
+		parent.appendChild(strong_el);
+		do_spans(matches[4],parent);
+	}
+	else if(matches=line.match(/^(.*?)((?:http|https|ftp|mailto|irc):[^\s"]*?)([\s!,"\.\)\]\?]*(?:[\s"].*)?)$/)) // hyperlinks "
+	{
+		do_spans(matches[1],parent);
+		create_external_link(parent,matches[2]);
+		do_spans(matches[3],parent);
+	}
+	else if(matches=line.match(/^(.*?)\b([A-Z]+[a-z]+[A-Z][A-Za-z_0-9]*)\b(.*)$/)) // tiddlylinks
+	{
+		do_spans(matches[1],parent);
+		create_tiddly_link(parent,matches[2],true);
+		do_spans(matches[3],parent);
+	}
+	else parent.appendChild(document.createTextNode(line));
+}
+
+
+function unwikify(parent)
+{
+	var lines=un_wakabamark(parent);
+	while(!lines[lines.length-1]) lines.pop();;
+	return(lines.join("\r"));
+}
+
+function un_wakabamark(parent)
+{
+	var children=parent.childNodes;
+	var lines=[""];
+
+	for(var i=0;i<children.length;i++)
+	{
+		var node=children[i].nodeName.toLowerCase();
+
+		if(node=="#text") lines[lines.length-1]+=children[i].nodeValue.replace(/\s+/g," ");
+		else if(node=="p")
+		{
+			var last=lines.pop();
+			if(last) lines.push(last,"");
+
+			var newlines=un_wakabamark(children[i]);
+			for(var j=0;j<newlines.length;j++) lines.push(newlines[j]);
+			lines.push("","");
+		}
+		else if(node=="ol")
+		{
+			var last=lines.pop();
+			if(last) lines.push(last,"");
+
+			var items=children[i].childNodes;
+			for(var j=0;j<items.length;j++)
+			{
+				var itemlines=un_wakabamark(items[j]);
+				var num=(j+1).toString()+". ";
+				var spaces=repeat_string(" ",num.length);
+				lines.push(num+itemlines[0]);
+				for(var k=1;k<itemlines.length;k++) lines.push(spaces+itemlines[k]);
+			}
+			lines.push("","");
+		}
+		else if(node=="ul")
+		{
+			var last=lines.pop();
+			if(last) lines.push(last,"");
+
+			var items=children[i].childNodes;
+			for(var j=0;j<items.length;j++)
+			{
+				var itemlines=un_wakabamark(items[j]);
+				lines.push("* "+itemlines[0]);
+				for(var k=1;k<itemlines.length;k++) lines.push("  "+itemlines[k]);
+			}
+			lines.push("","");
+		}
+		else if(node=="blockquote")
+		{
+			var last=lines.pop();
+			if(last) lines.push(last,"");
+
+			var quotelines=un_wakabamark(children[i]);
+			for(var j=0;j<quotelines.length;j++) lines.push(">"+quotelines[j]);
+			lines.push("","");
+		}
+		else if(node=="pre")
+		{
+			var last=lines.pop();
+			if(last) lines.push(last,"");
+
+			var codelines=un_wakabamark(children[i].firstChild);
+			for(var j=0;j<codelines.length;j++) lines.push("    "+codelines[j]);
+			lines.push("","");
+		}
+		else if(node=="em") lines[lines.length-1]+="*"+un_wakabamark(children[i]).join("")+"*";
+		else if(node=="strong") lines[lines.length-1]+="**"+un_wakabamark(children[i]).join("")+"**";
+		else if(node=="code") lines[lines.length-1]+="`"+un_wakabamark(children[i]).join("")+"`"; // slightly broken! needs to check for `
+		else if(node=="br") lines.push("");
+		else lines[lines.length-1]+=un_wakabamark(children[i]).join(""); // <a> etc
+	}
+
+	if(lines[lines.length-1]=="") lines.pop();
+	if(children.length!=1||children[0].nodeName.toLowerCase()!="p") if(lines[lines.length-1]=="") lines.pop(); // don't remove last line for one-paragraph blocks
+
+	return(lines);
+}
+
+function repeat_string(str,n) { var res; while(n--) res+=str; return str; }
+
+function get_tiddlers()
+{
+	var array=new Array();
+	var tiddlers=document.getElementById("tiddlers").childNodes;
+	for(var i=0;i<tiddlers.length;i++) if(tiddlers[i].id) array.push(tiddlers[i]); 
+	return(array);
+}
+
+function get_tiddler_text(title)
+{
+	var body=document.getElementById("body"+title);
+	if(body) return(unwikify(body));
+	return("");
+}
+
+function get_tiddler_links(title)
+{
+	var body=document.getElementById("body"+title);
+	if(body)
+	{
+		var res=new Array();
+		var links=body.getElementsByTagName("a");
+		for(var i=0;i<links.length;i++)
+		{
+			if(links[i].className=="tiddlylink" || links[i].className=="brokenlink")
+			res.push(links[i].firstChild.nodeValue);
+		}
+		return(res);
+	}
+	return(null);
+}
+
+function get_referencing_tiddlers(target)
+{
+	var tiddlers=get_tiddlers();
+	var refs=new Array();
+
+	for(var i=0;i<tiddlers.length;i++)
+	{
+		var title=tiddlers[i].id.substr(7);
+		if(title==target) continue;
+		var links=get_tiddler_links(title);
+
+		for(var j=0;j<links.length;j++)
+		if(links[j]==target)
+		{
+			refs.push(title);
+			break;
+		}
+	}
+	return(refs);
+}
+
+function create_toolbar(parent,id,classname,buttons)
+{
+	var toolbar=create_tiddly_element("div",parent,id,classname,null);
+	var num=buttons.length/3;
+
+	for(var i=0;i<num;i++)
+	{
+		if(i!=0) toolbar.appendChild(document.createTextNode(" "));
+
+		var button=create_tiddly_element("a",toolbar,null,null,buttons[i*3]);
+		button.setAttribute("href","javascript:"+buttons[3*i+2]);
+		button.setAttribute("title",buttons[3*i+1]);
+	}
+}
+
+function create_tiddly_element(element,parent,id,classname,text)
+{
+	var e=document.createElement(element);
+	if(classname) e.className=classname;
+	if(id) e.setAttribute("id",id);
+	if(text) e.appendChild(document.createTextNode(text));
+	if(parent) parent.appendChild(e);
+	return(e);
+}
+
+// Create a link to a tiddler
+function create_tiddly_link(place,title)
+{
+	var link=create_tiddly_element("a",place,null,null,title);
+	link.setAttribute("href","#"+title);
+	update_tiddly_link(link);
+}
+
+// Create an external link
+function create_external_link(place,url)
+{
+	var link=create_tiddly_element("a",place,null,"external",url);
+    link.setAttribute("href",url);
+    link.setAttribute("title","External link to "+url);
+    link.setAttribute("target","_blank");
+}
+
+// Update the class and tooltip of a link to a tiddler
+function update_tiddly_link(link)
+{
+	var target=link.firstChild.nodeValue;
+	var tiddler=document.getElementById("tiddler"+target);
+	if(tiddler && !tiddler.temporary)
+	{
+		link.className="tiddlylink";
+		link.setAttribute("title",tiddler.getAttribute("title"));
+	}
+	else
+	{
+		link.className="brokenlink";
+		link.setAttribute("title",target+" doesn't exist yet.");
+	}
+	link.onclick=link_click;
+}
+
+// Update the class and tooltip of a link to a tiddler
+function update_tiddler_title(tiddler)
+{
+	var modified=tiddler.getAttribute("modified");
+	var modifier=tiddler.getAttribute("modifier");
+	var date=modified?new Date(parseInt(modified)).toLocaleString():"an unknown date";
+	tiddler.setAttribute("title","Modified by "+(modifier||"somebody")+" on "+date);
+}
+
+// Find the tiddler instance (if any) containing a specified element
+function find_containing_tiddler(e)
+{
+	while(e && e!=document)
+	{
+		if(e.id && e.id.substr(0,7)=="tiddler") return(e);
+		e=e.parentNode;
+	}
+	return(null);
+}
+
+
+
+// ---------------------------------------------------------------------------------
+// UI updating functions
+// ---------------------------------------------------------------------------------
+
+// Refresh everything
+function refresh_all()
+{
+    refresh_header();
+    refresh_menu();
+    refresh_sidebar();
+    refresh_links();
+}
+
+// Refresh all parts of the header
+function refresh_header()
+{
+	// Get the site title and subtitle
+	var title=get_tiddler_text("SiteTitle");
+	var subtitle=get_tiddler_text("SiteSubtitle");
+
+	// Set the page title
+	document.title=title+" - "+subtitle;
+
+	// Do the title
+	var place=document.getElementById("title");
+	while(place.firstChild) place.removeChild(place.firstChild);
+	place.appendChild(document.createTextNode(title));
+
+	// Do the subtitle
+	var place=document.getElementById("subtitle");
+	while(place.firstChild) place.removeChild(place.firstChild);
+	place.appendChild(document.createTextNode(subtitle));
+}
+
+// Refresh all parts of the main menu
+function refresh_menu()
+{
+	var place=document.getElementById("menu");
+	while(place.firstChild)	place.removeChild(place.firstChild);
+
+	var menu=document.createElement("div");
+	wikify(get_tiddler_text("MainMenu"),menu);
+	place.appendChild(menu);
+
+/*	var menutiddler=document.getElementById("bodyMainMenu");
+	if(menutiddler)
+	{
+		var menu=menutiddler.cloneNode(true);
+		place.appendChild(menu);
+	}*/
+}
+
+// Refresh the sidebar
+function refresh_sidebar()
+{
+	switch(sidebar_mode)
+	{
+		case "all":
+			refresh_alphabetical();
+		break;
+		case "timeline":
+			refresh_timeline();
+		break;
+		case "references":
+			refresh_references();
+		break;
+	}
+}
+
+function refresh_alphabetical()
+{
+	var tiddlers=get_tiddlers();
+
+	// Sort the tiddlers by name
+	tiddlers.sort(function (a,b) { var ai=a.id,bi=b.id; if(ai==bi) return(0); else return(ai>bi)?1:-1; });
+
+	// Delete any existing entries in the 'all' list
+	var place=document.getElementById("sidebar_contents");
+	while(place.firstChild) place.removeChild(place.firstChild);
+
+	create_tiddly_element("h4",place,"","","All tiddlers")
+
+	// Output the links
+	for(var i=0;i<tiddlers.length;i++)
+	{
+		if(i!=0) place.appendChild(document.createElement("br"));
+		create_tiddly_link(place,tiddlers[i].id.substr(7),false);
+	}
+}
+
+function refresh_timeline()
+{
+	var tiddlers=get_tiddlers();
+
+	// Sort the tiddlers by date
+	tiddlers.sort(function (a,b) { var am=a.getAttribute("modified"),bm=b.getAttribute("modified"); if(am==bm) return(0); else return(am>bm)?-1:1; });
+
+	// Delete any existing entries in the 'all' list
+	var place=document.getElementById("sidebar_contents");
+	while(place.firstChild) place.removeChild(place.firstChild);
+
+	// Output the links
+	var prevday;
+	for(var i=0;i<tiddlers.length;i++)
+	{
+		var modified=tiddlers[i].getAttribute("modified");
+		var day=modified?new Date(parseInt(modified)).toLocaleDateString():"Unknown";
+
+		if(day!=prevday)
+		{
+			create_tiddly_element("h4",place,"","",day)
+			prevday=day;
+		}
+		else place.appendChild(document.createElement("br"));
+
+		create_tiddly_link(place,tiddlers[i].id.substr(7),false);
+	}
+}
+
+function refresh_references()
+{
+	var incoming=get_referencing_tiddlers(reference_target);
+	var outgoing=get_tiddler_links(reference_target);
+
+	// Delete any existing entries in the 'all' list
+	var place=document.getElementById("sidebar_contents");
+	while(place.firstChild) place.removeChild(place.firstChild);
+
+	create_tiddly_element("h4",place,"","","Tiddlers that link to "+reference_target+":")
+
+	// Output the links
+	for(var i=0;i<incoming.length;i++)
+	{
+		if(i!=0) place.appendChild(document.createElement("br"));
+		create_tiddly_link(place,incoming[i],false);
+	}
+
+	create_tiddly_element("h4",place,"","","Tiddlers that "+reference_target+" links to:")
+
+	// Output the links
+	for(var i=0;i<outgoing.length;i++)
+	{
+		if(i!=0) place.appendChild(document.createElement("br"));
+		create_tiddly_link(place,outgoing[i],false);
+	}
+}
+
+function refresh_links()
+{
+	var links=document.getElementsByTagName("a");
+
+	for(var i=0;i<links.length;i++)
+	{
+		if(links[i].className=="tiddlylink" || links[i].className=="brokenlink")
+		update_tiddly_link(links[i]);
+	}
+}
+
+function refresh_titles()
+{
+	var tiddlers=get_tiddlers();
+	for(var i=0;i<tiddlers.length;i++) update_tiddler_title(tiddlers[i]);
+}
+
+
+// ---------------------------------------------------------------------------------
+// Server communication
+// ---------------------------------------------------------------------------------
+
+function server_save(oldtitle,newtitle,body,modifier)
+{ server_request("save",oldtitle,newtitle,body,modifier); }
+
+function server_delete(title)
+{ server_request("delete",title,"","",""); }
+
+//var xmlhttp;
+function server_request(action,oldtitle,newtitle,body,name)
+{
+	var notice=document.createElement("div");
+	notice.appendChild(document.createTextNode("Saving..."));
+	notice.className="notice";
+	document.body.appendChild(notice);
+
+	var xmlhttp=get_xmlhttp();
+	xmlhttp.open("POST","kozakana2.pl",true);
+	xmlhttp.onreadystatechange=function()
+	{
+		if(xmlhttp.readyState==4)
+		{
+			if(xmlhttp.responseText) alert(xmlhttp.responseText+"\nSaving your edits failed.\nMake sure to make a local copy of your text.");
+			//xmlhttp.onreadystatechange=null;
+			notice.parentNode.removeChild(notice);
+		}
+	}
+
+	xmlhttp.setRequestHeader("Content-Type","application/x-www-form-urlencoded");
+	xmlhttp.setRequestHeader("Referer",document.location.toString().replace(/#.*/,""));
+	xmlhttp.send(
+		"action="+encodeURIComponent(action)+
+		"&oldtitle="+encodeURIComponent(oldtitle)+
+		"&newtitle="+encodeURIComponent(newtitle)+
+		"&body="+encodeURIComponent(body)+
+		"&name="+encodeURIComponent(name)
+	);
+}
+
+function get_xmlhttp()
+{
+	var xmlhttp;
+	try { xmlhttp=new ActiveXObject("Msxml2.XMLHTTP"); }
+	catch(e1)
+	{
+		try { xmlhttp=new ActiveXObject("Microsoft.XMLHTTP"); }
+		catch(e1) { xmlhttp=null; }
+	}
+
+	if(!xmlhttp && typeof XMLHttpRequest!='undefined') xmlhttp=new XMLHttpRequest();
+
+	return(xmlhttp);
+}
+
+
+
+// ---------------------------------------------------------------------------------
+// Animation engine
+// ---------------------------------------------------------------------------------
+
+// Animation housekeeping
+var animating=0,animator;
+var zoomer_element=null;
+var zoomer_progress,zoomer_step;
+
+var zoomer_start_x,zoomer_start_y,zoomer_start_w,zoomer_start_h;
+var zoomer_target_x,zoomer_target_y,zoomer_target_w,zoomer_target_h;
+var scroll_start_y,scroll_target_y;
+
+// Start moving the element 'e' from the position of the element 'start' to the position of the element 'target'
+function start_zoomer(e,start,target)
+{
+	stop_zoomer();
+
+	zoomer_element=e;
+	zoomer_progress=0;
+	zoomer_step=0.08;
+
+	zoomer_start_x=get_x(start);
+	zoomer_start_y=get_y(start);
+	zoomer_start_w=start.offsetWidth;
+	zoomer_start_h=start.offsetHeight;
+	zoomer_target_x=get_x(target);
+	zoomer_target_y=get_y(target);
+	zoomer_target_w=target.offsetWidth;
+	zoomer_target_h=target.offsetHeight;
+	zoomer_element.style.display=""; 
+
+	scroll_start_y=window.scrollY;
+	scroll_target_y=zoomer_target_y;
+
+	var delta_h=window.innerHeight-target.offsetHeight;
+
+	// if the element is currently in view, don''t scroll
+	if(scroll_target_y>=window.scrollY && scroll_target_y<=window.scrollY+delta_h) scroll_target_y=scroll_start_y;
+	// if the element is below the view and fits on screen, place it at the bottom
+	else if(scroll_target_y>window.scrollY+delta_h && delta_h>0) scroll_target_y-=delta_h;
+
+	start_animating();
+}
+
+// Start animation engine
+function start_animating()
+{
+	if(animating++==0) animator=window.setInterval("do_animate();",25);
+}
+
+// Stop animation engine
+function stop_animating()
+{
+	if(--animating==0) window.clearInterval(animator)
+}
+
+// Perform an animation engine tick, calling each of the known animation modules
+function do_animate()
+{
+	if(zoomer_element) do_zoomer();
+}
+
+// Stop any ongoing zoomer animation
+function stop_zoomer()
+{
+	if(zoomer_element)
+	{
+		stop_animating();
+		zoomer_element.style.display="none"; 
+		zoomer_element=null;
+	}
+}
+
+// Perform a tick of the zoomer animation
+function do_zoomer()
+{
+	zoomer_progress+=zoomer_step;
+	if(zoomer_progress>1.0)
+	{
+		stop_zoomer();
+		window.scrollTo(0,scroll_target_y);
+	}
+	else
+	{
+		var t=slowInSlowOut(zoomer_progress);
+		zoomer_element.style.left=(zoomer_start_x+(zoomer_target_x-zoomer_start_x)*t);
+		zoomer_element.style.top=(zoomer_start_y+(zoomer_target_y-zoomer_start_y)*t);
+		zoomer_element.style.width=(zoomer_start_w+(zoomer_target_w-zoomer_start_w)*t);
+		zoomer_element.style.height=(zoomer_start_h+(zoomer_target_h-zoomer_start_h)*t);
+		window.scrollTo(0,scroll_start_y+(scroll_target_y-scroll_start_y)*t);
+	}
+}
+
+// Map a 0..1 value to 0..1, but slow down at the start and end
+function slowInSlowOut(progress)
+{
+	return(1-((Math.cos(progress * Math.PI)+1)/2));
+}
+
+// ---------------------------------------------------------------------------------
+// Standalone utility functions
+// ---------------------------------------------------------------------------------
+
+// From QuirksMode.com
+function get_x(obj)
+{
+	var left=0;
+	if(obj.offsetParent)
+	{
+		while(obj.offsetParent)
+		{
+			left+=obj.offsetLeft
+			obj=obj.offsetParent;
+		}
+	}
+	else if(obj.x) left+=obj.x;
+
+	return(left);
+}
+
+// From QuirksMode.com
+function get_y(obj)
+{
+	var top=0;
+	if(obj.offsetParent)
+	{
+		while(obj.offsetParent)
+		{
+			top+=obj.offsetTop
+			obj=obj.offsetParent;
+		}
+	}
+	else if(obj.y) top+=obj.y;
+
+	return(top);
+}
+
+function get_cookie(name)
+{
+	with(document.cookie)
+	{
+		var index=indexOf(name+"=");
+		if(index==-1) return '';
+		index=indexOf("=",index)+1;
+		var endstr=indexOf(";",index);
+		if(endstr==-1) endstr=length;
+		return unescape(substring(index,endstr));
+	}
+};
+
+function set_cookie(name,value,days)
+{
+	if(days)
+	{
+		var date=new Date();
+		date.setTime(date.getTime()+(days*24*60*60*1000));
+		var expires="; expires="+date.toGMTString();
+	}
+	else expires="";
+	document.cookie=name+"="+value+expires+"; path=/";
+}
+
+// ---------------------------------------------------------------------------------
+// End of scripts
+// ---------------------------------------------------------------------------------
+
+</script>
+<style type="text/css">
+
+body {
+	background: #FFFFEE;
+	color: #800000;
+
+	/*font-size: 9pt;
+	font-family: tahoma,arial,helvetica;*/
+	margin: 0px;
+}
+
+img {
+	border: none;
+}
+
+#header {
+	height: 48px;
+	margin: 8px 16px 8px 16px;
+	padding: 6px 6px 6px 6px;
+	background: #d6e0f0;
+	-moz-border-radius: 6px;
+	font-size: 16pt;
+	text-shadow: #4d5577 3px 3px 8px;
+}
+
+#header h1 {
+	display: inline;
+	font-size: 1.8em;
+	font-weight: bold;
+	margin: 0px;
+}
+
+#header h2 {
+	display: inline;
+	font-size: 1em;
+	font-style: italic;
+	font-weight: normal;
+	color: #4d5577;
+	margin: 0px 0px 0px 0.2em;
+}
+
+#header a:link, #header a:visited {
+	text-decoration: none;
+	color: #000000;
+}
+
+#contents {
+}
+
+#menu {
+	position: absolute;
+	left: 16px;
+	top: 76px;
+	width: 127px;
+	background: #fbe9b2;
+	color: black;
+	font-size: 10pt;
+	text-align: right;
+	line-height: 140%;
+	padding: 6px;
+	overflow: hidden;
+	/*border: 1px dotted #46412d;*/
+	-moz-border-radius: 4px;
+}
+
+#menu :first-child {
+	margin-top: 0em;
+}
+
+#menu :last-child {
+	margin-bottom: 0em;
+}
+
+#menu a:link, #menu a:visited {
+	text-decoration: none;
+	color: #46412d;
+}
+
+#menu a:hover {
+	color: #fbe9a2;
+	background-color: #46412d;
+}
+
+#menu a.tiddlylink {
+	font-weight: bold;
+}
+
+#menu a.brokenlink {
+	font-style: italic;
+}
+
+#sidebar {
+	position: absolute;
+	top: 76px;
+	right: 16px;
+	width: 145px;
+	color: #008000;
+	background: #e0f0d6;
+	font-size: 8pt;
+	padding: 6px;
+	-moz-border-radius: 6px;
+}
+
+#sidebar h4 {
+	font-size: 1em;
+	font-weight: bold;
+	margin: 1em 0em;
+}
+
+#sidebar a:link, #sidebar a:visited {
+/*	color: #777777;*/
+	color: #608060;
+	text-decoration: none;
+}
+
+#sidebar a:hover {
+	color: blue;
+	text-decoration: underline;
+}
+
+#tiddlers {
+	margin: 0px 181px 0px 163px;
+}
+
+.tiddler {
+	padding: 8px 8px 8px 8px;
+	background: #F0E0D6;
+	margin-bottom: 2em;
+	-moz-border-radius: 6px;
+}
+
+.tiddler h3 {
+	float:left;
+	font-size: 1.2em;
+	color: #CC1105;
+	font-weight: bold;
+	margin: 0px;
+	padding: 0px;
+	display: inline;
+	/*text-shadow: #AAAAAA 3px 3px 3px;*/
+}
+
+.tiddler .toolbar {
+	width: 100%;
+	text-align: right;
+	font-weight: normal;
+	font-size: 8pt;
+	margin-right: 6px;
+	padding: 0px 0px 0px 0px;
+	color: #aaaaaa;
+}
+
+.tiddler .toolbar a {
+	color: #888888;
+	text-decoration: none;
+}
+
+.tiddler .toolbar a:hover {
+	color: #000000;
+}
+
+.tiddler .toolbar a:active {
+	color: #666666;
+}
+
+.tiddler .body {
+	clear: both;
+	padding-top: 2px;
+	font-size: 10pt;
+}
+
+.tiddler a.tiddlylink {
+	font-weight: bold;
+}
+
+.tiddler a.brokenlink {
+	font-style: italic;
+}
+
+.tiddler .body a:link, .tiddler .body a:visited {
+	color: #482d94;
+	text-decoration: underline;
+}
+
+.tiddler .body a:hover {
+	color: white;
+	background-color: #482d94;
+	text-decoration: none;
+}
+
+.tiddler blockquote {
+	border-left: 1px solid #800000;
+	margin-left: 0em;
+	padding-left: 0.7em;
+	font-style: italic;
+}
+
+.tiddler :first-child {
+	margin-top: 0em;
+}
+
+.tiddler :last-child {
+	margin-bottom: 0em;
+}
+
+.tiddler input {
+	float: left;
+	border: 1px solid #800000;
+}
+
+.tiddler textarea {
+	clear: both;
+	width: 100%;
+	height: 15em;
+	border: 1px solid #800000;
+}
+
+#floater {
+	font-size: 1.2em;
+	font-weight: bold;
+	color: #000000;
+
+	background-color: #b8b896;
+	position: absolute;
+	opacity: 0.5;
+	filter: alpha(opacity=50);
+
+	border: 2px dotted #000000;
+	margin-bottom: 2em;
+	-moz-border-radius: 6px;
+}
+
+.notice {
+	position: absolute;
+	right: 20px;
+	top: 12px;
+	color: #000000;
+	background: #ffbf9f;
+	font-family: sans-serif;
+	font-size: 1.3em;
+	padding: 4px;
+	border: 1px solid black;
+	-moz-border-radius: 4px;
+}
+
+</style></head>
+
+
+
+<body onload="main()">
+
+<div id="header">
+	<a href="javascript:logo_click()"><h1 id="title">Wakaba and Kareha</h1></a>
+	<h2 id="subtitle">the documentation, such as it is</h2>
+</div>
+
+<div id="contents">
+
+<div id="menu"><div><p><a href="#StartHere" class="tiddlylink" title="Modified by !WAHa.06x36 on 18.03.2005, 14:50:21">StartHere</a><br><a href="#UsersGuide" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 21:51:11">UsersGuide</a><br><a href="#WakabaScript" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 22:14:47">WakabaScript</a><br><a href="#KarehaScript" class="tiddlylink" title="Modified by RuiCarmo on 14.03.2005, 15:40:01">KarehaScript</a><br><a href="#DiscussionBoard" class="tiddlylink" title="Modified by somebody on 27.10.2004, 14:56:00">DiscussionBoard</a><br><a href="#TiddlyWiki" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 20:57:44">TiddlyWiki</a></p></div></div>
+
+<div id="tiddlers"><div class="tiddler" id="tiddlerStartHere" modified="1111150221000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 18.03.2005, 14:50:21" style=""><a name="StartHere"></a>
+<h3 id="titleStartHere" style="">StartHere</h3>
+<div id="toolbarStartHere" class="toolbar" style=""><a href="javascript:make_tiddler_link('StartHere')" title="Permalink for this tiddler">link</a> <a href="javascript:find_references('StartHere')" title="References to this tiddler">references</a> <a href="javascript:edit_tiddler('StartHere')" title="Edit this tiddler">edit</a> <a href="javascript:close_tiddler('StartHere')" title="Close this tiddler">close</a></div>
+<div class="body" id="bodyStartHere"><p>This is the <a href="#WikiWiki" class="tiddlylink" title="Modified by somebody on 22.02.2005, 13:16:00">WikiWiki</a>
+based documentation system for the Wakaba and Kareha scripts. You can
+read the information available about the two scripts here:</p><ul><li><a href="#WakabaScript" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 22:14:47">WakabaScript</a> - An image board script.</li><li><a href="#KarehaScript" class="tiddlylink" title="Modified by RuiCarmo on 14.03.2005, 15:40:01">KarehaScript</a> - A database-less message and image board script.</li><li><a href="#UsersGuide" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 21:51:11">UsersGuide</a> - A guide for users of Wakaba (and to some extent Kareha).</li><li><a href="#DiscussionBoard" class="tiddlylink" title="Modified by somebody on 27.10.2004, 14:56:00">DiscussionBoard</a> - Go here to talk about the scripts and this documentation.</li></ul><p>Outside
+contribution is appreciated, either by simply writing entries for the
+documentation, or discussing what needs to be added. I'd also like to
+have a <a href="#JapaneseDocumentation" class="brokenlink" title="JapaneseDocumentation doesn't exist yet.">JapaneseDocumentation</a>, since some of the scripts do have a <a href="#JapaneseVersion" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 21:30:35">JapaneseVersion</a>.</p><p>This documentation wiki is based on Jeremy Ruston's <a href="#TiddlyWiki" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 20:57:44">TiddlyWiki</a>. If you want to play around, do it in the <a href="#SandBox" class="tiddlylink" title="Modified by Anonymous on 16.03.2005, 23:18:09">SandBox</a>. If you want to really mess around with this kind of <a href="#WikiWiki" class="tiddlylink" title="Modified by somebody on 22.02.2005, 13:16:00">WikiWiki</a>, go to <a class="external" href="http://wakaba.c3.cx/docs/test.html" title="External link to http://wakaba.c3.cx/docs/test.html" target="_blank">http://wakaba.c3.cx/docs/test.html</a>, which is the test page. Feel free to go crazy in there.</p></div></div><div class="tiddler" id="tiddlerDocumentationChanges" modified="1110653701000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 12.03.2005, 20:55:01" style=""><a name="DocumentationChanges"></a><h3 style="" id="titleDocumentationChanges">DocumentationChanges</h3><div style="" id="toolbarDocumentationChanges" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('DocumentationChanges')">link</a> <a title="References to this tiddler" href="javascript:find_references('DocumentationChanges')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('DocumentationChanges')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('DocumentationChanges')">close</a></div><div id="bodyDocumentationChanges" class="body"><p>So, I've changed the documentation over to a new, highly customized and re-written version of <a title="Modified by !WAHa.06x36 on 12.03.2005, 20:57:44" class="tiddlylink" href="#TiddlyWiki">TiddlyWiki</a>. Some changes are:</p><ul><li><a title="Modified by !WAHa.06x36 on 13.03.2005, 19:01:28" class="tiddlylink" href="#WakabaMark">WakabaMark</a></li><li>Names and <a title="Modified by !WAHa.06x36 on 12.03.2005, 21:35:01" class="tiddlylink" href="#TripCodes">TripCodes</a></li><li>Non-<a title="JavaScript doesn't exist yet." class="brokenlink" href="#JavaScript">JavaScript</a> readability</li><li>More sidebar modes (timeline, link tracking)</li><li>Slightly improved communication with the backend</li></ul><p>I'll be re-writing some parts of the documentation too, and maybe even adding some of the missing parts.</p><p>Report any problems and bugs on the <a title="Modified by somebody on 27.10.2004, 14:56:00" class="tiddlylink" href="#DiscussionBoard">DiscussionBoard</a>!</p></div></div>
+<div style="display: none;" title="Modified by somebody on 11.10.2004, 00:37:00" modifier="somebody" modified="1097444220000" id="tiddlerSiteTitle" class="tiddler"><a name="SiteTitle"></a><h3 id="titleSiteTitle">SiteTitle</h3><div id="toolbarSiteTitle" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('SiteTitle')">link</a> <a title="References to this tiddler" href="javascript:find_references('SiteTitle')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('SiteTitle')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('SiteTitle')">close</a></div><div id="bodySiteTitle" class="body"><p>Wakaba and Kareha</p></div></div>
+<div style="display: none;" title="Modified by somebody on 11.10.2004, 00:38:00" modifier="somebody" modified="1097444280000" id="tiddlerSiteSubtitle" class="tiddler"><a name="SiteSubtitle"></a><h3 id="titleSiteSubtitle">SiteSubtitle</h3><div id="toolbarSiteSubtitle" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('SiteSubtitle')">link</a> <a title="References to this tiddler" href="javascript:find_references('SiteSubtitle')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('SiteSubtitle')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('SiteSubtitle')">close</a></div><div id="bodySiteSubtitle" class="body"><p>the documentation, such as it is</p></div></div>
+<div style="display: none;" title="Modified by somebody on 11.10.2004, 15:33:00" modifier="somebody" modified="1097497980000" id="tiddlerFutabaChannel" class="tiddler"><a name="FutabaChannel"></a><h3 id="titleFutabaChannel">FutabaChannel</h3><div id="toolbarFutabaChannel" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('FutabaChannel')">link</a> <a title="References to this tiddler" href="javascript:find_references('FutabaChannel')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('FutabaChannel')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('FutabaChannel')">close</a></div><div id="bodyFutabaChannel" class="body"><p><a target="_blank" title="External link to http://www.2chan.net/" href="https://www.2chan.net/" class="external">http://www.2chan.net/</a></p></div></div>
+<div style="display: none;" title="Modified by somebody on 11.10.2004, 15:34:00" modifier="somebody" modified="1097498040000" id="tiddlerFutabaScript" class="tiddler"><a name="FutabaScript"></a><h3 id="titleFutabaScript">FutabaScript</h3><div id="toolbarFutabaScript" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('FutabaScript')">link</a> <a title="References to this tiddler" href="javascript:find_references('FutabaScript')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('FutabaScript')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('FutabaScript')">close</a></div><div id="bodyFutabaScript" class="body"><p>Futaba is the image board script used at the hugely popular japanese site <a title="Modified by somebody on 11.10.2004, 15:33:00" class="tiddlylink" href="#FutabaChannel">FutabaChannel</a>, and many other japanese image boards. It lives at <a target="_blank" title="External link to http://www.2chan.net/script/" href="https://www.2chan.net/script/" class="external">http://www.2chan.net/script/</a> . It is written in PHP, and is entirely in Japanese.</p></div></div>
+<div class="tiddler" id="tiddlerNiChannel" modified="1132361111000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 19.11.2005, 02:45:11" style="display: none;"><a name="NiChannel"></a><h3 style="" id="titleNiChannel">NiChannel</h3><div style="" id="toolbarNiChannel" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('NiChannel')">link</a> <a title="References to this tiddler" href="javascript:find_references('NiChannel')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('NiChannel')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('NiChannel')">close</a></div><div id="bodyNiChannel" class="body"><p><a title="Modified by !WAHa.06x36 on 19.11.2005, 02:45:11" class="tiddlylink" href="#NiChannel">NiChannel</a>, or <em>2ch</em>, is a huge Japanese message board. It is by all measures the center of the internet in Japan.</p><p><a target="_blank" title="External link to http://www.2ch.net/" href="http://www.2ch.net/" class="external">http://www.2ch.net/</a></p><p>There is a translated menu of 2ch boards at <a target="_blank" title="External link to http://4-ch.net/2chportal/" href="http://4-ch.net/2chportal/" class="external">http://4-ch.net/2chportal/</a></p></div></div>
+<div style="display: none;" title="Modified by somebody on 11.10.2004, 15:49:00" modifier="somebody" modified="1097498940000" id="tiddlerFutallabyScript" class="tiddler"><a name="FutallabyScript"></a><h3 id="titleFutallabyScript">FutallabyScript</h3><div id="toolbarFutallabyScript" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('FutallabyScript')">link</a> <a title="References to this tiddler" href="javascript:find_references('FutallabyScript')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('FutallabyScript')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('FutallabyScript')">close</a></div><div id="bodyFutallabyScript" class="body"><p>Futallaby is an improved and translated version of <a title="Modified by somebody on 11.10.2004, 15:34:00" class="tiddlylink" href="#FutabaScript">FutabaScript</a>. It is used at <a target="_blank" title="External link to http://www.4chan.org/" href="https://www.4chan.org/" class="external">http://www.4chan.org/</a> , and an old version lives at <a target="_blank" title="External link to http://www.1chan.net/" href="http://www.1chan.net/" class="external">http://www.1chan.net/</a> .</p><p>Wakaba
+borrows quite a bit of HTML code and translated text from Futallaby.
+Wakaba's CSS is also compatible with Futallaby's. Many thanks to
+thatdog for his work.</p></div></div>
+<div class="tiddler" id="tiddlerKarehaRequirements" modified="1110656308000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 12.03.2005, 21:38:28" style="display: none;"><a name="KarehaRequirements"></a><h3 style="" id="titleKarehaRequirements">KarehaRequirements</h3><div style="" id="toolbarKarehaRequirements" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('KarehaRequirements')">link</a> <a title="References to this tiddler" href="javascript:find_references('KarehaRequirements')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('KarehaRequirements')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('KarehaRequirements')">close</a></div><div id="bodyKarehaRequirements" class="body"><p>Kareha
+is very light on requirements. It only needs a Perl installation. 5.6
+or 5.8 should work fine, 5.005 or older might work. It also needs to be
+able to write to its own directory. See <a title="Modified by somebody on 27.12.2004, 23:29:00" class="tiddlylink" href="#SettingPermissions">SettingPermissions</a>.</p></div></div>
+<div class="tiddler" id="tiddlerWakabaRequirements" modified="1110655349000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 12.03.2005, 21:22:29" style="display: none;"><a name="WakabaRequirements"></a><h3 style="" id="titleWakabaRequirements">WakabaRequirements</h3><div style="" id="toolbarWakabaRequirements" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('WakabaRequirements')">link</a> <a title="References to this tiddler" href="javascript:find_references('WakabaRequirements')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('WakabaRequirements')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('WakabaRequirements')">close</a></div><div id="bodyWakabaRequirements" class="body"><p>Wakaba
+will run on fairly old versions of Perl, but may lack some features.
+For best performance, run it on Perl 5.8.0 and up. It has been tested
+on versions down to 5.005 or so.</p><p>First and foremost, Wakaba
+requires a database backend. It has been designed to support mysql and
+SQLite. You will need to install the appropriate DBD driver for
+whichever one you pick. See <a title="MysqlDatabase doesn't exist yet." class="brokenlink" href="#MysqlDatabase">MysqlDatabase</a> or <a title="Modified by !WAHa.06x36 on 12.03.2005, 21:03:55" class="tiddlylink" href="#SQLiteDatabase">SQLiteDatabase</a> for more information.</p><p>Thumbnailing is done either with <a title="Modified by somebody on 05.11.2004, 13:28:00" class="tiddlylink" href="#ImageMagick">ImageMagick</a> or <a title="Modified by somebody on 25.10.2004, 14:58:00" class="tiddlylink" href="#NetPBM">NetPBM</a>. At least one of these is often installed on Unix machines.</p><p>It also needs to be able to write to its own directory, and its subdirectories. See <a title="Modified by somebody on 27.12.2004, 23:29:00" class="tiddlylink" href="#SettingPermissions">SettingPermissions</a> for more information.</p><p>The following are optional:</p><p>MD5
+checksumming requires Digest::MD5 package. Digest::MD5 is included with
+newer Perl distributions, or can be obtained from CPAN for older ones.
+Wakaba can also try to calculate MD5 checksums using the external
+'md5sum' program.</p><p><a title="CharacterSetConversion doesn't exist yet." class="brokenlink" href="#CharacterSetConversion">CharacterSetConversion</a> requires Perl 5.8.0 to work.</p></div></div>
+<div class="tiddler" id="tiddlerSecretString" modified="1110653670000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 12.03.2005, 20:54:30" style="display: none;"><a name="SecretString"></a><h3 style="" id="titleSecretString">SecretString</h3><div style="" id="toolbarSecretString" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('SecretString')">link</a> <a title="References to this tiddler" href="javascript:find_references('SecretString')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('SecretString')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('SecretString')">close</a></div><div id="bodySecretString" class="body"><p>This string is used to secure various features in the scripts, such as <a title="Modified by somebody on 11.10.2004, 19:57:00" class="tiddlylink" href="#SecureTripCodes">SecureTripCodes</a>, <a title="SecureIdCodes doesn't exist yet." class="brokenlink" href="#SecureIdCodes">SecureIdCodes</a>, and the <a title="Modified by !WAHa.06x36 on 12.03.2005, 21:01:55" class="tiddlylink" href="#VeriCodes">VeriCodes</a> and <a title="EncryptedLogFile doesn't exist yet." class="brokenlink" href="#EncryptedLogFile">EncryptedLogFile</a> in <a title="Modified by RuiCarmo on 14.03.2005, 15:40:01" class="tiddlylink" href="#KarehaScript">KarehaScript</a>.</p><p>It
+should be a long and randomized string. Ten characters at the very
+least, and preferably twenty or thirty. It should also not be revealed
+to anyone.</p><p>See <a title="WakabaConfig doesn't exist yet." class="brokenlink" href="#WakabaConfig">WakabaConfig</a> or <a title="Modified by !WAHa.06x36 on 12.03.2005, 22:16:53" class="tiddlylink" href="#KarehaConfig">KarehaConfig</a> for information about setting it.</p></div></div>
+<div class="tiddler" id="tiddlerMainMenu" modified="1110653326000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 12.03.2005, 20:48:46" style="display: none;"><a name="MainMenu"></a><h3 style="" id="titleMainMenu">MainMenu</h3><div style="" id="toolbarMainMenu" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('MainMenu')">link</a> <a title="References to this tiddler" href="javascript:find_references('MainMenu')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('MainMenu')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('MainMenu')">close</a></div><div id="bodyMainMenu" class="body"><p><a title="Modified by !WAHa.06x36 on 18.03.2005, 14:50:21" class="tiddlylink" href="#StartHere">StartHere</a><br><a title="Modified by !WAHa.06x36 on 12.03.2005, 21:51:11" class="tiddlylink" href="#UsersGuide">UsersGuide</a><br><a title="Modified by !WAHa.06x36 on 12.03.2005, 22:14:47" class="tiddlylink" href="#WakabaScript">WakabaScript</a><br><a title="Modified by RuiCarmo on 14.03.2005, 15:40:01" class="tiddlylink" href="#KarehaScript">KarehaScript</a><br><a title="Modified by somebody on 27.10.2004, 14:56:00" class="tiddlylink" href="#DiscussionBoard">DiscussionBoard</a><br><a title="Modified by !WAHa.06x36 on 12.03.2005, 20:57:44" class="tiddlylink" href="#TiddlyWiki">TiddlyWiki</a></p></div></div>
+<div style="display: none;" title="Modified by somebody on 11.10.2004, 19:57:00" modifier="somebody" modified="1097513820000" id="tiddlerSecureTripCodes" class="tiddler"><a name="SecureTripCodes"></a><h3 id="titleSecureTripCodes">SecureTripCodes</h3><div id="toolbarSecureTripCodes" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('SecureTripCodes')">link</a> <a title="References to this tiddler" href="javascript:find_references('SecureTripCodes')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('SecureTripCodes')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('SecureTripCodes')">close</a></div><div id="bodySecureTripCodes" class="body"><p>Secure trip codes are an alternate form of <a title="Modified by !WAHa.06x36 on 12.03.2005, 21:35:01" class="tiddlylink" href="#TripCodes">TripCodes</a>, which are secure against the <a title="Modified by !WAHa.06x36 on 18.03.2005, 14:49:46" class="tiddlylink" href="#BruteForceAttack">BruteForceAttack</a> that can be used to crack normal <a title="Modified by !WAHa.06x36 on 12.03.2005, 21:35:01" class="tiddlylink" href="#TripCodes">TripCodes</a>. <a title="Modified by somebody on 11.10.2004, 19:57:00" class="tiddlylink" href="#SecureTripCodes">SecureTripCodes</a>
+are used by writing your name and tripcode as "Name##securetripcode"
+instead of "Name#normaltripcode". You can also use
+"Name#normal##secure".</p><p>If you want to keep your tripcode secure, do not ever use the same word for a normal and a secure tripcode.</p><p>Secure trip codes rely on a <a title="Modified by !WAHa.06x36 on 12.03.2005, 20:54:30" class="tiddlylink" href="#SecretString">SecretString</a> being configured for the script. Since the <a title="Modified by !WAHa.06x36 on 12.03.2005, 20:54:30" class="tiddlylink" href="#SecretString">SecretString</a> is not shared between different websites, secure trip codes are not portable across different websites.</p></div></div>
+<div style="display: none;" title="Modified by somebody on 13.10.2004, 01:58:00" modifier="somebody" modified="1097621880000" id="tiddlerRebuildCaches" class="tiddler"><a name="RebuildCaches"></a><h3 id="titleRebuildCaches">RebuildCaches</h3><div id="toolbarRebuildCaches" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('RebuildCaches')">link</a> <a title="References to this tiddler" href="javascript:find_references('RebuildCaches')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('RebuildCaches')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('RebuildCaches')">close</a></div><div id="bodyRebuildCaches" class="body"><p>Wakaba
+creates static HTML pages for all pages. If you change the settings for
+the script, or if you move it, these pages will no longer be correct.
+To fix them, you need to have the script rebuild them. How to do this
+differs depending on which script you're running.</p><p>In Wakaba, you can tell the script to rebuild the caches by clicking the "Manage" link and logging in to the <a title="ManagementPanel doesn't exist yet." class="brokenlink" href="#ManagementPanel">ManagementPanel</a>.
+Here you can select "Rebuild Caches". However, if you moved the script,
+the Manage link may be incorrect. In this case, manually enter the URL
+as " <a target="_blank" title="External link to http://yoursite.com/yourdirectory/wakaba.pl?action=admin" href="http://yoursite.com/yourdirectory/wakaba.pl?action=admin" class="external">http://yoursite.com/yourdirectory/wakaba.pl?action=admin</a> ".</p><p>In
+Wakaba Zero and Kareha, the caches get rebuilt everytime you hit the
+script and the main HTML file does not exist (wakaba.html for Wakaba
+Zero, index.html for Kareha, or whatever you changed it to in the
+configuration file). So to rebuild caches, delete this HTML files, and
+access the script (wakaba.pl or kareha.pl) through a web browser.</p></div></div>
+<div style="display: none;" title="Modified by somebody on 13.10.2004, 02:02:00" modifier="somebody" modified="1097622120000" id="tiddlerKarehaAdministration" class="tiddler"><a name="KarehaAdministration"></a><h3 id="titleKarehaAdministration">KarehaAdministration</h3><div id="toolbarKarehaAdministration" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('KarehaAdministration')">link</a> <a title="References to this tiddler" href="javascript:find_references('KarehaAdministration')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('KarehaAdministration')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('KarehaAdministration')">close</a></div><div id="bodyKarehaAdministration" class="body"><p>Kareha has no separate interface for administrative tasks. To delete a post, click the "Manage" link, enter the <a title="Modified by !WAHa.06x36 on 12.03.2005, 20:53:48" class="tiddlylink" href="#AdminPassword">AdminPassword</a>, and the click the "Del" link next to a post. To delete or <a title="Modified by somebody on 11.01.2005, 17:07:00" class="tiddlylink" href="#PermaSage">PermaSage</a>
+a thread, click on the "All Threads" link in the thread list, and again
+click on the "Manage" link. "Delete" and "Permasage" links will appear
+in the thread list.</p><p>To see the IP address of a poster, you
+currently have to run the dumplog.pl script from a shell. This will
+hopefully change in the future.</p><p>If you want, you can also delete and move threads directly on the server, or even edit the thread HTML files, and then <a title="Modified by somebody on 13.10.2004, 01:58:00" class="tiddlylink" href="#RebuildCaches">RebuildCaches</a>.</p></div></div>
+<div style="display: none;" title="Modified by somebody on 13.10.2004, 02:26:00" modifier="somebody" modified="1097623560000" id="tiddlerContextFreeGrammar" class="tiddler"><a name="ContextFreeGrammar"></a><h3 id="titleContextFreeGrammar">ContextFreeGrammar</h3><div id="toolbarContextFreeGrammar" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('ContextFreeGrammar')">link</a> <a title="References to this tiddler" href="javascript:find_references('ContextFreeGrammar')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('ContextFreeGrammar')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('ContextFreeGrammar')">close</a></div><div id="bodyContextFreeGrammar" class="body"><p>See <a target="_blank" title="External link to http://en.wikipedia.org/wiki/Context-free_grammar" href="https://en.wikipedia.org/wiki/Context-free_grammar" class="external">http://en.wikipedia.org/wiki/Context-free_grammar</a> for more information about context-free gramamrs than you can stand.</p><p>The context-free grammars used in Wakaba and Kareha are all stolen from <a target="_blank" title="External link to http://www.ruf.rice.edu/~pound/#werd" href="http://www.ruf.rice.edu/%7Epound/#werd" class="external">http://www.ruf.rice.edu/~pound/#werd</a> . Many thanks to Chris Pound!</p></div></div>
+<div class="tiddler" id="tiddlerJapaneseVersion" modified="1110655835000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 12.03.2005, 21:30:35" style="display: none;"><a name="JapaneseVersion"></a><h3 style="" id="titleJapaneseVersion">JapaneseVersion</h3><div style="" id="toolbarJapaneseVersion" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('JapaneseVersion')">link</a> <a title="References to this tiddler" href="javascript:find_references('JapaneseVersion')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('JapaneseVersion')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('JapaneseVersion')">close</a></div><div id="bodyJapaneseVersion" class="body"><p>There
+is a japanese version of Wakaba. It is, however, somewhat neglected and
+all strings have not been properly translated. To use it, change the <code>"strings_en.pl"</code> at the top of the script to <code>"strings_jp.pl"</code>. The <code>strings_jp.pl</code> file is in the <code>extras/</code> directory. There are also translated version of <code>rules.html</code> available in <code>extras/include/</code>.</p><p>Kareha also has a japanese translation. To use it, copy <code>templates_jp.pl</code> from the <code>extras/</code> directory, and change the <code>"templates.pl"</code> line at the top of the script to <code>"templates_jp.pl"</code>. Also make sure to run the script with the Shift_JIS character set.</p><p>I'd love some help with bringing these up to date and fixing any mistakes.</p></div></div>
+<div style="display: none;" title="Modified by somebody on 25.10.2004, 14:58:00" modifier="somebody" modified="1098705480000" id="tiddlerNetPBM" class="tiddler"><a name="NetPBM"></a><h3 id="titleNetPBM">NetPBM</h3><div id="toolbarNetPBM" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('NetPBM')">link</a> <a title="References to this tiddler" href="javascript:find_references('NetPBM')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('NetPBM')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('NetPBM')">close</a></div><div id="bodyNetPBM" class="body"><p><a target="_blank" title="External link to http://netpbm.sourceforge.net/" href="http://netpbm.sourceforge.net/" class="external">http://netpbm.sourceforge.net/</a></p><p>The <a title="Modified by somebody on 25.10.2004, 14:58:00" class="tiddlylink" href="#NetPBM">NetPBM</a>
+tools are another possibility for thumbnailing in Wakaba and Wakaba
+Zero. The script will use a combination of the commands 'djpeg',
+'cjpeg', 'pngtopnm', 'giftopnm' and 'pnmscale' to make the thumbnails.</p></div></div>
+<div style="display: none;" title="Modified by somebody on 25.10.2004, 14:59:00" modifier="somebody" modified="1098705540000" id="tiddlerWakabaTroubleShooting" class="tiddler"><a name="WakabaTroubleShooting"></a><h3 id="titleWakabaTroubleShooting">WakabaTroubleShooting</h3><div id="toolbarWakabaTroubleShooting" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('WakabaTroubleShooting')">link</a> <a title="References to this tiddler" href="javascript:find_references('WakabaTroubleShooting')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('WakabaTroubleShooting')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('WakabaTroubleShooting')">close</a></div><div id="bodyWakabaTroubleShooting" class="body"><p>If
+you are getting SQL connection errors, make sure all the SQL options in
+config.pl are set up correctly, and make sure the database you are
+trying to use has been created. Wakaba will create the tables it needs
+itself, but the database the tables are in has to be created by hand.
+See <a title="WakabaConfig doesn't exist yet." class="brokenlink" href="#WakabaConfig">WakabaConfig</a>.</p><p>Also see the generic <a title="Modified by !WAHa.06x36 on 12.03.2005, 21:42:40" class="tiddlylink" href="#TroubleShooting">TroubleShooting</a> section.</p></div></div>
+<div class="tiddler" id="tiddlerWakabaFeatures" modified="1110657105000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 12.03.2005, 21:51:45" style="display: none;"><a name="WakabaFeatures"></a><h3 style="" id="titleWakabaFeatures">WakabaFeatures</h3><div style="" id="toolbarWakabaFeatures" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('WakabaFeatures')">link</a> <a title="References to this tiddler" href="javascript:find_references('WakabaFeatures')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('WakabaFeatures')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('WakabaFeatures')">close</a></div><div id="bodyWakabaFeatures" class="body"><p>Above the basic functionality of <a title="Modified by somebody on 11.10.2004, 15:34:00" class="tiddlylink" href="#FutabaScript">FutabaScript</a>, Wakaba offers these features (and more):</p><ul><li><a title="Modified by !WAHa.06x36 on 12.03.2005, 21:12:37" class="tiddlylink" href="#ImageReplies">ImageReplies</a> - You can post images as replies in threads.</li><li><a title="Modified by !WAHa.06x36 on 12.03.2005, 21:01:55" class="tiddlylink" href="#VeriCodes">VeriCodes</a> - Protection against spamming scripts.</li><li><a title="Modified by !WAHa.06x36 on 12.03.2005, 21:28:05" class="tiddlylink" href="#OekakiIntegration">OekakiIntegration</a> - Wakaba integrates with Oekaki applets to let users draw pictures and post them on the board automatically.</li><li><a title="StyleSheetSwitcher doesn't exist yet." class="brokenlink" href="#StyleSheetSwitcher">StyleSheetSwitcher</a> - Let users switch between multiple board looks.</li><li><a title="ExternalFileTypes doesn't exist yet." class="brokenlink" href="#ExternalFileTypes">ExternalFileTypes</a> - Allow files other than images to be posted to the board, and show icons for them.</li><li><a title="Modified by !WAHa.06x36 on 13.03.2005, 19:01:28" class="tiddlylink" href="#WakabaMark">WakabaMark</a> - Lets users use simple text formatting in their posts, without the horrible BBcode syntax.</li><li><a title="Modified by !WAHa.06x36 on 12.03.2005, 21:30:35" class="tiddlylink" href="#JapaneseVersion">JapaneseVersion</a>, <a title="GermanVersion doesn't exist yet." class="brokenlink" href="#GermanVersion">GermanVersion</a> - There are translations for all text in the script, and switching between them is easy.</li><li><a title="Modified by somebody on 11.10.2004, 19:57:00" class="tiddlylink" href="#SecureTripCodes">SecureTripCodes</a> - Tripcodes that are not vulnerable to <a title="Modified by !WAHa.06x36 on 18.03.2005, 14:49:46" class="tiddlylink" href="#BruteForceAttack">BruteForceAttack</a>.</li><li><a title="CharacterSetConversion doesn't exist yet." class="brokenlink" href="#CharacterSetConversion">CharacterSetConversion</a> - Flexible handling of character sets.</li><li><a title="Modified by !WAHa.06x36 on 12.03.2005, 21:33:23" class="tiddlylink" href="#AntiSpam">AntiSpam</a> - There is a database of URL posted by spammers on image boards, and Wakaba will reject any posts that contain these.</li><li>Various usability improvements, such as clickable post numbers and cookies for remembering user names.</li><li>Pedantically correct <a title="Modified by !WAHa.06x36 on 12.03.2005, 21:46:01" class="tiddlylink" href="#WellFormedXHTML">WellFormedXHTML</a>. Wakaba can (and will, unless you disable this) send its output as application/xhtml xml whenever possible.</li></ul></div></div>
+<div style="display: none;" title="Modified by somebody on 26.10.2004, 14:27:00" modifier="somebody" modified="1098790020000" id="tiddlerActivePerl" class="tiddler"><a name="ActivePerl"></a><h3 id="titleActivePerl">ActivePerl</h3><div id="toolbarActivePerl" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('ActivePerl')">link</a> <a title="References to this tiddler" href="javascript:find_references('ActivePerl')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('ActivePerl')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('ActivePerl')">close</a></div><div id="bodyActivePerl" class="body"><p><a target="_blank" title="External link to http://www.activestate.com/Products/ActivePerl/" href="https://www.activestate.com/Products/ActivePerl/" class="external">http://www.activestate.com/Products/ActivePerl/</a></p></div></div>
+<div style="display: none;" title="Modified by somebody on 27.10.2004, 14:56:00" modifier="somebody" modified="1098878160000" id="tiddlerDiscussionBoard" class="tiddler"><a name="DiscussionBoard"></a><h3 id="titleDiscussionBoard">DiscussionBoard</h3><div id="toolbarDiscussionBoard" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('DiscussionBoard')">link</a> <a title="References to this tiddler" href="javascript:find_references('DiscussionBoard')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('DiscussionBoard')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('DiscussionBoard')">close</a></div><div id="bodyDiscussionBoard" class="body"><p>The discussion board, which predictably runs on <a title="Modified by RuiCarmo on 14.03.2005, 15:40:01" class="tiddlylink" href="#KarehaScript">KarehaScript</a>, is available at <a target="_blank" title="External link to http://wakaba.c3.cx/sup/" href="http://wakaba.c3.cx/sup/" class="external">http://wakaba.c3.cx/sup/</a> .</p></div></div>
+<div style="display: none;" title="Modified by somebody on 31.10.2004, 15:15:00" modifier="somebody" modified="1099228500000" id="tiddlerRunningOnWindows" class="tiddler"><a name="RunningOnWindows"></a><h3 id="titleRunningOnWindows">RunningOnWindows</h3><div id="toolbarRunningOnWindows" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('RunningOnWindows')">link</a> <a title="References to this tiddler" href="javascript:find_references('RunningOnWindows')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('RunningOnWindows')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('RunningOnWindows')">close</a></div><div id="bodyRunningOnWindows" class="body"><p>The scripts can run on Windows machines that have Apache and Perl installed. (<a title="Modified by somebody on 26.10.2004, 14:27:00" class="tiddlylink" href="#ActivePerl">ActivePerl</a>
+is a good Windows version of Perl.) In fact, that's the setup I develop
+them on. However, Windows machines are quite a bit more insecure for
+these purposes. The scripts try to reject uploading .exe files and the
+like, but to be on the safe side, it is a good idea to set
+ALLOW_UNKNOWN to 0 (see <a title="WakabaConfig doesn't exist yet." class="brokenlink" href="#WakabaConfig">WakabaConfig</a>) if you run on Windows, unless you really know what you're doing.</p><p>Windows machines usually want a different <a title="Modified by somebody on 01.03.2005, 12:17:00" class="tiddlylink" href="#HashBang">HashBang</a> than Unix machines. This means the first line of the script should be set to "#!perl".</p><p>For Windows, the Q8-static version of <a title="Modified by somebody on 05.11.2004, 13:28:00" class="tiddlylink" href="#ImageMagick">ImageMagick</a>
+is recommended, as people have reported problems with getting the DLL
+version to work. You might also want to copy the convert.exe file to a
+directory that is in the path, to make sure the web server can find it.</p><p><a title="Modified by somebody on 29.11.2004, 15:29:00" class="tiddlylink" href="#RunningOnIIS">RunningOnIIS</a> might be possible, but I have very limited experience with this.</p></div></div>
+<div style="display: none;" title="Modified by somebody on 31.10.2004, 15:35:00" modifier="somebody" modified="1099229700000" id="tiddlerOekakiTroubleshooting" class="tiddler"><a name="OekakiTroubleshooting"></a><h3 id="titleOekakiTroubleshooting">OekakiTroubleshooting</h3><div id="toolbarOekakiTroubleshooting" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('OekakiTroubleshooting')">link</a> <a title="References to this tiddler" href="javascript:find_references('OekakiTroubleshooting')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('OekakiTroubleshooting')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('OekakiTroubleshooting')">close</a></div><div id="bodyOekakiTroubleshooting" class="body"><p>If
+uploading works, but the images don't post, make sure you have the URL
+for the image board set up correctly in oekaki_config.pl. See <a title="OekakiConfig doesn't exist yet." class="brokenlink" href="#OekakiConfig">OekakiConfig</a>.</p></div></div>
+<div style="display: none;" title="Modified by somebody on 05.11.2004, 13:28:00" modifier="somebody" modified="1099654080000" id="tiddlerImageMagick" class="tiddler"><a name="ImageMagick"></a><h3 id="titleImageMagick">ImageMagick</h3><div id="toolbarImageMagick" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('ImageMagick')">link</a> <a title="References to this tiddler" href="javascript:find_references('ImageMagick')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('ImageMagick')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('ImageMagick')">close</a></div><div id="bodyImageMagick" class="body"><p><a target="_blank" title="External link to http://www.imagemagick.org/" href="https://www.imagemagick.org/" class="external">http://www.imagemagick.org/</a></p><p>The <a title="Modified by somebody on 05.11.2004, 13:28:00" class="tiddlylink" href="#ImageMagick">ImageMagick</a>
+'convert' command is used to thumbnail images in Wakaba and Wakaba
+Zero. Sometimes, the convert command may be installed on a server, but
+Apache won't be able to find it. In this case, you can configure the
+complete path to it in config.pl by changing the CONVERT_COMMAND entry.
+See <a title="WakabaConfig doesn't exist yet." class="brokenlink" href="#WakabaConfig">WakabaConfig</a>.</p><p>If you are <a title="Modified by somebody on 31.10.2004, 15:15:00" class="tiddlylink" href="#RunningOnWindows">RunningOnWindows</a>, the Q8-static version of <a title="Modified by somebody on 05.11.2004, 13:28:00" class="tiddlylink" href="#ImageMagick">ImageMagick</a> is recommended, as people have reported problems getting the DLL version to work at all. It can be found here: <a target="_blank" title="External link to http://www.imagemagick.net/download/binaries/" href="http://www.imagemagick.net/download/binaries/" class="external">http://www.imagemagick.net/download/binaries/</a></p><p>Wakaba is also able to use the <a title="PerlMagick doesn't exist yet." class="brokenlink" href="#PerlMagick">PerlMagick</a>
+module for thumbnailing, but this is only tried as a last effort,
+because of the unreliable nature of the module, and the severely
+lacking documentation. It is suggested to use the command-line version
+of <a title="Modified by somebody on 05.11.2004, 13:28:00" class="tiddlylink" href="#ImageMagick">ImageMagick</a> instead.</p></div></div>
+<div class="tiddler" id="tiddlerBruteForceAttack" modified="1111150186000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 18.03.2005, 14:49:46" style="display: none;"><a name="BruteForceAttack"></a>
+<h3 id="titleBruteForceAttack" style="">BruteForceAttack</h3>
+<div id="toolbarBruteForceAttack" class="toolbar" style=""><a href="javascript:make_tiddler_link('BruteForceAttack')" title="Permalink for this tiddler">link</a> <a href="javascript:find_references('BruteForceAttack')" title="References to this tiddler">references</a> <a href="javascript:edit_tiddler('BruteForceAttack')" title="Edit this tiddler">edit</a> <a href="javascript:close_tiddler('BruteForceAttack')" title="Close this tiddler">close</a></div>
+<div class="body" id="bodyBruteForceAttack"><p>A brute-force attack is
+done by testing all combinations of letters, or checking a dictionary
+of words, to see what tripcode they generate. If your tripcode is
+fairly short and simple, such an attack can reveal it.</p><p><a href="#SecureTripCodes" class="tiddlylink" title="Modified by somebody on 11.10.2004, 19:57:00">SecureTripCodes</a> are immune against this sort of attack.</p></div></div>
+<div class="tiddler" id="tiddlerKarehaFeatures" modified="1110657965000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 12.03.2005, 22:06:05" style="display: none;"><a name="KarehaFeatures"></a><h3 style="" id="titleKarehaFeatures">KarehaFeatures</h3><div style="" id="toolbarKarehaFeatures" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('KarehaFeatures')">link</a> <a title="References to this tiddler" href="javascript:find_references('KarehaFeatures')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('KarehaFeatures')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('KarehaFeatures')">close</a></div><div id="bodyKarehaFeatures" class="body"><p>Kareha offers, beyond the basic message board functionality, these and other features:</p><ul><li><a title="Modified by !WAHa.06x36 on 12.03.2005, 22:15:54" class="tiddlylink" href="#MultipleBoardModes">MultipleBoardModes</a> - can act as a message board or image board depending on configuration.</li><li>CSS-based layout, with pedantically correct <a title="Modified by !WAHa.06x36 on 12.03.2005, 21:46:01" class="tiddlylink" href="#WellFormedXHTML">WellFormedXHTML</a> code.</li><li><a title="Modified by !WAHa.06x36 on 13.03.2005, 19:01:28" class="tiddlylink" href="#WakabaMark">WakabaMark</a> - Lets users use simple text formatting in their posts, without the horrible BBcode syntax.</li><li><a title="Modified by somebody on 11.10.2004, 19:57:00" class="tiddlylink" href="#SecureTripCodes">SecureTripCodes</a> - Tripcodes that are not vulnerable to <a title="Modified by !WAHa.06x36 on 18.03.2005, 14:49:46" class="tiddlylink" href="#BruteForceAttack">BruteForceAttack</a>.</li><li><a title="Modified by !WAHa.06x36 on 12.03.2005, 21:01:55" class="tiddlylink" href="#VeriCodes">VeriCodes</a> - Protection against spamming scripts.</li><li><a title="Modified by somebody on 11.01.2005, 17:07:00" class="tiddlylink" href="#PermaSage">PermaSage</a> - Permanently sink threads without stopping posting to them.</li><li><a title="Modified by somebody on 22.02.2005, 13:11:00" class="tiddlylink" href="#ForcedAnonymousPosting">ForcedAnonymousPosting</a> - Turn off the ability to post with a name entirely, to curtail drama and attention whoring.</li><li><a title="Modified by somebody on 22.02.2005, 12:51:00" class="tiddlylink" href="#SillyNames">SillyNames</a> - Make up silly names for people posting without a name.</li><li><a title="Modified by !WAHa.06x36 on 12.03.2005, 21:30:35" class="tiddlylink" href="#JapaneseVersion">JapaneseVersion</a> - There are translations for all text in the script, based on the <a title="Modified by !WAHa.06x36 on 19.11.2005, 02:45:11" class="tiddlylink" href="#NiChannel">NiChannel</a> phrasings.</li><li><a title="Modified by !WAHa.06x36 on 12.03.2005, 21:33:23" class="tiddlylink" href="#AntiSpam">AntiSpam</a> - There is a database of URL posted by spammers on image boards, and Wakaba will reject any posts that contain these.</li></ul></div></div>
+<div style="display: none;" title="Modified by somebody on 06.11.2004, 01:02:00" modifier="somebody" modified="1099695720000" id="tiddlerMarkDown" class="tiddler"><a name="MarkDown"></a><h3 id="titleMarkDown">MarkDown</h3><div id="toolbarMarkDown" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('MarkDown')">link</a> <a title="References to this tiddler" href="javascript:find_references('MarkDown')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('MarkDown')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('MarkDown')">close</a></div><div id="bodyMarkDown" class="body"><p><a target="_blank" title="External link to http://daringfireball.net/projects/markdown/" href="https://daringfireball.net/projects/markdown/" class="external">http://daringfireball.net/projects/markdown/</a></p></div></div>
+<div class="tiddler" id="tiddlerWakabaMark" modified="1110733288000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 13.03.2005, 19:01:28" style="display: none;"><a name="WakabaMark"></a><h3 style="" id="titleWakabaMark">WakabaMark</h3><div style="" id="toolbarWakabaMark" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('WakabaMark')">link</a> <a title="References to this tiddler" href="javascript:find_references('WakabaMark')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('WakabaMark')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('WakabaMark')">close</a></div><div id="bodyWakabaMark" class="body"><p><a title="Modified by !WAHa.06x36 on 13.03.2005, 19:01:28" class="tiddlylink" href="#WakabaMark">WakabaMark</a>
+is a very simple markup code for doing simple formatting of posts. It's
+designed to be intuitive to use, and look good even when not parsed. It
+is heavily inspired by <a title="Modified by somebody on 06.11.2004, 01:02:00" class="tiddlylink" href="#MarkDown">MarkDown</a>.</p><p>The basic features are as follows:</p><ul><li>Surround text with <code>*</code> or <code>_</code> to make &lt;em&gt; tags. <code>_Like this_</code> or <code>*like this*</code>. This makes the text italic.</li><li>Surround text with <code>**</code> or <code>__</code> to make &lt;strong&gt; tags. This makes the text bold.</li><li>Make an unordered HTML list by beginning each line with <code>*</code>, <code> </code> or <code>-</code>. You can add line breaks in list entries by breaking the line and indenting the next line with one or more spaces.</li><li>Make
+ordered HTML lists by beginning the first line with "1.", and the
+following lines with further numbers. It actually doesn't matter what
+numbers you use, as long as the first one is 1.</li><li>Make &lt;blockquote&gt; sections by beginning each line with "&gt;".</li><li>Make
+&lt;code&gt; sections by indenting each line by four spaces or one tab.
+Code sections get shown in a monospaced font, and are not otherwise
+formatted.</li><li>Make short spans of code in normal text by enclosing the code in backticks, <code> `like so` </code>. To display code that contains backticks, use several backticks to surround it, <code> ``like so`` </code>.</li><li>Make external links by just typing the URL you want to link to. Post references like <code>&gt;&gt;1</code> are also automatically turned into links.</li></ul><p>Do no leave empty lines in the middle of lists or quoted blocks, as this turns them into separate blocks.</p><p><em>Note:
+There's a small bug in the wiki code that'll hit if you try to edit
+this entry, so don't. I'll remove this notice when it's fixed.</em></p></div></div>
+<div class="tiddler" id="tiddlerOekakiIntegration" modified="1110655685000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 12.03.2005, 21:28:05" style="display: none;"><a name="OekakiIntegration"></a><h3 style="" id="titleOekakiIntegration">OekakiIntegration</h3><div style="" id="toolbarOekakiIntegration" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('OekakiIntegration')">link</a> <a title="References to this tiddler" href="javascript:find_references('OekakiIntegration')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('OekakiIntegration')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('OekakiIntegration')">close</a></div><div id="bodyOekakiIntegration" class="body"><p>Oekaki
+are Java applets for doing quick drawing on the net. Wakaba can be
+integrated with an Oekaki applet to allow people to draw images that
+are then uploaded directly to the board.</p><p>The applet supported at the moment is Shi Painter: <a target="_blank" title="External link to http://hp.vector.co.jp/authors/VA016309/spainter/index_en.html" href="http://hp.vector.co.jp/authors/VA016309/spainter/index_en.html" class="external">http://hp.vector.co.jp/authors/VA016309/spainter/index_en.html</a><br>Adding support for other applets should be fairly easy.</p><p>To enable oekaki support, you need to get the <code>spainter_all.jar</code> file from the Shi Painter distribution on the site linked above. If you want the "Palette Selfy" palette editor, you need the <code>palette_selfy.js</code> file too, which can be found here: <a target="_blank" title="External link to http://babu.jp/~useyan/s/relm/palette_selfy.html" href="http://babu.jp/%7Euseyan/s/relm/palette_selfy.html" class="external">http://babu.jp/~useyan/s/relm/palette_selfy.html</a></p><p>Then, copy all the oekaki files from the <code>extras/</code> directory, and also the <code>finish.pl</code>, <code>paint.pl</code> and <code>getpic.pl</code> scripts. The last three scripts need to be set up to run as CGI scripts in the same way as <code>wakaba.pl</code> (as usual, see <a title="Modified by !WAHa.06x36 on 25.02.2006, 23:24:59" class="tiddlylink" href="#RunningPerlScripts">RunningPerlScripts</a>).</p><p>Edit <code>oekaki_config.pl</code> to suit your needs, and especially remember to configure the URL for where your image board lives. See <a title="OekakiConfig doesn't exist yet." class="brokenlink" href="#OekakiConfig">OekakiConfig</a>.</p><p>Finally, edit <code>wakaba.pl</code> and change the line that contains <code>"futaba_style.pl"</code> near the top to say <code>"oekaki_style.pl"</code> instead, and then <a title="Modified by somebody on 13.10.2004, 01:58:00" class="tiddlylink" href="#RebuildCaches">RebuildCaches</a>.</p><p>Oekaki painting should now work. If it doesn't, see <a title="Modified by somebody on 31.10.2004, 15:35:00" class="tiddlylink" href="#OekakiTroubleshooting">OekakiTroubleshooting</a>, or post on the <a title="Modified by somebody on 27.10.2004, 14:56:00" class="tiddlylink" href="#DiscussionBoard">DiscussionBoard</a>.</p></div></div>
+<div style="display: none;" title="Modified by somebody on 14.11.2004, 22:53:00" modifier="somebody" modified="1100465580000" id="tiddlerWakabaAdministration" class="tiddler"><a name="WakabaAdministration"></a><h3 id="titleWakabaAdministration">WakabaAdministration</h3><div id="toolbarWakabaAdministration" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('WakabaAdministration')">link</a> <a title="References to this tiddler" href="javascript:find_references('WakabaAdministration')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('WakabaAdministration')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('WakabaAdministration')">close</a></div><div id="bodyWakabaAdministration" class="body"><p>Wakaba has a <a title="ManagementPanel doesn't exist yet." class="brokenlink" href="#ManagementPanel">ManagementPanel</a> for performing administrative tasks.</p></div></div>
+<div style="display: none;" title="Modified by somebody on 29.11.2004, 15:29:00" modifier="somebody" modified="1101734940000" id="tiddlerRunningOnIIS" class="tiddler"><a name="RunningOnIIS"></a><h3 id="titleRunningOnIIS">RunningOnIIS</h3><div id="toolbarRunningOnIIS" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('RunningOnIIS')">link</a> <a title="References to this tiddler" href="javascript:find_references('RunningOnIIS')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('RunningOnIIS')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('RunningOnIIS')">close</a></div><div id="bodyRunningOnIIS" class="body"><p>I have very little experience in trying to run Wakaba on IIS. Installing <a title="Modified by somebody on 26.10.2004, 14:27:00" class="tiddlylink" href="#ActivePerl">ActivePerl</a>
+seems to let you run Perl CGI scripts, but the working directory seems
+to be set wrong when the script is started. This can be worked around
+by adding: </p><p>BEGIN { chdir "imgboard_dir"; }</p><p>as one of the
+first lines of the script, where "imgboard_dir" is the path to where
+you keep the image board. This needs to be done for both wakaba.pl and
+captcha.pl.</p><p>Second, it seems IIS can't run external commands by default. This prevents wakaba from running the <a title="Modified by somebody on 05.11.2004, 13:28:00" class="tiddlylink" href="#ImageMagick">ImageMagick</a> convert command and making thumbnails. This article has some information:</p><p><a target="_blank" title="External link to http://typo3.org/documentation/mailing-lists/install-windows-archive/thread/47115/?tx_maillisttofaq_pi1%5Bpointer%5D=2&amp;tx_maillisttofaq_pi1%5Bmode%5D=1" href="http://typo3.org/documentation/mailing-lists/install-windows-archive/thread/47115/?tx_maillisttofaq_pi1%5Bpointer%5D=2&amp;tx_maillisttofaq_pi1%5Bmode%5D=1" class="external">http://typo3.org/documentation/mailing-lists/install-windows-archive/thread/47115/?tx_maillisttofaq_pi1%5Bpointer%5D=2&amp;tx_maillisttofaq_pi1%5Bmode%5D=1</a> </p><p>It
+seems that if you give the IUSR_* user access to run cmd.exe in
+c:\windows\system32, or copy cmd.exe into c:\windows\system32\inetsrv,
+you can get it to work.</p><p>Finally, there seems to be some
+peculiarities with the way IIS handles redirects from CGI scripts, so
+you will need to enable the ALTERNATE_REDIRECT option in config.pl. See
+<a title="WakabaConfig doesn't exist yet." class="brokenlink" href="#WakabaConfig">WakabaConfig</a>.</p></div></div>
+<div class="tiddler" id="tiddlerKarehaQuickStart" modified="1110658377000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 12.03.2005, 22:12:57" style="display: none;"><a name="KarehaQuickStart"></a><h3 style="" id="titleKarehaQuickStart">KarehaQuickStart</h3><div style="" id="toolbarKarehaQuickStart" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('KarehaQuickStart')">link</a> <a title="References to this tiddler" href="javascript:find_references('KarehaQuickStart')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('KarehaQuickStart')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('KarehaQuickStart')">close</a></div><div id="bodyKarehaQuickStart" class="body"><ol><li>Make sure your web server is set up for <a title="Modified by !WAHa.06x36 on 25.02.2006, 23:24:59" class="tiddlylink" href="#RunningPerlScripts">RunningPerlScripts</a>.</li><li>Unpack the files from the Kareha distribution.</li><li>Choose which of the <a title="Modified by !WAHa.06x36 on 12.03.2005, 22:15:54" class="tiddlylink" href="#MultipleBoardModes">MultipleBoardModes</a> you want to use, and copy the files from the appropriate <code>mode_*/</code> directory.</li><li>Make sure the permissions are set correctly on the scripts and directories. See <a title="Modified by somebody on 27.12.2004, 23:29:00" class="tiddlylink" href="#SettingPermissions">SettingPermissions</a>.</li><li>Edit <code>config.pl</code> to your liking. At the very least, set up the <a title="Modified by !WAHa.06x36 on 12.03.2005, 20:53:48" class="tiddlylink" href="#AdminPassword">AdminPassword</a> and the <a title="Modified by !WAHa.06x36 on 12.03.2005, 20:54:30" class="tiddlylink" href="#SecretString">SecretString</a>.</li><li>Access <code>kareha.pl</code> through a web browser. This should create the HTML pages and forward you to them if everything worked.</li></ol><p>If this didn't work, check out the <a title="Modified by somebody on 25.02.2005, 19:14:00" class="tiddlylink" href="#KarehaTroubleShooting">KarehaTroubleShooting</a> section, or ask for help on the <a title="Modified by somebody on 27.10.2004, 14:56:00" class="tiddlylink" href="#DiscussionBoard">DiscussionBoard</a>.</p></div></div>
+<div style="display: none;" title="Modified by somebody on 27.12.2004, 23:29:00" modifier="somebody" modified="1104182940000" id="tiddlerSettingPermissions" class="tiddler"><a name="SettingPermissions"></a><h3 id="titleSettingPermissions">SettingPermissions</h3><div id="toolbarSettingPermissions" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('SettingPermissions')">link</a> <a title="References to this tiddler" href="javascript:find_references('SettingPermissions')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('SettingPermissions')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('SettingPermissions')">close</a></div><div id="bodySettingPermissions" class="body"><p>(Somebody with more unix skills than me could maybe clarify this section a bit?)</p><p>The
+scripts themselves (wakaba.pl, kareha.pl and captcha.pl) need to be set
+as executable. This usually just means setting the permissions to 755.</p><p>All
+the scripts need to be able to write to the directory they live in, and
+some subdirectories such as res/, src/ and thumb/. How to accomplish
+this varies depending on how your web server is set up.</p><p>For webservers that run scripts as the the same user who owns the file, you might not need to do anything.</p><p>For
+webservers that run scripts as some low-privilege user, you may need to
+set the permissions for the directories to 777. This is a bit risky if
+done on a multi-user machine, since it means every other user can write
+to these directories.</p><p>There are other possibilities too, and it
+helps to be familiar with how permissions work in unix when figuring it
+all out. Or you can ask for help on the <a title="Modified by somebody on 27.10.2004, 14:56:00" class="tiddlylink" href="#DiscussionBoard">DiscussionBoard</a>.</p><p>On Windows machines, writing is usually possible at all times. However, see <a title="Modified by somebody on 31.10.2004, 15:15:00" class="tiddlylink" href="#RunningOnWindows">RunningOnWindows</a>.</p></div></div>
+<div class="tiddler" id="tiddlerTripCodes" modified="1110656101000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 12.03.2005, 21:35:01" style="display: none;"><a name="TripCodes"></a><h3 style="" id="titleTripCodes">TripCodes</h3><div style="" id="toolbarTripCodes" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('TripCodes')">link</a> <a title="References to this tiddler" href="javascript:find_references('TripCodes')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('TripCodes')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('TripCodes')">close</a></div><div id="bodyTripCodes" class="body"><p>Tripcodes are used as a proof of identity, while still remaining anonymous. If you enter your name as <code>Name#tripcode</code>, it will be shown as <code>Name!3GqYIJ3Obs</code>, the idea being that only you know the code word used to generate the tripcode.</p><p>However, the tripcode algorithm is well known, and it is fairly easy to perform a <a title="Modified by !WAHa.06x36 on 18.03.2005, 14:49:46" class="tiddlylink" href="#BruteForceAttack">BruteForceAttack</a> on it to find out someone's code. Therefore, tripcodes are more of a token than a guarantee.</p><p>To address this problem, Wakaba, Kareha and the documentation wiki all support <a title="Modified by somebody on 11.10.2004, 19:57:00" class="tiddlylink" href="#SecureTripCodes">SecureTripCodes</a>.</p></div></div>
+<div style="display: none;" title="Modified by somebody on 04.01.2005, 16:29:00" modifier="somebody" modified="1104848940000" id="tiddlerWikiWord" class="tiddler"><a name="WikiWord"></a><h3 id="titleWikiWord">WikiWord</h3><div id="toolbarWikiWord" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('WikiWord')">link</a> <a title="References to this tiddler" href="javascript:find_references('WikiWord')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('WikiWord')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('WikiWord')">close</a></div><div id="bodyWikiWord" class="body"><p>A <a title="Modified by somebody on 04.01.2005, 16:29:00" class="tiddlylink" href="#WikiWord">WikiWord</a> is a word composed of a bunch of other words slammed together with each of their first letters capitalised. <a title="Modified by somebody on 04.01.2005, 16:29:00" class="tiddlylink" href="#WikiWord">WikiWord</a> notation in a <a title="WikiWikiWeb doesn't exist yet." class="brokenlink" href="#WikiWikiWeb">WikiWikiWeb</a>
+is used to name individual pages. Furthermore, referring to a page
+automatically creates a link to it. Clicking on a link jumps to that
+page or, if it doesn't exist, to an editor to create it. <a title="Modified by !WAHa.06x36 on 12.03.2005, 20:57:44" class="tiddlylink" href="#TiddlyWiki">TiddlyWiki</a> uses <a title="Modified by somebody on 04.01.2005, 16:29:00" class="tiddlylink" href="#WikiWord">WikiWord</a> titles for smaller chunks of <a title="MicroContent doesn't exist yet." class="brokenlink" href="#MicroContent">MicroContent</a>.</p></div></div>
+<div style="display: none;" title="Modified by somebody on 11.01.2005, 17:07:00" modifier="somebody" modified="1105456020000" id="tiddlerPermaSage" class="tiddler"><a name="PermaSage"></a><h3 id="titlePermaSage">PermaSage</h3><div id="toolbarPermaSage" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('PermaSage')">link</a> <a title="References to this tiddler" href="javascript:find_references('PermaSage')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('PermaSage')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('PermaSage')">close</a></div><div id="bodyPermaSage" class="body"><p>Threads set to <a title="Modified by somebody on 11.01.2005, 17:07:00" class="tiddlylink" href="#PermaSage">PermaSage</a> may be posted to, but will not be bumped to the front of the thread list.</p></div></div>
+<div class="tiddler" id="tiddlerWakabaQuickStart" modified="1110656052000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 12.03.2005, 21:34:12" style="display: none;"><a name="WakabaQuickStart"></a><h3 style="" id="titleWakabaQuickStart">WakabaQuickStart</h3><div style="" id="toolbarWakabaQuickStart" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('WakabaQuickStart')">link</a> <a title="References to this tiddler" href="javascript:find_references('WakabaQuickStart')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('WakabaQuickStart')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('WakabaQuickStart')">close</a></div><div id="bodyWakabaQuickStart" class="body"><ol><li>Make sure your web server is set up for <a title="Modified by !WAHa.06x36 on 25.02.2006, 23:24:59" class="tiddlylink" href="#RunningPerlScripts">RunningPerlScripts</a>.</li><li>Set up a database. See <a title="MysqlDatabase doesn't exist yet." class="brokenlink" href="#MysqlDatabase">MysqlDatabase</a> or <a title="Modified by !WAHa.06x36 on 12.03.2005, 21:03:55" class="tiddlylink" href="#SQLiteDatabase">SQLiteDatabase</a>.</li><li>Make sure you have a thumbnailer installed. See <a title="Modified by somebody on 05.11.2004, 13:28:00" class="tiddlylink" href="#ImageMagick">ImageMagick</a> or <a title="Modified by somebody on 25.10.2004, 14:58:00" class="tiddlylink" href="#NetPBM">NetPBM</a>.</li><li>Make sure the permissions are set correctly on the scripts and directories. See <a title="Modified by somebody on 27.12.2004, 23:29:00" class="tiddlylink" href="#SettingPermissions">SettingPermissions</a>.</li><li>Edit <code>config.pl</code> to your liking. At the very least, set up the database settings, the <a title="Modified by !WAHa.06x36 on 12.03.2005, 20:53:48" class="tiddlylink" href="#AdminPassword">AdminPassword</a> and the <a title="Modified by !WAHa.06x36 on 12.03.2005, 20:54:30" class="tiddlylink" href="#SecretString">SecretString</a>. See <a title="WakabaConfig doesn't exist yet." class="brokenlink" href="#WakabaConfig">WakabaConfig</a>.</li><li>Access <code>wakaba.pl</code> through a web browser. This should create the HTML pages and forward you to them if everything worked.</li></ol><p>If this didn't work, check out the <a title="Modified by somebody on 25.10.2004, 14:59:00" class="tiddlylink" href="#WakabaTroubleShooting">WakabaTroubleShooting</a> section, or ask for help on the <a title="Modified by somebody on 27.10.2004, 14:56:00" class="tiddlylink" href="#DiscussionBoard">DiscussionBoard</a>.</p></div></div>
+<div class="tiddler" id="tiddlerSQLiteDatabase" modified="1110654235000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 12.03.2005, 21:03:55" style="display: none;"><a name="SQLiteDatabase"></a><h3 style="" id="titleSQLiteDatabase">SQLiteDatabase</h3><div style="" id="toolbarSQLiteDatabase" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('SQLiteDatabase')">link</a> <a title="References to this tiddler" href="javascript:find_references('SQLiteDatabase')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('SQLiteDatabase')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('SQLiteDatabase')">close</a></div><div id="bodySQLiteDatabase" class="body"><p>The
+SQLite database is completely self-contained, and only needs the
+DBD::SQLite database driver module for Perl. This can be found at <a target="_blank" title="External link to http://search.cpan.org/~msergeant/DBD-SQLite-1.07/" href="http://search.cpan.org/%7Emsergeant/DBD-SQLite-1.07/" class="external">http://search.cpan.org/~msergeant/DBD-SQLite-1.07/</a> . <a title="Modified by somebody on 26.10.2004, 14:27:00" class="tiddlylink" href="#ActivePerl">ActivePerl</a> users should be able to find it with the package manager.</p><p>You
+do not need any kind of database server to use SQLite. Instead of
+databases on a server, it uses plain files for each database. These are
+set up automatically. The filename is specified by the SQL_DBI_SOURCE
+config option. Usually this option will be set to something like:</p><pre><code>use constant SQL_DBI_SOURCE =&gt; 'dbi:SQLite:dbname=wakaba.sql';</code></pre><p>Which
+will put the database into the file "wakaba.sql". It is strongly
+recommended that you either put this file somewhere where the web
+server can't see it, or block access to it through the web server,
+because it contains IP addresses of posters that you do not want people
+to be able to download. The <code>example.htaccess</code> file included with the script shows you how to do this.</p><p>The SQL_USERNAME and SQL_PASSWORD fields can be left blank.</p><p>More information on SQLite can be found at <a target="_blank" title="External link to http://www.sqlite.org/" href="https://www.sqlite.org/" class="external">http://www.sqlite.org/</a>.</p></div></div>
+<div class="tiddler" id="tiddlerUsingSage" modified="1132360614000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 19.11.2005, 02:36:54" style="display: none;"><a name="UsingSage"></a><h3 style="" id="titleUsingSage">UsingSage</h3><div style="" id="toolbarUsingSage" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('UsingSage')">link</a> <a title="References to this tiddler" href="javascript:find_references('UsingSage')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('UsingSage')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('UsingSage')">close</a></div><div id="bodyUsingSage" class="body"><p>"sage" is a way to reply to a thread without bumping it to the top of the thread list or the top of the board's first page.</p><p>To sage, write "sage" in the e-mail/link box.</p></div></div>
+<div class="tiddler" id="tiddlerRunningPerlScripts" modified="1140902699000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 25.02.2006, 23:24:59" style="display: none;"><a name="RunningPerlScripts"></a><h3 style="" id="titleRunningPerlScripts">RunningPerlScripts</h3><div style="" id="toolbarRunningPerlScripts" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('RunningPerlScripts')">link</a> <a title="References to this tiddler" href="javascript:find_references('RunningPerlScripts')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('RunningPerlScripts')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('RunningPerlScripts')">close</a></div><div id="bodyRunningPerlScripts" class="body"><p>Getting
+ Apache to run Perl scripts is sometimes a bit tricky. The short version
+ is: Make sure the script has the correct execute bits set, make sure 
+the <a title="Modified by somebody on 01.03.2005, 12:17:00" class="tiddlylink" href="#HashBang">HashBang</a>
+ at the start of the script is correct, and make sure that your web 
+server configuration is correct. You'll probably need these lines in the
+ Apache configuration file (httpd.conf):</p><pre><code>Options +ExecCGI<br>AddHandler cgi-handler .cgi .pl</code></pre><p>If you are lucky, all of this has been done for you.</p><p>To make sure the script has the execute bits set, set its permissions to 755. The <a title="Modified by somebody on 27.12.2004, 23:29:00" class="tiddlylink" href="#SettingPermissions">SettingPermissions</a> section may have some more information. This is not necessary when <a title="Modified by somebody on 31.10.2004, 15:15:00" class="tiddlylink" href="#RunningOnWindows">RunningOnWindows</a>.</p><p>A guide to configuring Apache to run CGI scripts under Windows (some of it applies to Unix servers, too) can be found here:<br><a target="_blank" title="External link to http://www.thesitewizard.com/archive/addcgitoapache.shtml" href="http://www.thesitewizard.com/archive/addcgitoapache.shtml" class="external">http://www.thesitewizard.com/archive/addcgitoapache.shtml</a></p><p>There is a discussion board thread related to Internal Server Errors: <a target="_blank" title="External link to http://wakaba.c3.cx/sup/kareha.pl/1109033191" href="http://wakaba.c3.cx/sup/kareha.pl/1109033191" class="external">http://wakaba.c3.cx/sup/kareha.pl/1109033191</a></p></div></div>
+<div class="tiddler" id="tiddlerKarehaScript" modified="1110807601000" modifier="RuiCarmo" title="Modified by RuiCarmo on 14.03.2005, 15:40:01" style="display: none;"><a name="KarehaScript"></a><h3 style="" id="titleKarehaScript">KarehaScript</h3><div style="" id="toolbarKarehaScript" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('KarehaScript')">link</a> <a title="References to this tiddler" href="javascript:find_references('KarehaScript')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('KarehaScript')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('KarehaScript')">close</a></div><div id="bodyKarehaScript" class="body"><p>Kareha is a very customizable board script. It can operate as the sort of message board scripts used on japanese sites like <a title="Modified by !WAHa.06x36 on 19.11.2005, 02:45:11" class="tiddlylink" href="#NiChannel">NiChannel</a>, or as an image board like <a title="Modified by somebody on 11.10.2004, 15:33:00" class="tiddlylink" href="#FutabaChannel">FutabaChannel</a> (or <a title="Modified by !WAHa.06x36 on 12.03.2005, 22:14:47" class="tiddlylink" href="#WakabaScript">WakabaScript</a>). See <a title="Modified by !WAHa.06x36 on 12.03.2005, 22:15:54" class="tiddlylink" href="#MultipleBoardModes">MultipleBoardModes</a> for more information. It uses modern structured XHTML and CSS layout. It does not require a database backend.</p><ul><li><a title="Modified by !WAHa.06x36 on 12.03.2005, 22:12:57" class="tiddlylink" href="#KarehaQuickStart">KarehaQuickStart</a></li><li><a title="Modified by !WAHa.06x36 on 12.03.2005, 21:38:28" class="tiddlylink" href="#KarehaRequirements">KarehaRequirements</a></li><li><a title="Modified by !WAHa.06x36 on 12.03.2005, 22:06:05" class="tiddlylink" href="#KarehaFeatures">KarehaFeatures</a></li><li><a title="Modified by !WAHa.06x36 on 12.03.2005, 22:16:53" class="tiddlylink" href="#KarehaConfig">KarehaConfig</a></li><li><a title="Modified by somebody on 25.02.2005, 19:14:00" class="tiddlylink" href="#KarehaTroubleShooting">KarehaTroubleShooting</a></li><li><a title="Modified by somebody on 13.10.2004, 02:02:00" class="tiddlylink" href="#KarehaAdministration">KarehaAdministration</a></li></ul><p>I claim no copyright on Kareha. It is released into the public domain.</p></div></div>
+<div class="tiddler" id="tiddlerTroubleShooting" modified="1110656560000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 12.03.2005, 21:42:40" style="display: none;"><a name="TroubleShooting"></a><h3 style="" id="titleTroubleShooting">TroubleShooting</h3><div style="" id="toolbarTroubleShooting" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('TroubleShooting')">link</a> <a title="References to this tiddler" href="javascript:find_references('TroubleShooting')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('TroubleShooting')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('TroubleShooting')">close</a></div><div id="bodyTroubleShooting" class="body"><p>If
+the web server only shows the Perl source code and doesn't run the
+script, your web server is not set up to run CGI scripts. See <a title="Modified by !WAHa.06x36 on 25.02.2006, 23:24:59" class="tiddlylink" href="#RunningPerlScripts">RunningPerlScripts</a> for more information.</p><ul><li>One common problem that can make the script give an "Internal Error" is an incorrect <a title="Modified by somebody on 01.03.2005, 12:17:00" class="tiddlylink" href="#HashBang">HashBang</a>. Another is not having the execute bits set on the script. <a title="Modified by !WAHa.06x36 on 25.02.2006, 23:24:59" class="tiddlylink" href="#RunningPerlScripts">RunningPerlScripts</a> contains useful information about this. Also see the <a title="Modified by somebody on 27.10.2004, 14:56:00" class="tiddlylink" href="#DiscussionBoard">DiscussionBoard</a> thread related to this: <a target="_blank" title="External link to http://wakaba.c3.cx/sup/kareha.pl/1109033191" href="http://wakaba.c3.cx/sup/kareha.pl/1109033191" class="external">http://wakaba.c3.cx/sup/kareha.pl/1109033191</a></li><li>If
+you're getting "Can't write to directory" errors, you need to set up
+the permissions for the directories, or create them if they do not
+exist. See <a title="Modified by somebody on 27.12.2004, 23:29:00" class="tiddlylink" href="#SettingPermissions">SettingPermissions</a>.</li><li>If you've changed the script settings, or especially if you've moved the script to a new location, you need to <a title="Modified by somebody on 13.10.2004, 01:58:00" class="tiddlylink" href="#RebuildCaches">RebuildCaches</a>.</li><li>If you get "not well-formed" or other XML-related errors in Firefox, this means any HTML code you have added is not <a title="Modified by !WAHa.06x36 on 12.03.2005, 21:46:01" class="tiddlylink" href="#WellFormedXHTML">WellFormedXHTML</a>.
+You either need to fix your code, or tell the script and web server not
+to send the pages as application/xhtml xml. Do this in your .htaccess
+file, and with the USE_XHTML option (see <a title="WakabaConfig doesn't exist yet." class="brokenlink" href="#WakabaConfig">WakabaConfig</a> and <a title="Modified by !WAHa.06x36 on 12.03.2005, 22:16:53" class="tiddlylink" href="#KarehaConfig">KarehaConfig</a>).</li><li>If you are trying to run on a Windows server, see <a title="Modified by somebody on 31.10.2004, 15:15:00" class="tiddlylink" href="#RunningOnWindows">RunningOnWindows</a>. If you are having problems getting the thumbnailer to work under Windows, make sure you are using the static version of <a title="Modified by somebody on 05.11.2004, 13:28:00" class="tiddlylink" href="#ImageMagick">ImageMagick</a> and not the DLL version.</li><li>If you are brave enough to try and run on IIS, see <a title="Modified by somebody on 29.11.2004, 15:29:00" class="tiddlylink" href="#RunningOnIIS">RunningOnIIS</a>.</li></ul></div></div>
+<div class="tiddler" id="tiddlerVeriCodes" modified="1110654115000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 12.03.2005, 21:01:55" style="display: none;"><a name="VeriCodes"></a><h3 style="" id="titleVeriCodes">VeriCodes</h3><div style="" id="toolbarVeriCodes" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('VeriCodes')">link</a> <a title="References to this tiddler" href="javascript:find_references('VeriCodes')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('VeriCodes')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('VeriCodes')">close</a></div><div id="bodyVeriCodes" class="body"><p>Verification codes are a form of captcha (<a target="_blank" title="External link to http://www.captcha.net/" href="http://www.captcha.net/" class="external">http://www.captcha.net/</a>
+for more information) that are used to prevent scripts from posting on
+the boards. Both scripts support them as an option. They work by
+presenting the user with an image of a scribbled word, and asking them
+to type it in. Spamming scripts will have great difficulty parsing the
+image, and thus won't be able to fill your board with garbage.</p><p>To enable verification codes, set ENABLE_CAPTCHA to 1 in config.pl. See <a title="WakabaConfig doesn't exist yet." class="brokenlink" href="#WakabaConfig">WakabaConfig</a> or <a title="Modified by !WAHa.06x36 on 12.03.2005, 22:16:53" class="tiddlylink" href="#KarehaConfig">KarehaConfig</a> for more information.</p><p>Trivia: The verification codes are generated by a <a title="Modified by somebody on 13.10.2004, 02:26:00" class="tiddlylink" href="#ContextFreeGrammar">ContextFreeGrammar</a> that creates words that look vaguely like English.</p></div></div>
+<div style="display: none;" title="Modified by somebody on 22.02.2005, 12:51:00" modifier="somebody" modified="1109069460000" id="tiddlerSillyNames" class="tiddler"><a name="SillyNames"></a><h3 id="titleSillyNames">SillyNames</h3><div id="toolbarSillyNames" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('SillyNames')">link</a> <a title="References to this tiddler" href="javascript:find_references('SillyNames')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('SillyNames')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('SillyNames')">close</a></div><div id="bodySillyNames" class="body"><p><a title="Modified by somebody on 22.02.2005, 12:51:00" class="tiddlylink" href="#SillyNames">SillyNames</a> is a feature in <a title="Modified by RuiCarmo on 14.03.2005, 15:40:01" class="tiddlylink" href="#KarehaScript">KarehaScript</a> that makes up silly names (using a <a title="Modified by somebody on 13.10.2004, 02:26:00" class="tiddlylink" href="#ContextFreeGrammar">ContextFreeGrammar</a>) for people who don't enter a name.</p></div></div>
+<div class="tiddler" id="tiddlerKarehaConfig" modified="1110658613000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 12.03.2005, 22:16:53" style="display: none;"><a name="KarehaConfig"></a><h3 style="" id="titleKarehaConfig">KarehaConfig</h3><div style="" id="toolbarKarehaConfig" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('KarehaConfig')">link</a> <a title="References to this tiddler" href="javascript:find_references('KarehaConfig')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('KarehaConfig')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('KarehaConfig')">close</a></div><div id="bodyKarehaConfig" class="body"><p>Configuring Kareha is fairly easy. Open <code>config.pl</code>
+in a text editor and change whatever options you want to change, and
+remove the '#' character from the beginning of any lines you change.</p><p>Here is a list of all the config.pl options for Kareha with descriptions and their default values (<strong>WARNING: This list is quite outdated</strong>):</p><p>ADMIN_PASS - <a title="Modified by !WAHa.06x36 on 12.03.2005, 20:53:48" class="tiddlylink" href="#AdminPassword">AdminPassword</a>, must be changed<br>SECRET - <a title="Modified by !WAHa.06x36 on 12.03.2005, 20:54:30" class="tiddlylink" href="#SecretString">SecretString</a>, must be changed<br>ADMIN_TRIPS () - Admin tripcodes</p><p>TITLE ('Kareha message board') - Name of the board<br>THREADS_DISPLAYED (10) - Maximum number of threads shown on the main page<br>THREADS_LISTED (40) - Maximum umber of threads shown in the thread list<br>REPLIES_PER_THREAD (10) - Maximum number of replies shown in each thread on the main page<br>S_ANONAME ('Anonymous') - Name to use when the name field is blank<br>DEFAULT_STYLE ('Headline') - Default stylesheet to use</p><p>ALLOW_TEXT_THREADS
+(1) - Allow posting of new threads by all users (only users with Admin
+tripcodes are allowed to post new threads if this is 0)<br>ALLOW_TEXT_REPLIES
+(1) - Allow posting of replies by all users (only users with Admin
+tripcodes are allowed to post replies if this is 0)<br>ALLOW_IMAGE_THREADS (0) - does nothing<br>ALLOW_IMAGE_REPLIES (0) - does nothing<br>MAX_RES (1000) - Maximum number of times a thread can be bumped<br>MAX_THREADS (500) - Maximum number of threads<br>MAX_FIELD_LENGTH (100) - Maximum length of subject, name, and email fields<br>MAX_COMMENT_LENGTH (8192) - Maximum post length<br>MAX_LINES - Maximum number of lines per post<br>MAX_LINES_SHOWN (15) - Maximum number of lines of a post shown on the main page<br>MAX_KEY_LOG (1000) - Number of captcha keys to log</p><p>ENABLE_CAPTCHA (0) - Enable (1) or disable (0) <a title="Modified by !WAHa.06x36 on 12.03.2005, 21:01:55" class="tiddlylink" href="#VeriCodes">VeriCodes</a><br>CAPTCHA_HEIGHT (18) -<br>CAPTCHA_SCRIBBLE (0.2) -<br>CAPTCHA_SCALING (0.15) -<br>CAPTCHA_ROTATION (0.3) -<br>CAPTCHA_SPACING (2.5) -</p><p>CHARSET ('utf-8') - Character set to use<br>PROXY_CHECK () - Ports to scan for proxies, NOT IMPLEMENTED<br>TRIM_METHOD (1) - Which threads to trim (when MAX_THREADS is reached), 0: oldest, 1: least active (furthest back)<br>DATE_STYLE ('2ch') - Date style: '2ch', 'localtime' , or 'http'<br>DISPLAY_ID (1) - Display user IDs: 0: never, 1: if no email, 2: always<br>EMAIL_ID ('Heaven') - ID string to use when DISPLAY_ID is 1 and the user uses an email<br>SILLY_ANONYMOUS (0) - Enable (1) or disable (0) <a title="Modified by somebody on 22.02.2005, 12:51:00" class="tiddlylink" href="#SillyNames">SillyNames</a><br>FORCED_ANON (0) - Enable (1) or disable (0) <a title="Modified by somebody on 22.02.2005, 13:11:00" class="tiddlylink" href="#ForcedAnonymousPosting">ForcedAnonymousPosting</a><br>TRIPKEY ('!') - Character to display before tripcodes<br>ALTERNATE_REDIRECT (0) - Use alternate redirect method (javascript/meta-refresh instead of HTTP forwards)<br>ENABLE_WAKABAMARK (1) - Enable (1) or disable (0) <a title="Modified by !WAHa.06x36 on 13.03.2005, 19:01:28" class="tiddlylink" href="#WakabaMark">WakabaMark</a> formatting<br>APPROX_LINE_LENGTH (150) - Approximate line lenght used by reply abbreviation code to guess at the length of a reply<br>COOKIE_PATH
+('root') - Path argument for cookies: 'root': cookies apply to all
+boards on the site, 'current': cookies apply to only this board,
+'parent': cookies apply to all boards in the parent directory; does NOT
+apply to the style cookie <br>STYLE_COOKIE ('karehastyle') - Cookie name for the style selector<br>ENABLE_DELETION (1) - Enable (1) or disable (0) user deletion of posts</p><p>RES_DIR ('res/') - Reply cache directory<br>HTML_SELF ('index.html') - Main html file<br>HTML_BACKLOG ('subback.html') - Backlog HTML file<br>RSS_FILE ('index.rss') - RSS file, set to '' to disable RSS<br>CSS_DIR ('css/') - CSS file directory<br>PAGE_EXT ('.html') - Extension to use for thread pages<br>SPAM_FILE ('spam.txt') - Spam definitions</p></div></div>
+<div style="display: none;" title="Modified by somebody on 22.02.2005, 13:11:00" modifier="somebody" modified="1109070660000" id="tiddlerForcedAnonymousPosting" class="tiddler"><a name="ForcedAnonymousPosting"></a><h3 id="titleForcedAnonymousPosting">ForcedAnonymousPosting</h3><div id="toolbarForcedAnonymousPosting" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('ForcedAnonymousPosting')">link</a> <a title="References to this tiddler" href="javascript:find_references('ForcedAnonymousPosting')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('ForcedAnonymousPosting')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('ForcedAnonymousPosting')">close</a></div><div id="bodyForcedAnonymousPosting" class="body"><p>Forced
+anonymous posting does not allow users to use a name when they post. It
+also doesn't let users use anything except 'sage' for the email field.</p></div></div>
+<div style="display: none;" title="Modified by somebody on 22.02.2005, 13:16:00" modifier="somebody" modified="1109070960000" id="tiddlerWikiWiki" class="tiddler"><a name="WikiWiki"></a><h3 id="titleWikiWiki">WikiWiki</h3><div id="toolbarWikiWiki" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('WikiWiki')">link</a> <a title="References to this tiddler" href="javascript:find_references('WikiWiki')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('WikiWiki')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('WikiWiki')">close</a></div><div id="bodyWikiWiki" class="body"><p>A
+Wiki is a widely-used, mature way of building collaborative websites.
+It's based on the ideas of easy editting of pages and the use of
+special <a title="Modified by somebody on 04.01.2005, 16:29:00" class="tiddlylink" href="#WikiWord">WikiWord</a> notation to automagically create links between pages. See Wikipedia for more details: <a target="_blank" title="External link to http://en.wikipedia.org/wiki/Wiki" href="https://en.wikipedia.org/wiki/Wiki" class="external">http://en.wikipedia.org/wiki/Wiki</a> . <a title="Modified by !WAHa.06x36 on 12.03.2005, 20:57:44" class="tiddlylink" href="#TiddlyWiki">TiddlyWiki</a> is different from a conventional Wiki because it is not based on entire pages of content, but rather items of <a title="MicroContent doesn't exist yet." class="brokenlink" href="#MicroContent">MicroContent</a> that are referred to as 'tiddlers'.</p></div></div>
+<div class="tiddler" id="tiddlerStorageBackend" modified="1156692533000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 27.08.2006, 18:28:53" style="display: none;"><a name="StorageBackend"></a><h3 style="" id="titleStorageBackend">StorageBackend</h3><div style="" id="toolbarStorageBackend" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('StorageBackend')">link</a> <a title="References to this tiddler" href="javascript:find_references('StorageBackend')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('StorageBackend')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('StorageBackend')">close</a></div><div id="bodyStorageBackend" class="body"><p><a title="Modified by !WAHa.06x36 on 12.03.2005, 20:57:44" class="tiddlylink" href="#TiddlyWiki">TiddlyWiki</a>
+ doesn't normally have any way to save edits for others to see. This 
+modified version talks to a very simple Perl script that makes changes 
+directly in the HTML file on the server, and keeps backups of older 
+versions. A quick and undocumented release of the code can be found 
+here: <a target="_blank" title="External link to http://wakaba.c3.cx/releases/other/kozakana2.pl" href="http://wakaba.c3.cx/releases/other/kozakana2.pl" class="external">http://wakaba.c3.cx/releases/other/kozakana2.pl</a></p><p>If you want to test out <a title="Modified by !WAHa.06x36 on 12.03.2005, 20:57:44" class="tiddlylink" href="#TiddlyWiki">TiddlyWiki</a> and the backend, do it on <a target="_blank" title="External link to http://wakaba.c3.cx/docs/test.html" href="http://wakaba.c3.cx/docs/test.html" class="external">http://wakaba.c3.cx/docs/test.html</a>, where anything goes.</p></div></div>
+<div class="tiddler" id="tiddlerQuotingPosts" modified="1110654870000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 12.03.2005, 21:14:30" style="display: none;"><a name="QuotingPosts"></a><h3 style="" id="titleQuotingPosts">QuotingPosts</h3><div style="" id="toolbarQuotingPosts" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('QuotingPosts')">link</a> <a title="References to this tiddler" href="javascript:find_references('QuotingPosts')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('QuotingPosts')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('QuotingPosts')">close</a></div><div id="bodyQuotingPosts" class="body"><p>To quote a certain passage of text, you only need to append a single angle bracket followed by a single space in front of it: </p><pre><code>&gt; This is the quoted text. Both KarehaScript and WakabaScript,<br>&gt; as well as the FutabaScript and the FutallabyScript<br>&gt; automatically turn this into a different colour than normal <br>&gt; text.</code></pre><p>To refer to a certain post in a thread, either click on the number of the post (if you have <a title="JavaScript doesn't exist yet." class="brokenlink" href="#JavaScript">JavaScript</a> enabled) or manually write out the number and append two angle brackets in front of it: </p><pre><code>&gt;&gt;2</code></pre><p>This
+will automatically create a link to the post you refer to, making it
+easier to follow points of reference and structure discussions. Just as
+the quoting of text in the above mentioned manner, this is a very
+common practice on all <a title="Modified by somebody on 11.10.2004, 15:33:00" class="tiddlylink" href="#FutabaChannel">FutabaChannel</a> and <a title="Modified by !WAHa.06x36 on 19.11.2005, 02:45:11" class="tiddlylink" href="#NiChannel">NiChannel</a> offshoots.</p></div></div>
+<div style="display: none;" title="Modified by somebody on 25.02.2005, 19:14:00" modifier="somebody" modified="1109351640000" id="tiddlerKarehaTroubleShooting" class="tiddler"><a name="KarehaTroubleShooting"></a><h3 id="titleKarehaTroubleShooting">KarehaTroubleShooting</h3><div id="toolbarKarehaTroubleShooting" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('KarehaTroubleShooting')">link</a> <a title="References to this tiddler" href="javascript:find_references('KarehaTroubleShooting')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('KarehaTroubleShooting')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('KarehaTroubleShooting')">close</a></div><div id="bodyKarehaTroubleShooting" class="body"><p>Also see the generic <a title="Modified by !WAHa.06x36 on 12.03.2005, 21:42:40" class="tiddlylink" href="#TroubleShooting">TroubleShooting</a> section.</p></div></div>
+<div class="tiddler" id="tiddlerDeletingPosts" modified="1132360770000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 19.11.2005, 02:39:30" style="display: none;"><a name="DeletingPosts"></a><h3 style="" id="titleDeletingPosts">DeletingPosts</h3><div style="" id="toolbarDeletingPosts" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('DeletingPosts')">link</a> <a title="References to this tiddler" href="javascript:find_references('DeletingPosts')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('DeletingPosts')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('DeletingPosts')">close</a></div><div id="bodyDeletingPosts" class="body"><p>At
+ the bottom of each page in Wakaba, there is a Delete button. Next to 
+it, there's a password field. If you haven't set an individual password,
+ Wakaba will already have set a password for you that is saved in your 
+cookie*. Check the box next to your name for the post(s) you want to 
+delete, and check the File Only box above the Delete button if you only 
+want to delete your images. Then click the Delete Button for great 
+justice!</p><p>*NOTE: This requires your <a title="JavaScript doesn't exist yet." class="brokenlink" href="#JavaScript">JavaScript</a>
+ &amp; cookies to be turned on. Also, if Firefox asks you whether the 
+password should be remembered, tell it to "Never remember it for this 
+site"!</p><p> Click here!<br> ↓<br>┌──────────────────────────────────────────────<br>│☐ Anonymous 05/02/18(Fri)07:50 No.1992 [Reply]<br>│<br>│ This is a stupid post. I should delete it.<br>└──────────────────────────────────────────────</p><p>────────✂────────✂────────✂────────✂────────<br>         Delete Post [ ☐ File Only]<br>      Password [********______] [ Delete ]<br>                    ↑<br>                 Then click here!</p></div></div>
+<div style="display: none;" title="Modified by somebody on 25.02.2005, 22:32:00" modifier="somebody" modified="1109363520000" id="tiddlerReplyingThreads" class="tiddler"><a name="ReplyingThreads"></a><h3 id="titleReplyingThreads">ReplyingThreads</h3><div id="toolbarReplyingThreads" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('ReplyingThreads')">link</a> <a title="References to this tiddler" href="javascript:find_references('ReplyingThreads')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('ReplyingThreads')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('ReplyingThreads')">close</a></div><div id="bodyReplyingThreads" class="body"><p>Just
+click on the Reply link next to the first post of the thread you wish
+to reply to. If you just fill out the comment box and hit submit before
+clicking Reply, you will try to create a new thread. This will most
+often result in a "Error: No file selected." - the safest way to tell
+that you haven't really tried to reply to a thread.</p></div></div>
+<div class="tiddler" id="tiddlerWakabaScript" modified="1110658487000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 12.03.2005, 22:14:47" style="display: none;"><a name="WakabaScript"></a><h3 style="" id="titleWakabaScript">WakabaScript</h3><div style="" id="toolbarWakabaScript" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('WakabaScript')">link</a> <a title="References to this tiddler" href="javascript:find_references('WakabaScript')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('WakabaScript')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('WakabaScript')">close</a></div><div id="bodyWakabaScript" class="body"><p>Wakaba is an image board script very strictly modelled after the <a title="Modified by somebody on 11.10.2004, 15:34:00" class="tiddlylink" href="#FutabaScript">FutabaScript</a> and <a title="Modified by somebody on 11.10.2004, 15:49:00" class="tiddlylink" href="#FutallabyScript">FutallabyScript</a>.</p><ul><li><a title="Modified by !WAHa.06x36 on 12.03.2005, 21:34:12" class="tiddlylink" href="#WakabaQuickStart">WakabaQuickStart</a></li><li><a title="Modified by !WAHa.06x36 on 12.03.2005, 21:22:29" class="tiddlylink" href="#WakabaRequirements">WakabaRequirements</a></li><li><a title="Modified by !WAHa.06x36 on 12.03.2005, 21:51:45" class="tiddlylink" href="#WakabaFeatures">WakabaFeatures</a></li><li><a title="WakabaConfig doesn't exist yet." class="brokenlink" href="#WakabaConfig">WakabaConfig</a></li><li><a title="Modified by somebody on 25.10.2004, 14:59:00" class="tiddlylink" href="#WakabaTroubleShooting">WakabaTroubleShooting</a></li><li><a title="Modified by somebody on 14.11.2004, 22:53:00" class="tiddlylink" href="#WakabaAdministration">WakabaAdministration</a></li></ul><p>I claim no copyright on Wakaba. It is released into the public domain.</p></div></div>
+<div class="tiddler" id="tiddlerSandBox" modified="1111007889000" modifier="Anonymous" title="Modified by Anonymous on 16.03.2005, 23:18:09" style="display: none;"><a name="SandBox"></a><h3 style="" id="titleSandBox">SandBox</h3><div style="" id="toolbarSandBox" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('SandBox')">link</a> <a title="References to this tiddler" href="javascript:find_references('SandBox')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('SandBox')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('SandBox')">close</a></div><div id="bodySandBox" class="body"><p>Sand goes here.</p><p><a title="NonAccentedCharacterNode doesn't exist yet." class="brokenlink" href="#NonAccentedCharacterNode">NonAccentedCharacterNode</a></p><p>AccentedFôo doesn't work, no [alternative markup] for links in <a title="Modified by !WAHa.06x36 on 13.03.2005, 19:01:28" class="tiddlylink" href="#WakabaMark">WakabaMark</a>?</p><p>No,
+I haven't gotten around to making non-wikicased links yet. Still
+pondering how to handle various exotic charaters in those. Also, I
+suppose I should explicitly set the character set in the HTML file for
+those browsers that get confused otherwise...</p><p>Actually, my
+mistake, there was a problem with the encoding when saving... NOW
+accented characters should work, except not in tiddler names.</p></div></div>
+<div style="display: none;" title="Modified by somebody on 01.03.2005, 12:17:00" modifier="somebody" modified="1109672220000" id="tiddlerHashBang" class="tiddler"><a name="HashBang"></a><h3 id="titleHashBang">HashBang</h3><div id="toolbarHashBang" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('HashBang')">link</a> <a title="References to this tiddler" href="javascript:find_references('HashBang')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('HashBang')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('HashBang')">close</a></div><div id="bodyHashBang" class="body"><p>The <a title="Modified by somebody on 01.03.2005, 12:17:00" class="tiddlylink" href="#HashBang">HashBang</a>
+is the first line of the script, that starts with "#!". This tells the
+web server where to find the Perl executable. On Unix machines, this
+first line should usually be "#!/usr/bin/perl", while on Windows
+machines it should be "#!perl".</p><p>Sometimes, when I package
+distributions, I forget to change the hashbang at the top of the
+scripts. I develop on a Windows machine, and most people run the script
+on Unix machines, which can lead to problems when I mess up. Also see <a title="Modified by somebody on 31.10.2004, 15:15:00" class="tiddlylink" href="#RunningOnWindows">RunningOnWindows</a>.</p></div></div>
+<div class="tiddler" id="tiddlerAdminPassword" modified="1110653628000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 12.03.2005, 20:53:48" style="display: none;"><a name="AdminPassword"></a><h3 style="" id="titleAdminPassword">AdminPassword</h3><div style="" id="toolbarAdminPassword" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('AdminPassword')">link</a> <a title="References to this tiddler" href="javascript:find_references('AdminPassword')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('AdminPassword')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('AdminPassword')">close</a></div><div id="bodyAdminPassword" class="body"><p>The admin password is used to access the administrative interfaces of <a title="Modified by RuiCarmo on 14.03.2005, 15:40:01" class="tiddlylink" href="#KarehaScript">KarehaScript</a> and <a title="Modified by !WAHa.06x36 on 12.03.2005, 22:14:47" class="tiddlylink" href="#WakabaScript">WakabaScript</a>. See <a title="Modified by somebody on 13.10.2004, 02:02:00" class="tiddlylink" href="#KarehaAdministration">KarehaAdministration</a> and <a title="Modified by somebody on 14.11.2004, 22:53:00" class="tiddlylink" href="#WakabaAdministration">WakabaAdministration</a> for more information.</p></div></div>
+<div class="tiddler" id="tiddlerTiddlyWiki" modified="1110653864000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 12.03.2005, 20:57:44" style="display: none;"><a name="TiddlyWiki"></a><h3 style="" id="titleTiddlyWiki">TiddlyWiki</h3><div style="" id="toolbarTiddlyWiki" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('TiddlyWiki')">link</a> <a title="References to this tiddler" href="javascript:find_references('TiddlyWiki')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('TiddlyWiki')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('TiddlyWiki')">close</a></div><div id="bodyTiddlyWiki" class="body"><p><a title="Modified by !WAHa.06x36 on 12.03.2005, 20:57:44" class="tiddlylink" href="#TiddlyWiki">TiddlyWiki</a> is an unorthodox <a title="Modified by somebody on 22.02.2005, 13:16:00" class="tiddlylink" href="#WikiWiki">WikiWiki</a> system written by Jeremy Ruston. It is entirely Javascript-based, and self-contained in a single HTML file. It lives at <a target="_blank" title="External link to http://www.tiddlywiki.com/" href="http://www.tiddlywiki.com/" class="external">http://www.tiddlywiki.com/</a>.</p><p>This documentation uses a heavily modified version of <a title="Modified by !WAHa.06x36 on 12.03.2005, 20:57:44" class="tiddlylink" href="#TiddlyWiki">TiddlyWiki</a> with a minimalist <a title="Modified by !WAHa.06x36 on 27.08.2006, 18:28:53" class="tiddlylink" href="#StorageBackend">StorageBackend</a> wirtten in Perl.</p></div></div>
+<div class="tiddler" id="tiddlerUsersGuide" modified="1110657071000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 12.03.2005, 21:51:11" style="display: none;"><a name="UsersGuide"></a><h3 style="" id="titleUsersGuide">UsersGuide</h3><div style="" id="toolbarUsersGuide" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('UsersGuide')">link</a> <a title="References to this tiddler" href="javascript:find_references('UsersGuide')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('UsersGuide')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('UsersGuide')">close</a></div><div id="bodyUsersGuide" class="body"><p>Here is a quick guide to some of the more strange and mystifying parts of using these board scripts.</p><ul><li><a title="Modified by somebody on 25.02.2005, 22:32:00" class="tiddlylink" href="#ReplyingThreads">ReplyingThreads</a> - How to reply to threads.</li><li><a title="Modified by !WAHa.06x36 on 19.11.2005, 02:39:30" class="tiddlylink" href="#DeletingPosts">DeletingPosts</a> - How to delete posts when you screw up.</li><li><a title="Modified by !WAHa.06x36 on 19.11.2005, 02:36:54" class="tiddlylink" href="#UsingSage">UsingSage</a> - How to reply to posts without bumping them.</li><li><a title="Modified by !WAHa.06x36 on 12.03.2005, 21:12:37" class="tiddlylink" href="#ImageReplies">ImageReplies</a> - How to post many images in one thread.</li><li><a title="Modified by !WAHa.06x36 on 12.03.2005, 21:14:30" class="tiddlylink" href="#QuotingPosts">QuotingPosts</a> - How to quote what others have said.</li><li><a title="Modified by !WAHa.06x36 on 13.03.2005, 19:01:28" class="tiddlylink" href="#WakabaMark">WakabaMark</a> - How to add text formatting to your posts.</li><li><a title="Modified by !WAHa.06x36 on 12.03.2005, 21:35:01" class="tiddlylink" href="#TripCodes">TripCodes</a> - How to prove your identity.</li><li><a title="Modified by !WAHa.06x36 on 12.03.2005, 21:01:55" class="tiddlylink" href="#VeriCodes">VeriCodes</a> - Dealing with spamming scripts-</li></ul><p>There are no doubt more things that could be explained. Feel free to suggest some, or just write about them.</p></div></div>
+<div class="tiddler" id="tiddlerDefaultTiddlers" modified="1110653365000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 12.03.2005, 20:49:25" style="display: none;"><a name="DefaultTiddlers"></a><h3 style="" id="titleDefaultTiddlers">DefaultTiddlers</h3><div style="" id="toolbarDefaultTiddlers" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('DefaultTiddlers')">link</a> <a title="References to this tiddler" href="javascript:find_references('DefaultTiddlers')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('DefaultTiddlers')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('DefaultTiddlers')">close</a></div><div id="bodyDefaultTiddlers" class="body"><p><a title="Modified by !WAHa.06x36 on 18.03.2005, 14:50:21" class="tiddlylink" href="#StartHere">StartHere</a> <a title="Modified by !WAHa.06x36 on 12.03.2005, 20:55:01" class="tiddlylink" href="#DocumentationChanges">DocumentationChanges</a></p></div></div>
+
+<div class="tiddler" id="tiddlerImageReplies" modified="1110654757000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 12.03.2005, 21:12:37" style="display: none;"><a name="ImageReplies"></a><h3 style="" id="titleImageReplies">ImageReplies</h3><div style="" id="toolbarImageReplies" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('ImageReplies')">link</a> <a title="References to this tiddler" href="javascript:find_references('ImageReplies')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('ImageReplies')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('ImageReplies')">close</a></div><div id="bodyImageReplies" class="body"><p>It
+is considered polite to not post lots of new threads with a single
+image in each, but instead to collect them in threads. After clicking
+the reply link in a thread, you can select an image in the same way as
+when creating a new thread, and it will be posted as a reply.</p><p>Unlike certain other sites, there are no limits to how many images you can post in a thread.</p></div></div>
+<div class="tiddler" id="tiddlerAntiSpam" modified="1110656003000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 12.03.2005, 21:33:23" style="display: none;"><a name="AntiSpam"></a><h3 style="" id="titleAntiSpam">AntiSpam</h3><div style="" id="toolbarAntiSpam" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('AntiSpam')">link</a> <a title="References to this tiddler" href="javascript:find_references('AntiSpam')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('AntiSpam')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('AntiSpam')">close</a></div><div id="bodyAntiSpam" class="body"><p><a title="Modified by !WAHa.06x36 on 12.03.2005, 22:14:47" class="tiddlylink" href="#WakabaScript">WakabaScript</a> and <a title="Modified by RuiCarmo on 14.03.2005, 15:40:01" class="tiddlylink" href="#KarehaScript">KarehaScript</a> both read a file called <code>spam.txt</code> to find a list of URLs that are not allowed to be posted on the board. You can find fresh versions of this file at <a target="_blank" title="External link to http://wakaba.c3.cx/antispam/" href="http://wakaba.c3.cx/antispam/" class="external">http://wakaba.c3.cx/antispam/</a>.</p></div></div>
+<div class="tiddler" id="tiddlerSecretFeatures" modified="1110656351000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 12.03.2005, 21:39:11" style="display: none;"><a name="SecretFeatures"></a><h3 style="" id="titleSecretFeatures">SecretFeatures</h3><div style="" id="toolbarSecretFeatures" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('SecretFeatures')">link</a> <a title="References to this tiddler" href="javascript:find_references('SecretFeatures')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('SecretFeatures')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('SecretFeatures')">close</a></div><div id="bodySecretFeatures" class="body"><p>Wakaba and Kareha have a couple of hidden options and features. Can you find them?</p></div></div>
+<div class="tiddler" id="tiddlerWellFormedXHTML" modified="1110656761000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 12.03.2005, 21:46:01" style="display: none;"><a name="WellFormedXHTML"></a><h3 style="" id="titleWellFormedXHTML">WellFormedXHTML</h3><div style="" id="toolbarWellFormedXHTML" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('WellFormedXHTML')">link</a> <a title="References to this tiddler" href="javascript:find_references('WellFormedXHTML')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('WellFormedXHTML')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('WellFormedXHTML')">close</a></div><div id="bodyWellFormedXHTML" class="body"><p>Well-formed
+XHTML code is HTML written as proper XML. This means that all tags have
+to be closed. This means you either have to use <code>&lt;tag&gt;...&lt;/tag&gt;</code> pairs, or the <code>&lt;tag /&gt;</code> shorthand. The character <code>&amp;</code> is also not allowed, but has to be written as <code>&amp;amp;</code>.
+Furthermore, all tags and attributes have to be in lower case, and all
+attribute values properly quoted with double or single quotes.</p><p>If
+pages are sent as application/xhtml xml instead of text/html, many
+browser will require you to follow these rules strictly, or they will
+not display the page.</p></div></div>
+<div class="tiddler" id="tiddlerMultipleBoardModes" modified="1110658554000" modifier="!WAHa.06x36" title="Modified by !WAHa.06x36 on 12.03.2005, 22:15:54" style="display: none;"><a name="MultipleBoardModes"></a><h3 style="" id="titleMultipleBoardModes">MultipleBoardModes</h3><div style="" id="toolbarMultipleBoardModes" class="toolbar"><a title="Permalink for this tiddler" href="javascript:make_tiddler_link('MultipleBoardModes')">link</a> <a title="References to this tiddler" href="javascript:find_references('MultipleBoardModes')">references</a> <a title="Edit this tiddler" href="javascript:edit_tiddler('MultipleBoardModes')">edit</a> <a title="Close this tiddler" href="javascript:close_tiddler('MultipleBoardModes')">close</a></div><div id="bodyMultipleBoardModes" class="body"><p>The workings of the <a title="Modified by RuiCarmo on 14.03.2005, 15:40:01" class="tiddlylink" href="#KarehaScript">KarehaScript</a> are determined to quite a large extent by the <code>templates.pl</code> and <code>config_defaults.pl</code> files. After unpacking the distribution archive, you will need to copy these (and possibly other files) from one of the <code>mode_*/</code>
+directories into the main directory. This will determine how the board
+behaves. You can not change this behviour later for the same install.</p><ul><li><code>mode_message/</code> - A <a title="Modified by !WAHa.06x36 on 19.11.2005, 02:45:11" class="tiddlylink" href="#NiChannel">NiChannel</a>-like message board mode. This also supports posting of images, if you turn on the appropriate configuration options (see <a title="Modified by !WAHa.06x36 on 12.03.2005, 22:16:53" class="tiddlylink" href="#KarehaConfig">KarehaConfig</a>).</li><li><code>mode_image/</code> - A <a title="Modified by somebody on 11.10.2004, 15:33:00" class="tiddlylink" href="#FutabaChannel">FutabaChannel</a>/<a title="Modified by !WAHa.06x36 on 12.03.2005, 22:14:47" class="tiddlylink" href="#WakabaScript">WakabaScript</a>-like board mode.</li></ul></div></div></div>
+
+<div id="sidebar">
+	<a href="javascript:set_user_name()">Set user name</a>
+	<br><br>
+	<a href="javascript:set_sidebar('all')">Show all</a>
+	<br>
+	<a href="javascript:set_sidebar('timeline')">Show timeline</a>
+
+	<div id="sidebar_contents"><h4>All tiddlers</h4><a href="#ActivePerl" class="tiddlylink" title="Modified by somebody on 26.10.2004, 14:27:00">ActivePerl</a><br><a href="#AdminPassword" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 20:53:48">AdminPassword</a><br><a href="#AntiSpam" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 21:33:23">AntiSpam</a><br><a href="#BruteForceAttack" class="tiddlylink" title="Modified by !WAHa.06x36 on 18.03.2005, 14:49:46">BruteForceAttack</a><br><a href="#ContextFreeGrammar" class="tiddlylink" title="Modified by somebody on 13.10.2004, 02:26:00">ContextFreeGrammar</a><br><a href="#DefaultTiddlers" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 20:49:25">DefaultTiddlers</a><br><a href="#DeletingPosts" class="tiddlylink" title="Modified by !WAHa.06x36 on 19.11.2005, 02:39:30">DeletingPosts</a><br><a href="#DiscussionBoard" class="tiddlylink" title="Modified by somebody on 27.10.2004, 14:56:00">DiscussionBoard</a><br><a href="#DocumentationChanges" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 20:55:01">DocumentationChanges</a><br><a href="#ForcedAnonymousPosting" class="tiddlylink" title="Modified by somebody on 22.02.2005, 13:11:00">ForcedAnonymousPosting</a><br><a href="#FutabaChannel" class="tiddlylink" title="Modified by somebody on 11.10.2004, 15:33:00">FutabaChannel</a><br><a href="#FutabaScript" class="tiddlylink" title="Modified by somebody on 11.10.2004, 15:34:00">FutabaScript</a><br><a href="#FutallabyScript" class="tiddlylink" title="Modified by somebody on 11.10.2004, 15:49:00">FutallabyScript</a><br><a href="#HashBang" class="tiddlylink" title="Modified by somebody on 01.03.2005, 12:17:00">HashBang</a><br><a href="#ImageMagick" class="tiddlylink" title="Modified by somebody on 05.11.2004, 13:28:00">ImageMagick</a><br><a href="#ImageReplies" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 21:12:37">ImageReplies</a><br><a href="#JapaneseVersion" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 21:30:35">JapaneseVersion</a><br><a href="#KarehaAdministration" class="tiddlylink" title="Modified by somebody on 13.10.2004, 02:02:00">KarehaAdministration</a><br><a href="#KarehaConfig" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 22:16:53">KarehaConfig</a><br><a href="#KarehaFeatures" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 22:06:05">KarehaFeatures</a><br><a href="#KarehaQuickStart" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 22:12:57">KarehaQuickStart</a><br><a href="#KarehaRequirements" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 21:38:28">KarehaRequirements</a><br><a href="#KarehaScript" class="tiddlylink" title="Modified by RuiCarmo on 14.03.2005, 15:40:01">KarehaScript</a><br><a href="#KarehaTroubleShooting" class="tiddlylink" title="Modified by somebody on 25.02.2005, 19:14:00">KarehaTroubleShooting</a><br><a href="#MainMenu" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 20:48:46">MainMenu</a><br><a href="#MarkDown" class="tiddlylink" title="Modified by somebody on 06.11.2004, 01:02:00">MarkDown</a><br><a href="#MultipleBoardModes" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 22:15:54">MultipleBoardModes</a><br><a href="#NetPBM" class="tiddlylink" title="Modified by somebody on 25.10.2004, 14:58:00">NetPBM</a><br><a href="#NiChannel" class="tiddlylink" title="Modified by !WAHa.06x36 on 19.11.2005, 02:45:11">NiChannel</a><br><a href="#OekakiIntegration" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 21:28:05">OekakiIntegration</a><br><a href="#OekakiTroubleshooting" class="tiddlylink" title="Modified by somebody on 31.10.2004, 15:35:00">OekakiTroubleshooting</a><br><a href="#PermaSage" class="tiddlylink" title="Modified by somebody on 11.01.2005, 17:07:00">PermaSage</a><br><a href="#QuotingPosts" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 21:14:30">QuotingPosts</a><br><a href="#RebuildCaches" class="tiddlylink" title="Modified by somebody on 13.10.2004, 01:58:00">RebuildCaches</a><br><a href="#ReplyingThreads" class="tiddlylink" title="Modified by somebody on 25.02.2005, 22:32:00">ReplyingThreads</a><br><a href="#RunningOnIIS" class="tiddlylink" title="Modified by somebody on 29.11.2004, 15:29:00">RunningOnIIS</a><br><a href="#RunningOnWindows" class="tiddlylink" title="Modified by somebody on 31.10.2004, 15:15:00">RunningOnWindows</a><br><a href="#RunningPerlScripts" class="tiddlylink" title="Modified by !WAHa.06x36 on 25.02.2006, 23:24:59">RunningPerlScripts</a><br><a href="#SQLiteDatabase" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 21:03:55">SQLiteDatabase</a><br><a href="#SandBox" class="tiddlylink" title="Modified by Anonymous on 16.03.2005, 23:18:09">SandBox</a><br><a href="#SecretFeatures" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 21:39:11">SecretFeatures</a><br><a href="#SecretString" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 20:54:30">SecretString</a><br><a href="#SecureTripCodes" class="tiddlylink" title="Modified by somebody on 11.10.2004, 19:57:00">SecureTripCodes</a><br><a href="#SettingPermissions" class="tiddlylink" title="Modified by somebody on 27.12.2004, 23:29:00">SettingPermissions</a><br><a href="#SillyNames" class="tiddlylink" title="Modified by somebody on 22.02.2005, 12:51:00">SillyNames</a><br><a href="#SiteSubtitle" class="tiddlylink" title="Modified by somebody on 11.10.2004, 00:38:00">SiteSubtitle</a><br><a href="#SiteTitle" class="tiddlylink" title="Modified by somebody on 11.10.2004, 00:37:00">SiteTitle</a><br><a href="#StartHere" class="tiddlylink" title="Modified by !WAHa.06x36 on 18.03.2005, 14:50:21">StartHere</a><br><a href="#StorageBackend" class="tiddlylink" title="Modified by !WAHa.06x36 on 27.08.2006, 18:28:53">StorageBackend</a><br><a href="#TiddlyWiki" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 20:57:44">TiddlyWiki</a><br><a href="#TripCodes" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 21:35:01">TripCodes</a><br><a href="#TroubleShooting" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 21:42:40">TroubleShooting</a><br><a href="#UsersGuide" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 21:51:11">UsersGuide</a><br><a href="#UsingSage" class="tiddlylink" title="Modified by !WAHa.06x36 on 19.11.2005, 02:36:54">UsingSage</a><br><a href="#VeriCodes" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 21:01:55">VeriCodes</a><br><a href="#WakabaAdministration" class="tiddlylink" title="Modified by somebody on 14.11.2004, 22:53:00">WakabaAdministration</a><br><a href="#WakabaFeatures" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 21:51:45">WakabaFeatures</a><br><a href="#WakabaMark" class="tiddlylink" title="Modified by !WAHa.06x36 on 13.03.2005, 19:01:28">WakabaMark</a><br><a href="#WakabaQuickStart" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 21:34:12">WakabaQuickStart</a><br><a href="#WakabaRequirements" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 21:22:29">WakabaRequirements</a><br><a href="#WakabaScript" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 22:14:47">WakabaScript</a><br><a href="#WakabaTroubleShooting" class="tiddlylink" title="Modified by somebody on 25.10.2004, 14:59:00">WakabaTroubleShooting</a><br><a href="#WellFormedXHTML" class="tiddlylink" title="Modified by !WAHa.06x36 on 12.03.2005, 21:46:01">WellFormedXHTML</a><br><a href="#WikiWiki" class="tiddlylink" title="Modified by somebody on 22.02.2005, 13:16:00">WikiWiki</a><br><a href="#WikiWord" class="tiddlylink" title="Modified by somebody on 04.01.2005, 16:29:00">WikiWord</a></div>
+
+	<br><br>
+
+	<h4>License:</h4>
+	<a rel="license" href="https://creativecommons.org/licenses/by-nc-sa/2.0/">
+	<!-- <img alt="Creative Commons License" border="0" src="http://creativecommons.org/images/public/somerights20.gif" /></a><br /> -->
+	This work is licensed under a <br>Creative Commons License</a>
+</div>
+
+</div>
+
+<div id="floater" style="display: none;"></div>
+
+
+</body></html>
