@@ -33,7 +33,17 @@ sub print_posting_form($$$$@)
 		print $file '<div align="center">';
 		print $file '<form action="'.expand_filename('paint.pl').'" method="get">';
 		print $file '<input type="hidden" name="oek_parent" value="'.$parent.'" />' if($parent);
-		print $file S_OEKPAINT.'<select class=button name="oek_painter">'.S_OEKOPTIONS.'</select>&nbsp;';
+
+		print $file S_OEKPAINT.'<select class=button name="oek_painter">';
+		my %names=S_OEKNAMES;
+		foreach my $painter (sort keys %names)
+		{
+			print $file '<option value="'.$painter.'"';
+			print $file ' selected="selected"' if($painter eq OEKAKI_DEFAULT_PAINTER);
+			print $file '>'.$names{$painter}.'</option>';
+		}
+		print $file '</select>&nbsp;';
+
 		print $file S_OEKX.'<input type="text" name="oek_x" size="3" value="'.OEKAKI_DEFAULT_X.'" />&nbsp;';
 		print $file S_OEKY.'<input type="text" name="oek_y" size="3" value="'.OEKAKI_DEFAULT_Y.'" />&nbsp;';
 
@@ -61,7 +71,6 @@ sub print_posting_form($$$$@)
 	print $file '<form name="postform" action="'.get_script_name().'" method="post" enctype="multipart/form-data">';
 	print $file '<input type="hidden" name="action" value="post" />';
 	print $file '<input type="hidden" name="parent" value="'.$parent.'" />' if($parent);
-	print $file '<input type="hidden" name="admin" value="'.$admin.'" />' if($admin);
 	print $file '<table><tbody>';
 	print $file '<tr><td class="postblock" align="left">'.S_NAME.'</td><td align="left"><input type="text" name="name" size="28" /></td></tr>';
 	print $file '<tr><td class="postblock" align="left">'.S_EMAIL.'</td><td align="left"><input type="text" name="email" size="28" /></td></tr>';
@@ -80,13 +89,21 @@ sub print_posting_form($$$$@)
 		print $file '<input type="hidden" name="nofile" value="1" />';
 	}
 
-	if(ENABLE_CAPTCHA)
+	if(ENABLE_CAPTCHA and !$admin)
 	{
 		my $key=get_captcha_key($parent);
 
 		print $file '<tr><td class="postblock" align="left">'.S_CAPTCHA.'</td><td><input type="text" name="captcha" size="10" />';
 		print $file ' <img src="'.expand_filename(CAPTCHA_SCRIPT).'?key='.$key.'&dummy='.$dummy.'" />';
 		print $file '</td></tr>';
+	}
+
+	if($admin)
+	{
+		print $file '<input type="hidden" name="admin" value="'.$admin.'" />';
+		print $file '<input type="hidden" name="no_captcha" value="1" />';
+		print $file '<input type="hidden" name="no_format" value="1" />';
+		print $file '<tr><td class="postblock" align="left">'.S_PARENT.'</td><td align="left"><input type="text" name="parent" size="8" /></td></tr>';
 	}
 
 #	print $file '<tr><td class="postblock" align="left">'.S_DELPASS.'</td><td align="left"><input type="password" name="password" size="8" maxlength="8" value="'.$c_password.'" /> '.S_DELEXPL2.'</td></tr>';

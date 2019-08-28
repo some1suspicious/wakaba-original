@@ -49,6 +49,7 @@ a:hover {
 	color:#ffffff;
 }
 .dellist {
+	font-weight: bold;
 	text-align:center;
 }
 .delbuttons {

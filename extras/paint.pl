@@ -30,6 +30,8 @@ make_error(S_HAXORING) if($oek_src=~m![^0-9a-zA-Z/\.]!);
 make_error(S_OEKTOOBIG) if($oek_x>OEKAKI_MAX_X or $oek_y>OEKAKI_MAX_Y);
 make_error(S_OEKTOOSMALL) if($oek_x<OEKAKI_MIN_X or $oek_y<OEKAKI_MIN_Y);
 
+my $time=time;
+
 if($oek_painter=~/shi/)
 {
 	my $mode;
@@ -57,7 +59,7 @@ Content-Type: text/html; charset=Shift_JIS
 <param name="tools" value="$mode" />
 <param name="layer_count" value="3" />
 <param name="url_save" value="getpic.pl" />
-<param name="url_exit" value="finish.pl?oek_parent=$oek_parent&oek_ip=$ip" />
+<param name="url_exit" value="finish.pl?oek_parent=$oek_parent&oek_ip=$ip&srcinfo=$time,$oek_painter,$oek_src" />
 <param name="send_header" value="$ip" />
 </applet>
 </td>
@@ -86,7 +88,7 @@ Content-Type: text/html
 <param name="tools" value="$mode" />
 <param name="layer_count" value="3" />
 <param name="url_save" value="getpic.pl" />
-<param name="url_exit" value="finish.pl?oek_parent=$oek_parent&oek_ip=$ip" />
+<param name="url_exit" value="finish.pl?oek_parent=$oek_parent&oek_ip=$ip&srcinfo=$time,$oek_painter,$oek_src" />
 <param name="send_header" value="$ip" />
 </applet>
 </body>

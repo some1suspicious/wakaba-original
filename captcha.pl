@@ -59,17 +59,17 @@ my @background=(0xff,0xff,0xff);
 
 
 
-our $dbh=DBI->connect(SQL_DBI_SOURCE,SQL_USERNAME,SQL_PASSWORD,{AutoCommit=>1}) or die S_SQLCONF;
-init_captcha_database() unless(table_exists(SQL_CAPTCHA_TABLE));
+my $dbh=DBI->connect(SQL_DBI_SOURCE,SQL_USERNAME,SQL_PASSWORD,{AutoCommit=>1}) or die S_SQLCONF;
+init_captcha_database($dbh) unless(table_exists_captcha($dbh,SQL_CAPTCHA_TABLE));
 
 my $ip=($ENV{REMOTE_ADDR} or '0.0.0.0');
-my ($word,$timestamp)=get_captcha_word($ip,$key);
+my ($word,$timestamp)=get_captcha_word($dbh,$ip,$key);
 
 if(!$word)
 {
 	$word=make_word();
 	$timestamp=time();
-	save_captcha_word($ip,$key,$word,$timestamp);
+	save_captcha_word($dbh,$ip,$key,$word,$timestamp);
 }
 
 srand $timestamp;
@@ -79,7 +79,7 @@ srand $timestamp;
 print $query->header(
 	-type=>'image/gif',
 #	-expires=>'+'.($timestamp+(CAPTCHA_LIFETIME)-time()),
-	-expires=>'now',
+#	-expires=>'now',
 );
 
 binmode STDOUT;
@@ -134,9 +134,9 @@ sub get_captcha_key($)
 # Finding and saving words
 #
 
-sub get_captcha_word($$)
+sub get_captcha_word($$$)
 {
-	my ($ip,$key)=@_;
+	my ($dbh,$ip,$key)=@_;
 	my ($sth,$row);
 
 	$sth=$dbh->prepare("SELECT word,timestamp FROM ".SQL_CAPTCHA_TABLE." WHERE ip=? AND pagekey=?;") or return undef;
@@ -146,34 +146,34 @@ sub get_captcha_word($$)
 	return undef;
 }
 
-sub save_captcha_word($$$$)
+sub save_captcha_word($$$$$)
 {
-	my ($ip,$key,$word,$time)=@_;
+	my ($dbh,$ip,$key,$word,$time)=@_;
 
-	delete_captcha_word($ip,$key);
+	delete_captcha_word($dbh,$ip,$key);
 
 	my $sth=$dbh->prepare("INSERT INTO ".SQL_CAPTCHA_TABLE." VALUES(?,?,?,?);") or die S_SQLFAIL;
 	$sth->execute($ip,$key,$word,$time) or die S_SQLFAIL;
 
-	trim_captcha_database(); # only cleans up on create - good idea or not?
+	trim_captcha_database($dbh); # only cleans up on create - good idea or not?
 }
 
-sub check_captcha($$$)
+sub check_captcha($$$$)
 {
-	my ($captcha,$ip,$parent)=@_;
+	my ($dbh,$captcha,$ip,$parent)=@_;
 
 	my $key=get_captcha_key($parent);
-	my ($word)=get_captcha_word($ip,$key);
+	my ($word)=get_captcha_word($dbh,$ip,$key);
 
 	make_error(S_NOCAPTCHA) unless($word);
 	make_error(S_BADCAPTCHA) if($word ne lc($captcha));
 
-	delete_captcha_word($ip,$key); # should the captcha word be deleted on an UNSUCCESSFUL try, too, maybe?
+	delete_captcha_word($dbh,$ip,$key); # should the captcha word be deleted on an UNSUCCESSFUL try, too, maybe?
 }
 
-sub delete_captcha_word($$)
+sub delete_captcha_word($$$)
 {
-	my ($ip,$key)=@_;
+	my ($dbh,$ip,$key)=@_;
 
 	my $sth=$dbh->prepare("DELETE FROM ".SQL_CAPTCHA_TABLE." WHERE ip=? AND pagekey=?;") or return;
 	$sth->execute($ip,$key) or return;
@@ -185,11 +185,12 @@ sub delete_captcha_word($$)
 # Database utils
 #
 
-sub init_captcha_database()
+sub init_captcha_database($)
 {
+	my ($dbh)=@_;
 	my ($sth);
 
-	$sth=$dbh->do("DROP TABLE ".SQL_CAPTCHA_TABLE.";") if(table_exists(SQL_ADMIN_TABLE));
+	$sth=$dbh->do("DROP TABLE ".SQL_CAPTCHA_TABLE.";") if(table_exists_captcha($dbh,SQL_ADMIN_TABLE));
 	$sth=$dbh->prepare("CREATE TABLE ".SQL_CAPTCHA_TABLE." (".
 	"ip TEXT,".
 	"pagekey TEXT,".
@@ -200,19 +201,18 @@ sub init_captcha_database()
 	$sth->execute() or die S_SQLFAIL;
 }
 
-sub trim_captcha_database()
+sub trim_captcha_database($)
 {
-	my ($sth);
-
+	my ($dbh)=@_;
 	my $mintime=time()-(CAPTCHA_LIFETIME);
 
-	$sth=$dbh->prepare("DELETE FROM ".SQL_CAPTCHA_TABLE." WHERE timestamp<=$mintime;") or die S_SQLFAIL;
+	my $sth=$dbh->prepare("DELETE FROM ".SQL_CAPTCHA_TABLE." WHERE timestamp<=$mintime;") or die S_SQLFAIL;
 	$sth->execute() or die S_SQLFAIL;
 }
 
-sub table_exists($)
+sub table_exists_captcha($$)
 {
-	my ($table)=@_;
+	my ($dbh,$table)=@_;
 	my ($sth);
 
 	return 0 unless($sth=$dbh->prepare("SELECT * FROM ".$table." LIMIT 1;"));

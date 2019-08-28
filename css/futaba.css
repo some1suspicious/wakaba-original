@@ -32,7 +32,7 @@ img {
 #returnlink {
 }
 
-#replypage h2 {
+.threadpage h2 {
 	background: #E04000;
 	font-size: 1em;
 	font-weight: normal;
@@ -188,6 +188,10 @@ img {
 .reply .replytext, .highlight .replytext {
 	margin: 1em 40px 0em 40px;
 }
+.reply .replytext blockquote, .highlight .replytext blockquote {
+	margin-left: 0em;
+	color:#789922;
+}
 .reply .replytext :last-child, .highlight .replytext :last-child {
 	margin-bottom: 0px;
 }
@@ -216,6 +220,29 @@ img {
 	padding: 4px;
 	margin: 1px;
 	border: 1px inset #808080;
+}
+
+#naviprev, #navinext {
+	float: left;
+	padding: 4px 1px 4px 1px;
+	margin: 1px;
+	border: 1px inset #808080;
+}
+
+#naviprev a, #navinext a {
+	color: black;
+	background: #ccc;
+	text-decoration: none;
+	padding: 3px 10px 3px 10px;
+	border: 2px outset grey;
+}
+
+#naviprev a:active, #navinext a:active {
+	color: black;
+	background: #ccc;
+	text-decoration: none;
+	padding: 3px 10px 3px 10px;
+	border: 2px inset grey;
 }
 
 #footer {
@@ -271,22 +298,27 @@ tr.row2 td {
 	white-space: nowrap;
 }
 
-
-
-#error h2 {
-	font-size: 2em;
-	font-weight: normal;
-	text-align: center;
-}
-#error h3 {
-	font-size: 2em;
-	font-weight: normal;
-	text-align: center;
+tr.spacer td {
+	height: 4px;
+	background: #999955;
 }
 
 
 
-#login h2, #posts h2, #bans h2, #spam h2, #adminpost h2 {
+.errorpage h2 {
+	font-size: 2em;
+	font-weight: normal;
+	text-align: center;
+}
+.errorpage h3 {
+	font-size: 2em;
+	font-weight: normal;
+	text-align: center;
+}
+
+
+
+.adminpage h2 {
 	background: #EEAA88;
 	font-size: 1em;
 	font-weight: normal;
@@ -295,13 +327,7 @@ tr.row2 td {
 	margin: 0em 0em 1em 0em;
 	color: #FFFFFF;
 }
-
-#login form {
-	display: table;
-	margin: 0px auto;
-}
-
-#posts h3, #bans h3, #spam h3 {
+.adminpage h3 {
 	font-size: 1em;
 	font-weight: bold;
 	font-family: sans-serif;
@@ -309,41 +335,57 @@ tr.row2 td {
 	text-align: center;
 	margin: 0em 0em 1em 0em;
 }
-
-#adminpost h3 {
+.adminpage #bans h3 {
+	margin-bottom: 0em;
+}
+.adminpage #adminpost h3 {
 	font-size: 1em;
 	font-weight: normal;
 	font-style: italic;
 	text-align: center;
+	font-variant: normal;
 	margin: 0em 0em 1em 0em;
 }
-
-#posts h4 {
-	margin: 0em;
-}
-#posts .buttons, #spam .buttons {
+.adminpage .buttons {
 	text-align: center;
 }
-#posts table.admininput {
-	margin: 0px auto;
+.adminpage pre {
+	color: #800000;
+	background: #F0E0D6;
+	padding: 1em;
 }
 
-#bans h3 {
-	margin-bottom: 0em;
-}
-#bans #inputs {
+.adminpage #login form {
 	display: table;
 	margin: 0px auto;
 }
-#bans #inputs form {
+
+.adminpage #posts h4 {
+	margin: 0em;
+}
+.adminpage #posts table.admininput {
+	margin: 0px auto;
+}
+
+
+.adminpage #bans #inputs {
+	display: table;
+	margin: 0px auto;
+}
+.adminpage #bans #inputs form {
 	display: table-cell;
 	vertical-align: bottom;
 	padding: 0.5em;
 }
 
-#spam form {
+.adminpage #spam form {
 	text-align: center;
 }
-#spam p {
+.adminpage #spam p {
 	text-align: center;
+}
+
+.adminpage #sql form {
+	display: table;
+	margin: 0px auto;
 }

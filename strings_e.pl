@@ -13,6 +13,7 @@ use constant S_COMMENT => 'Comment';								# Describes comment field
 use constant S_UPLOADFILE => 'File';								# Describes file field
 use constant S_NOFILE => 'No File';									# Describes file/no file checkbox
 use constant S_CAPTCHA => 'Verification';							# Describes captcha field
+use constant S_PARENT => 'Parent';									# Describes parent field on admin post page
 use constant S_DELPASS => 'Password';								# Describes password field
 use constant S_DELEXPL => '(Password used for file deletion)';		# Prints explanation for password box (to the right)
 use constant S_RULES => '<ul><li>Supported file types are: GIF, JPG, PNG</li>'.
@@ -54,19 +55,21 @@ use constant S_WEEKDAYS => ('Sun','Mon','Tue','Wed','Thu','Fri','Sat');	# Define
 use constant S_MANARET => 'Return';										# Returns to HTML file instead of PHP--thus no log/SQLDB update occurs
 use constant S_MANAMODE => 'Manager Mode';								# Prints heading on top of Manager page
 
+use constant S_MANALOGIN => 'Manager Login';								# Defines Management Panel radio button--allows the user to view the management panel (overview of all posts)
 use constant S_ADMINPASS => 'Admin password:';							# Prints login prompt
 
-use constant S_MANAPANEL => 'Management Panel';							# Defines Management Panel radio button--allows the user to view the management panel (overview of all posts)
+use constant S_MANAPANEL => 'Management Panel';								# Defines Management Panel radio button--allows the user to view the management panel (overview of all posts)
 use constant S_MANABANS => 'Bans';										# Defines Bans Panel button
 use constant S_MANASPAM => 'Spam';										# Defines Spam Panel button
+use constant S_MANASQLDUMP => 'SQL Dump';									# Defines SQL dump button
+use constant S_MANASQLINT => 'SQL Interface';								# Defines SQL interface button
 use constant S_MANAPOST => 'Manager Post';								# Defines Manager Post radio button--allows the user to post using HTML code in the comment box
 use constant S_MANAREBUILD => 'Rebuild caches';							# 
 use constant S_MANANUKE => 'Nuke board';								# 
 use constant S_MANASUB => 'Go';											# Defines name for submit button in Manager Mode
 
-use constant S_NOTAGS => 'HTML tags are allowed.';						# Prints message on Management Board
+use constant S_NOTAGS => 'HTML tags allowed. No formatting will be done, you must use HTML for line breaks and paragraphs.'; # Prints message on Management Board
 
-use constant S_MPTITLE => 'Management Panel';							# Prints sub-heading of Management Panel
 use constant S_MPDELETEIP => 'Delete all';
 use constant S_MPDELETE => 'Delete';									# Defines for deletion button in Management Panel
 use constant S_MPRESET => 'Reset';										# Defines name for field reset button in Management Panel
@@ -77,7 +80,6 @@ use constant S_MPTABLE => '<th>Post No.</th><th>Time</th><th>Subject</th>'.
                           '<th>Name</th><th>Comment</th><th>IP</th>';	# Explains names for Management Panel
 use constant S_IMGSPACEUSAGE => '[ Space used: %d KB ]';				# Prints space used KB by the board under Management Panel
 
-use constant S_BANTITLE => 'Ban Panel';
 use constant S_BANTABLE => '<th>Type</th><th>Value</th><th>Comment</th><th>Action</th>'; # Explains names for Ban Panel
 use constant S_BANIPLABEL => 'IP';
 use constant S_BANMASKLABEL => 'Mask';
@@ -89,13 +91,15 @@ use constant S_BANWHITELIST => 'Whitelist';
 use constant S_BANREMOVE => 'Remove';
 use constant S_BANCOMMENT => 'Comment';
 
-use constant S_SPAMTITLE => 'Spam Panel';
 use constant S_SPAMEXPL => 'This is the list of domain names Wakaba considers to be spam.<br />'.
                            'You can find an up-to-date version <a href="http://wakaba.c3.cx/antispam/antispam.pl?action=view&format=wakaba">here</a>, '.
                            'or you can get the <code>spam.txt</code> file directly <a href="http://wakaba.c3.cx/antispam/spam.txt">here</a>.';
 use constant S_SPAMSUBMIT => 'Save';
 use constant S_SPAMCLEAR => 'Clear';
 use constant S_SPAMRESET => 'Restore';
+
+use constant S_SQLNUKE => 'Nuke password:';
+use constant S_SQLEXECUTE => 'Execute';
 
 use constant S_TOOBIG => 'This image is too large!  Upload something smaller!';
 use constant S_TOOBIGORNONE => 'Either this image is too big or there is no image at all.  Yeah.';

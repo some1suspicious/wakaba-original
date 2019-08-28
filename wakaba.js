@@ -116,6 +116,7 @@ function get_active_stylesheet()
 		var title=links[i].getAttribute("title");
 		if(rel.indexOf("style")!=-1&&title&&!links[i].disabled) return title;
 	}
+	return null;
 }
 
 function get_preferred_stylesheet()
@@ -140,7 +141,7 @@ function get_preferred_stylesheet()
 window.onunload=function(e)
 {
 	var title=get_active_stylesheet();
-	set_cookie("wakabastyle",title,365);
+	if(title) set_cookie("wakabastyle",title,365);
 }
 
 var cookie=get_cookie("wakabastyle");

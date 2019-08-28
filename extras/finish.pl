@@ -20,19 +20,30 @@ BEGIN { require "config_defaults.pl"; }
 BEGIN { require "strings_e.pl"; }
 BEGIN { require "oekaki_config.pl"; }
 BEGIN { require "oekaki_strings_e.pl"; }
+BEGIN { require "wakautils.pl"; }
 
+
+#
+# Templates
+#
+
+use constant INFO_TEMPLATE => compile_template(q{
+<p><small><strong>
+Oekaki post</strong> (Time: <var $time>, Painter: <var $painter><if $source>, Source: <a href="<var $path><var $source>"><var $source></a></if>)
+</small></p>
+});
 
 
 #
 # Optional modules
 #
 
-my ($has_unicode);
+my ($has_encode);
 
 if(CHARSET) # don't use Unicode at all if CHARSET is not set.
 {
 	eval 'use Encode qw(decode)';
-	$has_unicode=1 unless($@);
+	$has_encode=1 unless($@);
 }
 
 
@@ -41,15 +52,8 @@ if(CHARSET) # don't use Unicode at all if CHARSET is not set.
 # Global init
 #
 
-my ($c_password,$c_name,$c_email);
-my ($self_path);
-
-my ($query,$action);
-
-$query=new CGI;
-$action=$query->param("action");
-
-save_path();
+my $query=new CGI;
+my $task=$query->param("task");
 
 my $ip=$ENV{REMOTE_ADDR};
 my $oek_ip=$query->param("oek_ip");
@@ -59,14 +63,15 @@ die unless($oek_ip=~/^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/);
 
 my $tmpname=TMP_DIR.$oek_ip.'.png';
 
-if(!$action)
+if(!$task)
 {
 	my $oek_parent=$query->param("oek_parent");
+	my $srcinfo=$query->param("srcinfo");
 
 	make_http_header();
-	print_page(\*STDOUT,$tmpname,$oek_parent,$oek_ip);
+	print_page(\*STDOUT,$tmpname,$oek_parent,$oek_ip,$srcinfo);
 }
-elsif($action eq "post")
+elsif($task eq "post")
 {
 	my $parent=$query->param("parent");
 	my $name=$query->param("name");
@@ -75,19 +80,13 @@ elsif($action eq "post")
 	my $comment=$query->param("comment");
 	my $password=$query->param("password");
 	my $captcha=$query->param("captcha");
-
-	$name=clean_string($name);
-	$email=clean_string($email);
-	$subject=clean_string($subject);
-	$comment=clean_string($comment);
-
-	$comment.=OEKAKI_STAMP;
+	my $srcinfo=$query->param("srcinfo");
 
 	my $ua=LWP::UserAgent->new;
 	my $res=$ua->request(POST WAKABA_SCRIPT_URL,
 		Content_Type=>'form-data',
 		Content=>[
-			action=>'post',
+			task=>'post',
 			parent=>$parent,
 			name=>$name,
 			email=>$email,
@@ -95,8 +94,9 @@ elsif($action eq "post")
 			comment=>$comment,
 			password=>$password,
 			captcha=>$captcha,
-			admin=>ADMIN_PASS,
+			admin=>crypt_password(ADMIN_PASS),
 			fake_ip=>$ip,
+			postfix=>INFO_TEMPLATE->(decode_srcinfo($srcinfo)),
 			file=>[$tmpname],
 		]
 	);
@@ -112,36 +112,22 @@ elsif($action eq "post")
 
 	unlink $tmpname;
 
-	$c_name=$name;
-	$c_email=$email;
-	$c_password=$password;
+	my $c_name=$name;
+	my $c_email=$email;
+	my $c_password=$password;
 
-	make_cookies(); # yum!
+	# set the name, email and password cookies
+	make_cookies(name=>$c_name,email=>$c_email,password=>$c_password,-charset=>CHARSET); # yum!
 
 	# forward back to the main page
-	make_http_forward(WAKABA_PAGE_URL);
-}
-
-# clean up the inputs
-sub clean_string($$)
-{
-	my ($str)=@_;
-
-	$str=~s/&/&amp;/g;
-	$str=~s/</&lt;/g;
-	$str=~s/>/&gt;/g;
-	$str=~s/"/&quot;/g; #"
-	$str=~s/'/&#039;/g;
-	$str=~s/,/&#44;/g;
-
-	return $str;
+	make_http_forward(WAKABA_PAGE_URL,ALTERNATE_REDIRECT);
 }
 
 
 
 sub make_http_header()
 {
-	if($has_unicode)
+	if($has_encode)
 	{
 		print "Content-Type: text/html; charset=".CHARSET."\n";
 	}
@@ -153,47 +139,11 @@ sub make_http_header()
 	# print "Expires: ";
 	print "\n";
 
-	binmode STDOUT,':encoding('.CHARSET.')'  if($has_unicode);
-}
-
-sub make_http_forward($)
-{
-	my ($location)=@_;
-
-	print "Status: 301 Go West\n";
-	print "Location: $location\n";
-	print "Content-Type: text/html\n";
-	print "\n";
-	print '<html><body><a href="'.$location.'">'.$location.'</a></body></html>';
-}
-
-sub make_cookies()
-{
-	my ($cookie);
-
-	$c_name="" unless(defined($c_name));
-	$c_email="" unless(defined($c_email));
-	$c_password="" unless(defined($c_password));
-
-	$cookie=$query->cookie(-name=>'name',
-	                       -value=>$c_name,
-	                       -expires=>'+14d');
-	print "Set-Cookie: $cookie\n";
-
-	$cookie=$query->cookie(-name=>'email',
-	                       -value=>$c_email,
-	                       -expires=>'+14d');
-	print "Set-Cookie: $cookie\n";
-
-	$cookie=$query->cookie(-name=>'password',
-	                       -value=>$c_password,
-	                       -expires=>'+14d');
-	print "Set-Cookie: $cookie\n";
-}
-
-sub save_path()
-{
-	($self_path)=$ENV{SCRIPT_NAME}=~m!^(.*/)[^/]+$!;
+	if($has_encode)
+	{
+		$PerlIO::encoding::fallback=0x0200;
+		binmode STDOUT,':encoding('.CHARSET.')';
+	}
 }
 
 sub get_script_name()
@@ -206,12 +156,22 @@ sub expand_filename($)
 	my ($filename)=@_;
 	return $filename if($filename=~m!^/!);
 	return $filename if($filename=~m!^\w+:!);
+
+	my ($self_path)=$ENV{SCRIPT_NAME}=~m!^(.*/)[^/]+$!;
 	return $self_path.$filename;
 }
 
-sub print_page($$$$)
+sub crypt_password($)
 {
-	my ($file,$tmpname,$oek_parent,$oek_ip)=@_;
+#	my $crypt=encode_base64(rc4("."x9,(shift).$ENV{REMOTE_ADDR}.SECRET),"");
+	my $crypt=encode_base64(rc4(null_string(9),"a".(shift)."127.0.0.1".SECRET),"");
+	$crypt=~tr/+/./; # for web shit
+	return $crypt;
+}
+
+sub print_page($$$$$)
+{
+	my ($file,$tmpname,$oek_parent,$oek_ip,$srcinfo)=@_;
 
 	print $file '<html><head>';
 
@@ -238,8 +198,9 @@ sub print_page($$$$)
 
 	print $file '<div class="postarea" align="center">';
 	print $file '<form name="postform" action="'.get_script_name().'" method="post" enctype="multipart/form-data">';
-	print $file '<input type="hidden" name="action" value="post" />';
+	print $file '<input type="hidden" name="task" value="post" />';
 	print $file '<input type="hidden" name="oek_ip" value="'.$oek_ip.'" />';
+	print $file '<input type="hidden" name="srcinfo" value="'.$srcinfo.'" />';
 	print $file '<table><tbody>';
 	print $file '<tr><td class="postblock" align="left">'.S_NAME.'</td><td align="left"><input type="text" name="name" size="28" /></td></tr>';
 	print $file '<tr><td class="postblock" align="left">'.S_EMAIL.'</td><td align="left"><input type="text" name="email" size="28" /></td></tr>';
@@ -269,11 +230,40 @@ sub print_page($$$$)
 	print $file '<tr><td colspan="2">';
 	print $file '<div align="left" class="rules">'.S_RULES.'</div></td></tr>';
 	print $file '</tbody></table></form></div><hr />';
-	print $file '<script>with(document.postform) {name.value=get_cookie("name"); email.value=get_cookie("email"); password.value=get_password("password"); }</script>';
+	print $file '<script>with(document.postform) {if(!name.value) name.value=get_cookie("name"); if(!email.value) email.value=get_cookie("email"); if(!password.value) password.value=get_password("password"); }</script>';
 
-	print $file '<div align="center"><img src="'.expand_filename($tmpname).'"></div>';
+	print $file '<div align="center">';
+	print $file '<img src="'.expand_filename($tmpname).'">';
+	print INFO_TEMPLATE->(decode_srcinfo($srcinfo));
+	print $file '</div>';
 
 	print $file '<hr />';
 	print $file S_FOOT;
 	print $file '</body></html>';
+}
+
+sub decode_srcinfo($)
+{
+	my ($srcinfo)=@_;
+	my @info=split /,/,$srcinfo;
+	my @stat=stat $tmpname;
+	my $fileage=$stat[9];
+	my %names=S_OEKNAMES;
+
+	return (
+		time=>clean_string(pretty_age($fileage-$info[0])),
+		painter=>clean_string($names{$info[1]}),
+		source=>clean_string($info[2]),
+	);
+}
+
+sub pretty_age($)
+{
+	my ($age)=@_;
+
+	return "HAXORED" if($age<0);
+	return $age." s" if($age<60);
+	return int($age/60)." min" if($age<3600);
+	return int($age/3600)." h ".int(($age%3600)/60)." min" if($age<3600*24*7);
+	return "HAXORED";
 }

@@ -13,6 +13,7 @@ use constant S_COMMENT => 'コメント';
 use constant S_UPLOADFILE => '添付File';
 use constant S_NOFILE => '画像なし';
 use constant S_CAPTCHA => 'Verification';
+use constant S_PARENT => 'スレ';
 use constant S_DELPASS => '削除キー';
 use constant S_DELEXPL => '(記事の削除用。英数字で8文字以内)';
 use constant S_RULES => '<ul><li>添付可能ファイル：GIF, JPG, PNG ブラウザによっては正常に添付できないことがあります。</li>'.
@@ -52,11 +53,14 @@ use constant S_WEEKDAYS => ('日','月','火','水','木','金','土');
 use constant S_MANARET => '掲示板に戻る';
 use constant S_MANAMODE => '管理モード';
 
-use constant S_ADMINPASS => 'Admin password:';							# Prints login prompt
+use constant S_MANALOGIN => 'Manager Login';
+use constant S_ADMINPASS => 'Admin password:';
 
 use constant S_MANAPANEL => '記事削除';
 use constant S_MANABANS => 'Bans';
 use constant S_MANASPAM => 'Spam';
+use constant S_MANASQLDUMP => 'SQL Dump';
+use constant S_MANASQLINT=> 'SQL Interface';
 use constant S_MANAPOST => '管理人投稿';
 use constant S_MANAREBUILD => 'Rebuild caches';
 use constant S_MANANUKE => 'Nuke board';
@@ -64,7 +68,7 @@ use constant S_MANASUB => ' 認証';
 
 use constant S_NOTAGS => 'タグがつかえます';
 
-use constant S_MPTITLE => '削除したい記事のチェックボックスにチェックを入れ、削除ボタンを押して下さい。';
+#use constant S_MPTITLE => '削除したい記事のチェックボックスにチェックを入れ、削除ボタンを押して下さい。';
 use constant S_MPDELETEIP => 'Delete all';
 use constant S_MPDELETE => '削除する';
 use constant S_MPRESET => 'リセット';
@@ -77,7 +81,6 @@ use constant S_MPTABLE => '<th>Post No.</th><th>Time</th><th>Subject</th>'.
 #define(S_MDTABLE2, '<th>投稿者</th><th>コメント</th><th>ホスト名</th><th>添付<br />(Bytes)</th><th>md5</th>');
 use constant S_IMGSPACEUSAGE => '【 画像データ合計 : <b>%d</b> KB 】';
 
-use constant S_BANTITLE => 'Ban Panel';
 use constant S_BANTABLE => '<th>Type</th><th>Value</th><th>Comment</th><th>Action</th>';
 use constant S_BANIPLABEL => 'IP';
 use constant S_BANMASKLABEL => 'Mask';
@@ -89,13 +92,15 @@ use constant S_BANWHITELIST => 'Whitelist';
 use constant S_BANREMOVE => 'Remove';
 use constant S_BANCOMMENT => 'Comment';
 
-use constant S_SPAMTITLE => 'Spam Panel';
 use constant S_SPAMEXPL => 'This is the list of domain names Wakaba considers to be spam.<br />'.
                            'You can find an up-to-date version <a href="http://wakaba.c3.cx/antispam/antispam.pl?action=view&format=wakaba">here</a>, '.
                            'or you can get the <code>spam.txt</code> file directly <a href="http://wakaba.c3.cx/antispam/spam.txt">here</a>.';
 use constant S_SPAMSUBMIT => 'Save';
 use constant S_SPAMCLEAR => 'Clear';
 use constant S_SPAMRESET => 'Restore';
+
+use constant S_SQLNUKE => 'Nuke password:';
+use constant S_SQLEXECUTE => 'Execute';
 
 use constant S_TOOBIG => 'アップロードに失敗しました<br />サイズが大きすぎます<br />'.MAX_KB.'Kバイトまで';
 use constant S_TOOBIGORNONE => 'アップロードに失敗しました<br />画像サイズが大きすぎるか、<br />または画像がありません。';

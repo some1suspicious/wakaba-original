@@ -79,6 +79,7 @@
 #use constant NOSAGE_WINDOW => 1200;			# Seconds that you can post to your own thread without increasing the sage count
 #use constant USE_SECURE_ADMIN => 0;			# Use HTTPS for the admin panel.
 #use constant CHARSET => 'utf-8';				# Character set to use, typically 'utf-8' or 'shift_jis'. Disable charset handling by setting to ''. Remember to set Apache to use the same character set for .html files! (AddCharset shift_jis html)
+#use constant CONVERT_CHARSETS => 1;			# Do character set conversions internally
 #use constant TRIM_METHOD => 0;					# Which threads to trim (0: oldest - like futaba 1: least active - furthest back)
 #use constant DATE_STYLE => 'futaba';				# Date style ('futaba', '2ch', 'localtime', 'tiny')
 #use constant DISPLAY_ID => 0;					# Display user IDs (0: never, 1: if no email, 2:always)
@@ -88,6 +89,7 @@
 #use constant APPROX_LINE_LENGTH => 150;		# Approximate line length used by reply abbreviation code to guess at the length of a reply.
 #use constant STUPID_THUMBNAILING => 0;			# Bypass thumbnailing code and just use HTML to resize the image. STUPID, wastes bandwidth. (1: enable, 0: disable)
 #use constant ALTERNATE_REDIRECT => 0;			# Use alternate redirect method. (Javascript/meta-refresh instead of HTTP forwards. Needed to run on certain servers, like IIS.)
+#use constant COOKIE_PATH => 'root';			# Path argument for cookies ('root': cookies apply to all boards on the site, 'current': cookies apply only to this board, 'parent': cookies apply to all boards in the parent directory)
 
 # Internal paths and files - might as well leave this alone.
 #use constant IMG_DIR => 'src/';				# Image directory (needs to be writeable by the script)

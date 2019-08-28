@@ -1,4 +1,11 @@
+DirectoryIndex wakaba.html index.html
 AddCharset utf-8 html
 <Files *.html>
-Header add Pragma no-cache
+Header add Expires "Mon, 26 Jul 1997 05:00:00 GMT"
+Header add Pragma "no-cache"
+Header add Cache-Control "max-age=0; must-revalidate; no-cache"
+Header unset Vary
+</Files>
+<Files *.sql>
+Deny from all
 </Files>
