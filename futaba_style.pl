@@ -601,13 +601,13 @@ use constant ADMIN_POST_TEMPLATE => compile_template(MANAGER_HEAD_INCLUDE.q{
 <input type="hidden" name="no_format" value="1" />
 
 <table><tbody>
-<tr><td class="postblock"><const S_NAME></td><td><input type="text" name="name" size="28" /></td></tr>
-<tr><td class="postblock"><const S_EMAIL></td><td><input type="text" name="email" size="28" /></td></tr>
-<tr><td class="postblock"><const S_SUBJECT></td><td><input type="text" name="subject" size="35" />
+<tr><td class="postblock"><const S_NAME></td><td><input type="text" name="field1" size="28" /></td></tr>
+<tr><td class="postblock"><const S_EMAIL></td><td><input type="text" name="field2" size="28" /></td></tr>
+<tr><td class="postblock"><const S_SUBJECT></td><td><input type="text" name="field3" size="35" />
 <input type="submit" value="<const S_SUBMIT>" /></td></tr>
-<tr><td class="postblock"><const S_COMMENT></td><td><textarea name="comment" cols="48" rows="4"></textarea></td></tr>
+<tr><td class="postblock"><const S_COMMENT></td><td><textarea name="field4" cols="48" rows="4"></textarea></td></tr>
 <tr><td class="postblock"><const S_UPLOADFILE></td><td><input type="file" name="file" size="35" />
-[<label><input type="checkbox" name="nofile" value="on" /><const S_NOFILE></label>
+[<label><input type="checkbox" name="nofile" value="on" /><const S_NOFILE> ]</label>
 </td></tr>
 <tr><td class="postblock"><const S_PARENT></td><td><input type="text" name="parent" size="8" /></td></tr>
 <tr><td class="postblock"><const S_DELPASS></td><td><input type="password" name="password" size="8" /><const S_DELEXPL></td></tr>

@@ -454,7 +454,7 @@ sub post_stuff($$$$$$$$$$$$$$)
 	make_error(S_TOOLONG) if(length($comment)>MAX_COMMENT_LENGTH);
 
 	# check to make sure the user selected a file, or clicked the checkbox
-	make_error(S_NOPIC) if(!$parent and !$file and !$nofile);
+	make_error(S_NOPIC) if(!$parent and !$file and !$nofile and !$admin);
 
 	# check for empty reply or empty text-only post
 	make_error(S_NOTEXT) if($comment=~/^\s*$/ and !$file);
@@ -489,6 +489,7 @@ sub post_stuff($$$$$$$$$$$$$$)
 		trap_fields=>SPAM_TRAP?["name","link"]:[],
 		spam_files=>[SPAM_FILES],
 		charset=>CHARSET,
+		included_fields=>["field1","field2","field3","field4"],
 	) unless $whitelisted;
 
 	# check captcha
@@ -1727,7 +1728,7 @@ sub repair_database()
 		my ($upd);
 
 		$upd=$dbh->prepare("UPDATE ".SQL_TABLE." SET lasthit=? WHERE parent=?;") or make_error(S_SQLFAIL);
-		$upd->execute($$row{lasthit},$$row{num}) or make_error(S_SQLFAIL." ".$dbh->errstr());
+		$upd->execute($$thread{lasthit},$$thread{num}) or make_error(S_SQLFAIL." ".$dbh->errstr());
 	}
 }
 

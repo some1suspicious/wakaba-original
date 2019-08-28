@@ -1,4 +1,4 @@
-# wakautils.pl v8.5
+# wakautils.pl v8.12
 
 use strict;
 
@@ -150,8 +150,9 @@ sub sanitize_html($%)
 
 						$clean.="<$name";
 						$clean.=" $cleanargs" if $cleanargs;
-						$clean.=" $implicit" if $implicit;
+						#$clean.=" $implicit" if $implicit;
 						$clean.=">";
+						$clean.="</$name>" if $implicit;
 					}
 				}
 			}
@@ -253,7 +254,7 @@ sub do_spans($@)
 		if($]>5.007)
 		{
 			my $regexp;
-			$regexp=qr/(?:&#?[0-9a-zA-Z]+;|.)(?<!\^H)(??{$regexp})?\^H/;
+			$regexp=qr/(?:&#?[0-9a-zA-Z]+;|[^&<>])(?<!\^H)(??{$regexp})?\^H/;
 			$line=~s{($regexp)}{"<del>".(substr $1,0,(length $1)/3)."</del>"}gex;
 		}
 
@@ -351,8 +352,11 @@ sub forbidden_unicode($;$)
 
 	return 1 if $ord>MAX_UNICODE; # outside unicode range
 	return 1 if $ord<32; # control chars
+	return 1 if $ord>=0x7f and $ord<=0x84; # control chars
 	return 1 if $ord>=0xd800 and $ord<=0xdfff; # surrogate code points
 	return 1 if $ord>=0x202a and $ord<=0x202e; # text direction
+	return 1 if $ord>=0xfdd0 and $ord<=0xfdef; # non-characters
+	return 1 if $ord % 0x10000 >= 0xfffe; # non-characters
 	return 0;
 }
 
@@ -699,17 +703,18 @@ sub resolve_host($)
 # Data utilities
 #
 
-sub process_tripcode($;$$$)
+sub process_tripcode($;$$$$)
 {
-	my ($name,$tripkey,$secret,$charset)=@_;
+	my ($name,$tripkey,$secret,$charset,$nonamedecoding)=@_;
 	$tripkey="!" unless($tripkey);
 
 	if($name=~/^(.*?)((?<!&)#|\Q$tripkey\E)(.*)$/)
 	{
 		my ($namepart,$marker,$trippart)=($1,$2,$3);
 		my $trip;
-
-		$namepart=clean_string(decode_string($namepart,$charset));
+	
+		$namepart=decode_string($namepart,$charset) unless $nonamedecoding;
+		$namepart=clean_string($namepart);
 
 		if($secret and $trippart=~s/(?:\Q$marker\E)(?<!&#)(?:\Q$marker\E)*(.*)$//) # do we want secure trips, and is there one?
 		{
@@ -738,6 +743,7 @@ sub process_tripcode($;$$$)
 		return ($namepart,$trip);
 	}
 
+	return clean_string($name) if $nonamedecoding;
 	return (clean_string(decode_string($name,$charset)),"");
 }
 
@@ -970,6 +976,7 @@ sub read_array($)
 	else
 	{
 		open FILE,$file or return ();
+		binmode FILE;
 		my @array=map { s/\r?\n?$//; $_ } <FILE>;
 		close FILE;
 		return @array;
@@ -990,6 +997,7 @@ sub write_array($@)
 		my $rndname2="__".make_random_string(12).".dat";
 		if(open FILE,">$rndname1")
 		{
+			binmode FILE;
 			if(print FILE join "\n",@array)
 			{
 				close FILE;
@@ -1045,6 +1053,7 @@ sub spam_engine(%)
 	my %args=@_;
 	my @spam_files=@{$args{spam_files}||[]};
 	my @trap_fields=@{$args{trap_fields}||[]};
+	my @included_fields=@{$args{included_fields}||[]};
 	my %excluded_fields=map ($_=>1),@{$args{excluded_fields}||[]};
 	my $query=$args{query}||new CGI;
 	my $charset=$args{charset};
@@ -1052,9 +1061,10 @@ sub spam_engine(%)
 	for(@trap_fields) { spam_screen($query) if $query->param($_) }
 
 	my $spam_checker=compile_spam_checker(@spam_files);
-	my @fields=$query->param;
+	my @fields=@included_fields?@included_fields:$query->param;
 	@fields=grep !$excluded_fields{$_},@fields if %excluded_fields;
-	my $fulltext=join "\n",map decode_string($query->param($_),$charset),@fields;
+#	my $fulltext=join "\n",map decode_string($query->param($_),$charset),@fields;
+	my $fulltext=join "\n",map $query->param($_),@fields;
 	study $fulltext;
 
 	spam_screen($query) if $spam_checker->($fulltext);
@@ -1087,6 +1097,8 @@ sub analyze_image($$)
 	my ($file,$name)=@_;
 	my (@res);
 
+	safety_check($file);
+
 	return ("jpg",@res) if(@res=analyze_jpeg($file));
 	return ("png",@res) if(@res=analyze_png($file));
 	return ("gif",@res) if(@res=analyze_gif($file));
@@ -1094,6 +1106,16 @@ sub analyze_image($$)
 	# find file extension for unknown files
 	my ($ext)=$name=~/\.([^\.]+)$/;
 	return (lc($ext),0,0);
+}
+
+sub safety_check($file)
+{
+	my ($file)=@_;
+
+	# Check for IE MIME sniffing XSS exploit - thanks, MS, totally appreciating this
+	read $file,my $buffer,256;
+	seek $file,0,0;
+	die "Possible IE XSS exploit in file" if $buffer=~/<(?:body|head|html|img|plaintext|pre|script|table|title|a href|channel|scriptlet)/;
 }
 
 sub analyze_jpeg($)
@@ -1179,7 +1201,7 @@ sub make_thumbnail($$$$$;$)
 	$magickname.="[0]" if($magickname=~/\.gif$/);
 
 	$convert="convert" unless($convert);
-	`$convert -size ${width}x${height} -geometry ${width}x${height}! -quality $quality $magickname $thumbnail`;
+	`$convert -background white -flatten -size ${width}x${height} -geometry ${width}x${height}! -quality $quality $magickname $thumbnail`;
 
 	return 1 unless($?);
 
