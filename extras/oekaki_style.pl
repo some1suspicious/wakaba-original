@@ -56,7 +56,7 @@ sub print_page_footer($)
 
 sub print_posting_form($$$@)
 {
-	my ($file,$parent,$admin,@thread)=@_;
+	my ($file,$parent,$admin,$dummy,@thread)=@_;
 	my ($image_inp,$textonly_inp);
 
 	if($admin) { $image_inp=$textonly_inp=1; }
@@ -330,7 +330,7 @@ sub print_page($$$@)
 	my ($file,$page,$total,@threads)=@_;
 
 	print_page_header($file);
-	print_posting_form($file,0,"");
+	print_posting_form($file,0,"","");
 
 	print $file '<form name="delform" action="'.get_script_name().'" method="post">';
 
@@ -358,7 +358,7 @@ sub print_reply($@)
 	print $file '[<a href="'.expand_filename(HTML_SELF).'">'.S_RETURN.'</a>]';
 	print $file '<div class="theader">'.S_POSTING.'</div>';
 
-	print_posting_form($file,$thread[0]{num},"",@thread);
+	print_posting_form($file,$thread[0]{num},"",$thread[$#thread]{num},@thread);
 
 	print $file '<form name="delform" action="'.get_script_name().'" method="post">';
 

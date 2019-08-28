@@ -270,7 +270,7 @@ sub print_admin_post($$)
 
 	print $file '<div align="center"><em>'.S_NOTAGS.'</em></div>';
 
-	print_posting_form($file,0,$admin);
+	print_posting_form($file,0,$admin,"");
 
 	print_page_footer($file);
 }
