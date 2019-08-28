@@ -16,9 +16,6 @@ use constant S_CAPTCHA => '検証';
 use constant S_PARENT => 'スレ';
 use constant S_DELPASS => '削除キー';
 use constant S_DELEXPL => '(記事の削除用。英数字で8文字以内)';
-use constant S_RULES => '<ul><li>添付可能ファイル：GIF, JPG, PNG ブラウザによっては正常に添付できないことがあります。</li>'.
-                        '<li>最大投稿データ量は '.MAX_KB.' KB までです。sage機能付き。</li>'.
-                        '<li>画像は横 '.MAX_W.'ピクセル、縦 '.MAX_H.'ピクセルを超えると縮小表示されます。</li></ul>';
 
 use constant S_THUMB => 'サムネイルを表示しています.クリックすると元のサイズを表示します.';
 use constant S_HIDDEN => 'Image reply hidden, click name for full image.';
@@ -39,14 +36,6 @@ use constant S_PREV => '前のページ';
 use constant S_FIRSTPG => '最初のページ';
 use constant S_NEXT => '次のページ';
 use constant S_LASTPG => '最後のページ';
-
-use constant S_HEAD => '';
-
-use constant S_FOOT => '<div class="footer">'.
-                       '- <a href="http://wakaba.c3.cx/">wakaba</a>'.
-                       ' + <a href="http://www.2chan.net/">futaba</a>'.
-                       ' + <a href="http://www.1chan.net/futallaby/">futallaby</a>'.
-                       ' -</div>';					# Prints footer
 
 use constant S_WEEKDAYS => ('日','月','火','水','木','金','土');
 

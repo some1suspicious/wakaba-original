@@ -15,7 +15,7 @@ use DBI;
 use lib '.';
 BEGIN { require "config.pl"; }
 BEGIN { require "config_defaults.pl"; }
-BEGIN { require "strings_e.pl"; }		# edit this line to change the language
+BEGIN { require "strings_en.pl"; }		# edit this line to change the language
 BEGIN { require "futaba_style.pl"; }	# edit this line to change the board style
 BEGIN { require "captcha.pl"; }
 BEGIN { require "wakautils.pl"; }
@@ -39,6 +39,8 @@ if(CONVERT_CHARSETS)
 #
 # Global init
 #
+
+my $protocol_re=qr/(?:http|https|ftp|mailto|nntp)/;
 
 my $query=new CGI;
 my $task=($query->param("task") or $query->param("action"));
@@ -187,9 +189,8 @@ $dbh->disconnect();
 sub build_cache()
 {
 	my ($sth,$row,@thread);
-	my (@thread,@threads,$page,$total);
 
-	$page=0;
+	my $page=0;
 
 	# grab all posts, in thread order (ugh, ugly kludge)
 	$sth=$dbh->prepare("SELECT * FROM ".SQL_TABLE." ORDER BY lasthit DESC,CASE parent WHEN 0 THEN num ELSE parent END ASC,num ASC") or make_error(S_SQLFAIL);
@@ -203,14 +204,15 @@ sub build_cache()
 	}
 	else
 	{
-		@thread=($row);
-		$total=get_page_count();
+		my @threads;
+		my @thread=($row);
+		my $total=get_page_count();
 
 		while($row=get_decoded_hashref($sth))
 		{
 			if(!$$row{parent})
 			{
-				push @threads,[@thread];
+				push @threads,{posts=>[@thread]};
 
 				if(scalar(@threads)==IMAGES_PER_PAGE)
 				{
@@ -226,7 +228,7 @@ sub build_cache()
 				push @thread,$row;
 			}
 		}
-		push @threads,[@thread];
+		push @threads,{posts=>[@thread]};
 		build_cache_page($page,$total,@threads);
 	}
 
@@ -248,26 +250,65 @@ sub build_cache_page($$@)
 	if($page==0) { $filename=HTML_SELF; }
 	else { $filename=$page.PAGE_EXT; }
 
-	if(USE_TEMPFILES)
+	# do abbrevations and such
+	foreach my $thread (@threads)
 	{
-		$tmpname='tmp'.int(rand(1000000000));
+		# split off the parent post, and count the replies and images
+		my ($parent,@replies)=@{$$thread{posts}};
+		my $replies=@replies;
+		my $images=grep { $$_{image} } @replies;
+		my $curr_replies=$replies;
+		my $curr_images=$images;
+		my $max_replies=REPLIES_PER_THREAD;
+		my $max_images=(IMAGE_REPLIES_PER_THREAD or $images);
 
-		open (PAGE,">$tmpname") or make_error(S_NOTWRITE);
-		$PerlIO::encoding::fallback=0x0200 if($has_encode);
-		binmode PAGE,':encoding('.CHARSET.')' if($has_encode);
-		print_page(\*PAGE,$page,$total,@threads);
-		close PAGE;
+		# drop replies until we have few enough replies and images
+		while($curr_replies>$max_replies or $curr_images>$max_images)
+		{
+				my $post=shift @replies;
+				$curr_images-- if($$post{image});
+				$curr_replies--;
+		}
 
-		make_error(S_NOTWRITE) unless(rename $tmpname,$filename);
+		# write the shortened list of replies back
+		$$thread{posts}=[$parent,@replies];
+		$$thread{omit}=$replies-$curr_replies;
+		$$thread{omitimages}=$images-$curr_images;
+
+		# abbreviate the remaining posts
+		foreach my $post (@{$$thread{posts}})
+		{
+			my $abbreviation=abbreviate_html($$post{comment},MAX_LINES_SHOWN,APPROX_LINE_LENGTH);
+			if($abbreviation)
+			{
+				$$post{comment}=$abbreviation;
+				$$post{abbrev}=1;
+			}
+		}
 	}
-	else
+
+	# make the list of pages
+	my @pages=map +{ page=>$_ },(0..$total-1);
+	foreach my $p (@pages)
 	{
-		open (PAGE,">$filename") or make_error(S_NOTWRITE);
-		$PerlIO::encoding::fallback=0x0200 if($has_encode);
-		binmode PAGE,':encoding('.CHARSET.')' if($has_encode);
-		print_page(\*PAGE,$page,$total,@threads);
-		close PAGE;
+		if($$p{page}==$page) { $$p{filename}='' } # current page, no link
+		elsif($$p{page}==0) { $$p{filename}=expand_filename(HTML_SELF) } # first page
+		else { $$p{filename}=expand_filename($$p{page}.PAGE_EXT) }
 	}
+
+	my ($prevpage,$nextpage);
+	$prevpage=$pages[$page-1]{filename} if($page!=0);
+	$nextpage=$pages[$page+1]{filename} if($page!=$total-1);
+
+	print_page($filename,PAGE_TEMPLATE->(
+		postform=>(ALLOW_TEXTONLY or ALLOW_IMAGES),
+		image_inp=>ALLOW_IMAGES,
+		textonly_inp=>(ALLOW_IMAGES and ALLOW_TEXTONLY),
+		prevpage=>$prevpage,
+		nextpage=>$nextpage,
+		pages=>\@pages,
+		threads=>\@threads
+	));
 }
 
 sub build_thread_cache($)
@@ -285,14 +326,28 @@ sub build_thread_cache($)
 
 	$filename=RES_DIR.$thread.PAGE_EXT;
 
+	print_page($filename,PAGE_TEMPLATE->(
+		thread=>$thread,
+		postform=>(ALLOW_TEXT_REPLIES or ALLOW_IMAGE_REPLIES),
+		image_inp=>ALLOW_IMAGE_REPLIES,
+		textonly_inp=>0,
+		dummy=>$thread[$#thread]{num},
+		threads=>[{posts=>\@thread}])
+	);
+}
+
+sub print_page($$)
+{
+	my ($filename,$contents)=@_;
+
 	if(USE_TEMPFILES)
 	{
-		$tmpname=RES_DIR.'tmp'.int(rand(1000000000));
+		my $tmpname=RES_DIR.'tmp'.int(rand(1000000000));
 
 		open (PAGE,">$tmpname") or make_error(S_NOTWRITE);
 		$PerlIO::encoding::fallback=0x0200 if($has_encode);
 		binmode PAGE,':encoding('.CHARSET.')' if($has_encode);
-		print_reply(\*PAGE,@thread);
+		print PAGE $contents;
 		close PAGE;
 
 		rename $tmpname,$filename;
@@ -302,7 +357,7 @@ sub build_thread_cache($)
 		open (PAGE,">$filename") or make_error(S_NOTWRITE);
 		$PerlIO::encoding::fallback=0x0200 if($has_encode);
 		binmode PAGE,':encoding('.CHARSET.')' if($has_encode);
-		print_reply(\*PAGE,@thread);
+		print PAGE $contents;
 		close PAGE;
 	}
 }
@@ -423,6 +478,9 @@ sub post_stuff($$$$$$$$$$$$$$$)
 	# clean up the inputs
 	$email=clean_string(decode_string($email));
 	$subject=clean_string(decode_string($subject));
+
+	# fix up the email/link
+	$email="mailto:$email" if($email and $email!~/^$protocol_re:/);
 
 	# process the tripcode - maybe the string should be decoded later
 	my $trip;
@@ -609,10 +667,6 @@ sub format_comment($)
 {
 	my ($comment)=@_;
 
-	# fix newlines
-	$comment=~s/\r\n/\n/g;
-	$comment=~s/\r/\n/g;
-
 	# hide >>1 references from the quoting code
 	$comment=~s/&gt;&gt;([0-9\-]+)/&gtgt;$1/g;
 
@@ -629,9 +683,11 @@ sub format_comment($)
 		return $line;
 	};
 
-	my @lines=split /\n/,$comment;
-	if(ENABLE_WAKABAMARK) { $comment=do_wakabamark($handler,0,@lines) }
-	else { $comment="<p>".simple_format($handler,@lines)."</p>" }
+	if(ENABLE_WAKABAMARK) { $comment=do_wakabamark($comment,$handler) }
+	else { $comment="<p>".simple_format($comment,$handler)."</p>" }
+
+	# fix <blockquote> styles for old stylesheets
+	$comment=~s/<blockquote>/<blockquote class="unkfunc">/g;
 
 	# restore >>1 references hidden in code blocks
 	$comment=~s/&gtgt;/&gt;&gt;/g;
@@ -641,7 +697,7 @@ sub format_comment($)
 
 sub simple_format($@)
 {
-	my $handler=shift;
+	my ($comment,$handler)=@_;
 	return join "<br />",map
 	{
 		my $line=$_;
@@ -655,7 +711,7 @@ sub simple_format($@)
 		$line=$handler->($line) if($handler);
 
 		$line;
-	} @_;
+	} split /\n/,$comment;
 }
 
 sub make_id_code($$$)
@@ -726,7 +782,7 @@ sub process_file($$)
 	# analyze file and check that it's in a supported format
 	my ($ext,$width,$height)=analyze_image($file);
 
-	my $known=$width or $filetypes{$ext};
+	my $known=($width or $filetypes{$ext});
 
 	make_error(S_BADFORMAT) unless(ALLOW_UNKNOWN or $known);
 	make_error(S_BADFORMAT) if(grep { $_ eq $ext } FORBIDDEN_EXTENSIONS);
@@ -837,11 +893,13 @@ sub process_file($$)
 	{
 		my $newfilename=$file;
 		$newfilename=~s!^.*[\\/]!!; # cut off any directory in filename
+		$newfilename=~s/[#<>"']/_/g; # remove special characters from filename
 		$newfilename=IMG_DIR.$newfilename;
 
 		unless(-e $newfilename) # verify no name clash
 		{
 			rename $filename,$newfilename;
+			$thumbnail=$newfilename if($thumbnail eq $filename);
 			$filename=$newfilename;
 		}
 		else
@@ -880,7 +938,7 @@ sub delete_stuff($$$@)
 	build_cache();
 
 	if($admin)
-	{ make_http_forward($ENV{SCRIPT_NAME}."?admin=$admin&task=mpanel",ALTERNATE_REDIRECT); }
+	{ make_http_forward(get_script_name()."?admin=$admin&task=mpanel",ALTERNATE_REDIRECT); }
 	else
 	{ make_http_forward(HTML_SELF,ALTERNATE_REDIRECT); }
 }
@@ -956,48 +1014,68 @@ sub delete_post($$$)
 sub make_admin_login()
 {
 	make_http_header();
-
-	print_admin_login(\*STDOUT);
+	print ADMIN_LOGIN_TEMPLATE->();
 }
 
 sub make_admin_post_panel($)
 {
 	my ($admin)=@_;
-	my ($sth,$row,@posts);
+	my ($sth,$row,@posts,$size,$rowtype);
 
 	check_password($admin,ADMIN_PASS);
 
 	$sth=$dbh->prepare("SELECT * FROM ".SQL_TABLE." ORDER BY lasthit DESC,CASE parent WHEN 0 THEN num ELSE parent END ASC,num ASC;") or make_error(S_SQLFAIL);
 	$sth->execute() or make_error(S_SQLFAIL);
-	while($row=get_decoded_hashref($sth)) { push @posts,$row }
+
+	$size=0;
+	$rowtype=1;
+	while($row=get_decoded_hashref($sth))
+	{
+		if(!$$row{parent}) { $rowtype=1; }
+		else { $rowtype^=3; }
+		$$row{rowtype}=$rowtype;
+
+		$size+=$$row{size};
+
+		push @posts,$row;
+	}
 
 	make_http_header();
-	print_admin_post_panel(\*STDOUT,$admin,@posts);
+	print POST_PANEL_TEMPLATE->(admin=>$admin,posts=>\@posts,size=>$size);
 }
 
 sub make_admin_ban_panel($)
 {
 	my ($admin)=@_;
-	my ($sth,$row,@bans);
+	my ($sth,$row,@bans,$prevtype);
 
 	check_password($admin,ADMIN_PASS);
 
 	$sth=$dbh->prepare("SELECT * FROM ".SQL_ADMIN_TABLE." WHERE type='ipban' OR type='wordban' OR type='whitelist' ORDER BY type ASC,num ASC;") or make_error(S_SQLFAIL);
 	$sth->execute() or make_error(S_SQLFAIL);
-	while($row=get_decoded_hashref($sth)) { push @bans,$row }
+	while($row=get_decoded_hashref($sth))
+	{
+		$$row{divider}=1 if($prevtype ne $$row{type});
+		$prevtype=$$row{type};
+		$$row{rowtype}=@bans%2+1;
+		push @bans,$row;
+	}
 
 	make_http_header();
-	print_admin_ban_panel(\*STDOUT,$admin,@bans);
+	print BAN_PANEL_TEMPLATE->(admin=>$admin,bans=>\@bans);
 }
 
 sub make_admin_spam_panel($)
 {
 	my ($admin)=@_;
+	my @spam=read_array(SPAM_FILE);
 
 	check_password($admin,ADMIN_PASS);
 
 	make_http_header();
-	print_admin_spam_panel(\*STDOUT,$admin,read_array(SPAM_FILE));
+	print SPAM_PANEL_TEMPLATE->(admin=>$admin,
+	spamlines=>scalar @spam,
+	spam=>join "\n",map { clean_string($_) } @spam);
 }
 
 sub make_sql_dump($)
@@ -1011,13 +1089,14 @@ sub make_sql_dump($)
 	$sth->execute() or make_error(S_SQLFAIL);
 	while($row=get_decoded_arrayref($sth))
 	{
-		push @database,clean_string("INSERT INTO ".SQL_TABLE." VALUES('".
+		push @database,"INSERT INTO ".SQL_TABLE." VALUES('".
 		(join "','",map { s/([\\'])/\\$1/g; $_ } @{$row}). # escape ' and \, and join up all values with commas and apostrophes
-		"');");
+		"');";
 	}
 
 	make_http_header();
-	print_admin_sql_dump(\*STDOUT,$admin,@database);
+	print SQL_DUMP_TEMPLATE->(admin=>$admin,
+	database=>join "<br />",map { clean_string($_) } @database);
 }
 
 sub make_sql_interface($$$)
@@ -1040,7 +1119,7 @@ sub make_sql_interface($$$)
 			{
 				if($sth->execute())
 				{
-					while($row=get_decoded_arrayref($sth)) { push @results,clean_string(join ' | ',@{$row}) }
+					while($row=get_decoded_arrayref($sth)) { push @results,join ' | ',@{$row} }
 				}
 				else { push @results,"!!! ".$sth->errstr() }
 			}
@@ -1049,15 +1128,8 @@ sub make_sql_interface($$$)
 	}
 
 	make_http_header();
-	print_admin_sql_interface(\*STDOUT,$admin,$nuke,@results);
-}
-
-sub do_login($$)
-{
-	my ($password,$nexttask)=@_;
-	my $crypt=crypt_password($password);
-
-	make_http_forward(get_script_name()."?task=$nexttask&admin=$crypt",ALTERNATE_REDIRECT)
+	print SQL_INTERFACE_TEMPLATE->(admin=>$admin,nuke=>$nuke,
+	results=>join "<br />",map { clean_string($_) } @results);
 }
 
 sub make_admin_post($)
@@ -1067,7 +1139,15 @@ sub make_admin_post($)
 	check_password($admin,ADMIN_PASS);
 
 	make_http_header();
-	print_admin_post(\*STDOUT,$admin);
+	print ADMIN_POST_TEMPLATE->(admin=>$admin);
+}
+
+sub do_login($$)
+{
+	my ($password,$nexttask)=@_;
+	my $crypt=crypt_password($password);
+
+	make_http_forward(get_script_name()."?task=$nexttask&admin=$crypt",ALTERNATE_REDIRECT)
 }
 
 sub do_rebuild_cache($)
@@ -1182,26 +1262,20 @@ sub crypt_password($)
 
 sub make_http_header()
 {
-	print "Content-Type: text/html";
-	print "; charset=".CHARSET if(CHARSET);
-	print "\n";
+	print "Content-Type: ".get_xhtml_content_type(CHARSET)."\n";
 	print "\n";
 
 	$PerlIO::encoding::fallback=0x0200;
-	binmode STDOUT,':encoding('.CHARSET.')'  if($has_encode);
+	binmode STDOUT,':encoding('.CHARSET.')' if($has_encode);
 }
 
 sub make_error($)
 {
 	my ($error)=@_;
 
-	print "Status: 500 $error\n";
-	print "Content-Type: text/html";
-	print "; charset=".CHARSET if(CHARSET);
-	print "\n";
-	print "\n";
+	make_http_header();
 
-	print_error(\*STDOUT,$error);
+	print ERROR_TEMPLATE->(error=>$error);
 
 	if($dbh)
 	{
@@ -1242,46 +1316,16 @@ sub get_reply_link($$)
 	return expand_filename(RES_DIR.$reply.PAGE_EXT);
 }
 
-sub get_page_links($)
-{
-	my ($total)=@_;
-	my (@pages,$i);
-
-	$pages[0]=expand_filename(HTML_SELF);
-	for($i=1;$i<$total;$i++) { $pages[$i]=expand_filename($i.PAGE_EXT); }
-
-	return @pages;
-}
-
 sub get_page_count()
 {
 	return int((count_threads()+IMAGES_PER_PAGE-1)/IMAGES_PER_PAGE);
 }
 
-sub get_stylesheets()
+sub get_filetypes()
 {
-	my $found=0;
-	my @stylesheets=map
-	{
-		my %sheet;
-
-		$sheet{filename}=$_;
-
-		($sheet{title})=m!([^/]+)\.css$!i;
-		$sheet{title}=ucfirst $sheet{title};
-		$sheet{title}=~s/_/ /g;
-		$sheet{title}=~s/ ([a-z])/ \u$1/g;
-		$sheet{title}=~s/([a-z])([A-Z])/$1 $2/g;
-
-		if($sheet{title} eq DEFAULT_STYLE) { $sheet{default}=1; $found=1; }
-		else { $sheet{default}=0; }
-
-		\%sheet;
-	} glob(CSS_DIR."*.css");
-
-	$stylesheets[0]{default}=1 if(@stylesheets and !$found);
-
-	return @stylesheets;
+	my %filetypes=FILETYPES;
+	$filetypes{gif}=$filetypes{jpg}=$filetypes{png}=1;
+	return join ", ",map { uc } sort keys %filetypes;
 }
 
 sub expand_filename($)

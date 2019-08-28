@@ -24,6 +24,7 @@ BEGIN {
 	eval "use constant HOME => '../'" unless(defined &HOME);
 	eval "use constant IMAGES_PER_PAGE => 10" unless(defined &IMAGES_PER_PAGE);
 	eval "use constant REPLIES_PER_THREAD => 10" unless(defined &REPLIES_PER_THREAD);
+	eval "use constant IMAGE_REPLIES_PER_THREAD => 0" unless(defined &IMAGE_REPLIES_PER_THREAD);
 	eval "use constant S_ANONAME => 'Anonymous'" unless(defined &S_ANONAME);
 	eval "use constant S_ANOTEXT => ''" unless(defined &S_ANOTEXT);
 	eval "use constant S_ANOTITLE => ''" unless(defined &S_ANOTITLE);
@@ -62,7 +63,6 @@ BEGIN {
 	eval "use constant ALLOW_UNKNOWN => 0" unless(defined &ALLOW_UNKNOWN);
 	eval "use constant MUNGE_UNKNOWN => '.unknown'" unless(defined &MUNGE_UNKNOWN);
 	eval "use constant FORBIDDEN_EXTENSIONS => ('php','php3','php4','phtml','shtml','cgi','pl','pm','py','r','exe','dll','scr','pif','asp','cfm','jsp')" unless(defined &FORBIDDEN_EXTENSIONS);
-	eval "use constant HIDE_IMAGE_REPLIES => 0" unless(defined &HIDE_IMAGE_REPLIES);
 	eval "use constant RENZOKU => 5" unless(defined &RENZOKU);
 	eval "use constant RENZOKU2 => 10" unless(defined &RENZOKU2);
 	eval "use constant RENZOKU3 => 900" unless(defined &RENZOKU3);
@@ -87,7 +87,6 @@ BEGIN {
 	eval "use constant THUMB_DIR => 'thumb/'" unless(defined &THUMB_DIR);
 	eval "use constant RES_DIR => 'res/'" unless(defined &RES_DIR);
 	eval "use constant HTML_SELF => 'wakaba.html'" unless(defined &HTML_SELF);
-	eval "use constant CSS_FILE => 'wakaba.css'" unless(defined &CSS_FILE);
 	eval "use constant JS_FILE => 'wakaba.js'" unless(defined &JS_FILE);
 	eval "use constant CSS_DIR => 'css/'" unless(defined &CSS_DIR);
 	eval "use constant PAGE_EXT => '.html'" unless(defined &PAGE_EXT);
@@ -96,6 +95,8 @@ BEGIN {
 	eval "use constant SPAM_FILE => 'spam.txt'" unless(defined &SPAM_FILE);
 
 	eval "use constant FILETYPES => ()" unless(defined &FILETYPES);
+
+	eval "use constant WAKABA_VERSION => '2.0.6'" unless(defined &WAKABA_VERSION);
 }
 
 1;

@@ -8,6 +8,8 @@ use Time::Local;
 # HTML utilities
 #
 
+my $protocol_re=qr/(?:http|https|ftp|mailto|nntp)/;
+
 sub abbreviate_html($$$)
 {
 	my ($html,$max_lines,$approx_len)=@_;
@@ -49,10 +51,16 @@ sub abbreviate_html($$$)
 	return undef;
 }
 
-sub do_wakabamark($@)
+sub do_wakabamark($;$$)
 {
-	my ($handler,$simplify,@lines)=@_;
+	my ($text,$handler,$simplify)=@_;
 	my $res;
+
+	# fix newlines
+	$text=~s/\r\n/\n/g;
+	$text=~s/\r/\n/g;
+
+	my @lines=split /\n/,$text;
 
 	while(defined($_=$lines[0]))
 	{
@@ -67,11 +75,11 @@ sub do_wakabamark($@)
 			while($lines[0]=~/^($re)(?: |\t)(.*)/)
 			{
 				my $spaces=(length $1)+1;
-				my @item=($2);
+				my $item="$2\n";
 				shift @lines;
 
-				while($lines[0]=~/^(?: {1,$spaces}|\t)(.*)/) { push @item,$1; shift @lines }
-				$html.="<li>".do_wakabamark($handler,1,@item)."</li>";
+				while($lines[0]=~/^(?: {1,$spaces}|\t)(.*)/) { $item.="$1\n"; shift @lines }
+				$html.="<li>".do_wakabamark($item,$handler,1)."</li>";
 			}
 			$res.="<$tag>$html</$tag>";
 		}
@@ -114,8 +122,8 @@ sub do_spans($@)
 		$line=~s{ (?<![\x80-\x9f\xe0-\xfc]) (`+) ([^<>]+?) (?<![\x80-\x9f\xe0-\xfc]) \1}{push @hidden,"<code>$2</code>"; "<!--$#hidden-->"}sgex;
 
 		# make URLs into links and hide them
-		$line=~s{(https?://[^\s<>"]*?)((?:\s|<|>|"|\.|\)|\]|!|\?|,|&#44;|&quot;)*(?:[\s<>"]|$))}
-		{push @hidden,"<a href=\"$1\">$1\</a>"; "<!--$#hidden-->$2"}sge;
+		$line=~s{($protocol_re:[^\s<>"]*?)((?:\s|<|>|"|\.|\)|\]|!|\?|,|&#44;|&quot;)*(?:[\s<>"]|$))}
+		{push @hidden,"<a href=\"$1\" rel=\"nofollow\">$1\</a>"; "<!--$#hidden-->$2"}sge;
 
 		# do <strong>
 		$line=~s{ (?<![0-9a-zA-Z\*_\x80-\x9f\xe0-\xfc]) (\*\*|__) (?![<>\s\*_]) ([^<>]+?) (?<![<>\s\*_\x80-\x9f\xe0-\xfc]) \1 (?![0-9a-zA-Z\*_]) }{<strong>$2</strong>}gx;
@@ -161,7 +169,7 @@ sub compile_template($%)
 			if($closing)
 			{
 				if($name eq 'if') { $code.='}' }
-				elsif($name eq 'loop') { $code.='$$_=$__ov{$_} for(keys %__ov);}' }
+				elsif($name eq 'loop') { $code.='$$_=$__ov{$_} for(keys %__ov);}}' }
 			}
 			else
 			{
@@ -169,7 +177,7 @@ sub compile_template($%)
 				elsif($name eq 'const') { my $const=eval $args; $const=~s/(['\\])/\\$1/g; $code.='$res.=\''.$const.'\';' }
 				elsif($name eq 'if') { $code.='if(eval{'.$args.'}){' }
 				elsif($name eq 'loop')
-				{ $code.='for(@{(eval{'.$args.'})}){my %__v=%{$_};my %__ov;for(keys %__v){$__ov{$_}=$$_;$$_=$__v{$_};}' }
+				{ $code.='my $__a=eval{'.$args.'};if($__a){for(@$__a){my %__v=%{$_};my %__ov;for(keys %__v){$__ov{$_}=$$_;$$_=$__v{$_};}' }
 			}
 		}
 	}
@@ -180,13 +188,17 @@ sub compile_template($%)
 	my ($path)=$ENV{SCRIPT_NAME}=~m!^(.*/)[^/]+$!;
 	my $absolute_path="http://$ENV{SERVER_NAME}$port$path";
 
-	return eval
+	my $sub=eval
 		'no strict; sub { '.
 		'my %__v=@_;my %__ov;for(keys %__v){$__ov{$_}=$$_;$$_=$__v{$_};}'.
 		'my $res;'.
 		$code.
 		'$$_=$__ov{$_} for(keys %__ov);'.
 		'return $res; }';
+
+	die "Template format error" unless($sub);
+
+	return $sub;
 }
 
 sub include($)
@@ -355,6 +367,18 @@ sub cookie_encode($;$)
 	return $str;
 }
 
+sub get_xhtml_content_type(;$)
+{
+	my $charset=shift;
+	my $type;
+
+	if($ENV{HTTP_ACCEPT}=~/application\/xhtml\+xml/) { $type="application/xhtml+xml"; }
+	else { $type="text/html"; }
+
+	$type.="; charset=$charset" if($charset);
+
+	return $type;
+}
 
 
 #

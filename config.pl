@@ -31,6 +31,7 @@
 #use constant HOME => '../';					# Site home directory (up one level by default
 #use constant IMAGES_PER_PAGE => 10;			# Images per page
 #use constant REPLIES_PER_THREAD => 10;			# Replies shown
+#use constant IMAGE_REPLIES_PER_THREAD => 0;	# Number of image replies per thread to show, set to 0 for no limit.
 #use constant S_ANONAME => 'Anonymous';			# Defines what to print if there is no text entered in the name field
 #use constant S_ANOTEXT => '';					# Defines what to print if there is no text entered in the comment field
 #use constant S_ANOTITLE => '';					# Defines what to print if there is no text entered into subject field
@@ -71,8 +72,7 @@
 #use constant ALLOW_IMAGE_REPLIES => 1;			# Allow replies with images (1: yes, 0: no)
 #use constant ALLOW_UNKNOWN => 0;				# Allow unknown filetypes (1: yes, 0: no)
 #use constant MUNGE_UNKNOWN => '.unknown';		# Munge unknown file type extensions with this. If you remove this, make sure your web server is locked down properly.
-#use constant FORBIDDEN_EXTENSIONS => ('php','php3','php4','phtml','shtml','cgi','pl','pm','py','r','exe','dll','scr','pif','asp','cfm','jsp'); # file extensions which are forbidden
-#use constant HIDE_IMAGE_REPLIES => 0;			# Hide image replies on the main page (1: yes, 0:no)
+#use constant FORBIDDEN_EXTENSIONS => ('php','php3','php4','phtml','shtml','cgi','pl','pm','py','r','exe','dll','scr','pif','asp','cfm','jsp','vbs'); # file extensions which are forbidden
 #use constant RENZOKU => 5;						# Seconds between posts (floodcheck)
 #use constant RENZOKU2 => 10;					# Seconds between image posts (floodcheck)
 #use constant RENZOKU3 => 900;					# Seconds between identical posts (floodcheck)
@@ -96,13 +96,49 @@
 #use constant THUMB_DIR => 'thumb/';			# Thumbnail directory (needs to be writeable by the script)
 #use constant RES_DIR => 'res/';				# Reply cache directory (needs to be writeable by the script)
 #use constant HTML_SELF => 'wakaba.html';		# Name of main html file
-#use constant CSS_FILE => 'wakaba.css';			# location of the css file
 #use constant JS_FILE => 'wakaba.js';			# location of the js file
 #use constant PAGE_EXT => '.html';				# Extension used for board pages after first
 #use constant ERRORLOG => '';					# Writes out all errors seen by user, mainly useful for debugging
 #use constant CONVERT_COMMAND => 'convert';		# location of the ImageMagick convert command (usually just 'convert', but sometime a full path is needed)
 ##use constant CONVERT_COMMAND => '/usr/X11R6/bin/convert';
 #use constant SPAM_FILE => 'spam.txt';
+
+# Icons for filetypes - file extensions specified here will not be renamed, and will get icons
+# (except for the built-in image formats). These example icons can be found in the extras/ directory.
+#use constant FILETYPES => (
+#   # Audio files
+#	mp3 => 'icons/audio-mp3.png',
+#	ogg => 'icons/audio-ogg.png',
+#	aac => 'icons/audio-aac.png',
+#	m4a => 'icons/audio-aac.png',
+#	mpc => 'icons/audio-mpc.png',
+#	mpp => 'icons/audio-mpp.png',
+#	mod => 'icons/audio-mod.png',
+#	it => 'icons/audio-it.png',
+#	xm => 'icons/audio-xm.png',
+#	fla => 'icons/audio-flac.png',
+#	flac => 'icons/audio-flac.png',
+#	sid => 'icons/audio-sid.png',
+#	mo3 => 'icons/audio-mo3.png',
+#	spc => 'icons/audio-spc.png',
+#	nsf => 'icons/audio-nsf.png',
+#	# Archive files
+#	zip => 'icons/archive-zip.png',
+#	rar => 'icons/archive-rar.png',
+#	lzh => 'icons/archive-lzh.png',
+#	lha => 'icons/archive-lzh.png',
+#	gz => 'icons/archive-gz.png',
+#	bz2 => 'icons/archive-bz2.png',
+#	'7z' => 'icons/archive-7z.png',
+#	# Other files
+#	swf => 'icons/flash.png',
+#	torrent => 'icons/torrent.png',
+#	# To stop Wakaba from renaming image files, put their names in here like this:
+#	gif => '.',
+#	jpg => '.',
+#	png => '.',
+
+#);
 
 # no encoding; # Uncomment this if you uncommented the "use encoding" at the top of the file
 

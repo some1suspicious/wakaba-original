@@ -9,9 +9,10 @@ use CGI;
 use lib '.';
 BEGIN { require "config.pl"; }
 BEGIN { require "config_defaults.pl"; }
-BEGIN { require "strings_e.pl"; }
+BEGIN { require "strings_en.pl"; }
+BEGIN { require "oekaki_style.pl"; }
 BEGIN { require "oekaki_config.pl"; }
-BEGIN { require "oekaki_strings_e.pl"; }
+BEGIN { require "oekaki_strings_en.pl"; }
 
 
 
@@ -37,64 +38,23 @@ if($oek_painter=~/shi/)
 	my $mode;
 	$mode="pro" if($oek_painter=~/pro/);
 
-	if($oek_painter=~/selfy/) { print <<HTML_SELFY;
-Content-Type: text/html; charset=Shift_JIS
+	my $selfy;
+	$selfy=1 if($oek_painter=~/selfy/);
 
-<html>
-<head>
-<link rel="stylesheet" type="text/css" href="oekaki.css">
-</head>
-<body>
-<script type="text/javascript" src="palette_selfy.js"></script>
+	print "Content-Type: text/html; charset=Shift_JIS\n";
+	print "\n";
 
-<table class="nospace" width="100%" height="100%"><tbody><tr>
-<td width="100%">
-<applet code="c.ShiPainter.class" name="paintbbs" archive="spainter_all.jar" width="100%" height="100%">
-<param name="image_width" value="$oek_x" />
-<param name="image_height" value="$oek_y" />
-<param name="image_canvas" value="$oek_src" />
-<param name="dir_resource" value="./" />
-<param name="tt.zip" value="tt_def.zip" />
-<param name="res.zip" value="res.zip" />
-<param name="tools" value="$mode" />
-<param name="layer_count" value="3" />
-<param name="url_save" value="getpic.pl" />
-<param name="url_exit" value="finish.pl?oek_parent=$oek_parent&oek_ip=$ip&srcinfo=$time,$oek_painter,$oek_src" />
-<param name="send_header" value="$ip" />
-</applet>
-</td>
-<td valign="top">
-<script>palette_selfy();</script>
-</td>
-</tr></tbody></table>
-</body>
-</html>
-HTML_SELFY
-	} else { print <<HTML_NORM;
-Content-Type: text/html
-
-<html>
-<head>
-<link rel="stylesheet" type="text/css" href="oekaki.css">
-</head>
-<body>
-<applet code="c.ShiPainter.class" name="paintbbs" archive="spainter_all.jar" width="100%" height="100%">
-<param name="image_width" value="$oek_x" />
-<param name="image_height" value="$oek_y" />
-<param name="image_canvas" value="$oek_src" />
-<param name="dir_resource" value="./" />
-<param name="tt.zip" value="tt_def.zip" />
-<param name="res.zip" value="res.zip" />
-<param name="tools" value="$mode" />
-<param name="layer_count" value="3" />
-<param name="url_save" value="getpic.pl" />
-<param name="url_exit" value="finish.pl?oek_parent=$oek_parent&oek_ip=$ip&srcinfo=$time,$oek_painter,$oek_src" />
-<param name="send_header" value="$ip" />
-</applet>
-</body>
-</html>
-HTML_NORM
-	}
+	print OEKAKI_PAINT_TEMPLATE->(
+		oek_painter=>clean_string($oek_painter),
+		oek_x=>clean_string($oek_x),
+		oek_y=>clean_string($oek_y),
+		oek_parent=>clean_string($oek_parent),
+		oek_src=>clean_string($oek_src),
+		ip=>$ip,
+		time=>$time,
+		mode=>$mode,
+		selfy=>$selfy
+	);
 }
 else
 {
@@ -103,28 +63,15 @@ else
 
 
 
-
 sub make_error($)
 {
 	my ($error)=@_;
-	my $css=CSS_FILE;
 
-	print <<ERROR;
-Status: 500 $error
-Content-Type: text/html
+	print "Content-Type: ".get_xhtml_content_type()."\n";
+	print "Status: 500 $error\n";
+	print "\n";
 
-<html>
-<head>
-<title>$error</title>
-<link rel="stylesheet" type="text/css" href="$css" title="Standard stylesheet" />
-</head>
-<body>
-<div style="text-align: center; width=100%; font-size: 2em;"><br />$error
-<br /><br /><a href="$ENV{HTTP_REFERER}">Return</a>
-</div>
-</body>
-</html>
-ERROR
+	print ERROR_TEMPLATE->(error=>$error);
 
 	exit;
 }
