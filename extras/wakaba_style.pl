@@ -301,13 +301,6 @@ sub print_page_header($)
 {
 	my ($file)=@_;
 
-#	print $file '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"';
-#	print $file ' "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">';
-#	print $file '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="jp">'; # lang="jp"? what the hell?
-#	print $file '<head><meta http-equiv="content-type"  content="text/html;charset=utf-8" />';
-#	print $file '<!-- meta HTTP-EQUIV="pragma" CONTENT="no-cache" -->';
-
-#	print $file '<?xml version="1.0" encoding="utf-8"?>';
 	print $file '<html><head>';
 
 	print $file '<title>'.TITLE.'</title>';
@@ -414,9 +407,11 @@ sub print_thread($$@)
 	# display image
 	print_image($file,$parent) if($$parent{image});
 
+	print $file '<table cellspacing="0"><tbody><tr><td>';
+
 	# display the original thread comment
 	print_comment_header($file,$parent,!$threadview,1);
-	print $file '<blockquote>'.$$parent{comment}.'</blockquote>';
+	print $file '<blockquote>'.$$parent{comment}.'</blockquote><br />';
 
 	# check to see if we should abbreviate the thread
 	$replies=scalar(@thread);
@@ -430,31 +425,32 @@ sub print_thread($$@)
 		@thread=@thread[$omit..$#thread];
 	}
 
+	print $file '</tr></td>';
+
 	# display replies
 
 	foreach my $res (@thread)
-	{
-#		print $file '<div style="display: table;">';
-#		print $file '<div class="doubledash" style="float: left; padding: 2px; margin: 2px;">&gt;&gt;</div>';
-#		print $file '<div class="reply" style="float: left; padding: 2px; margin: 2px;">';
-		print $file '<table><tbody><tr><td class="doubledash">&gt;&gt;</td>';
-		print $file '<td class="reply">';
+	{#F0E0D6
+		print $file '<tr><td style="background:#e0c0b0;">';
 
 		print_comment_header($file,$res,0,0);
 
+		print $file '</td></tr><tr><td class="reply">';
+
 		if($$res{image})
 		{
-			print $file '<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;';
+			print $file '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;';
 			print_image($file,$res);
 		}
 
 		print $file '<blockquote>'.$$res{comment}.'</blockquote>';
 
-#		print $file '</div></div>';
-		print $file '</td></tr></tbody></table>';
+		print $file '</td></tr>';
+
+		print $file '<tr><td style="font-size:0.3em;">&nbsp;</td></tr>';
 	}
 
-	print $file '<br clear="left" /><hr />';
+	print $file '</tbody></table><br clear="left" /><hr />';
 }
 
 sub print_comment_header($$$$)
@@ -491,7 +487,6 @@ sub print_comment_header($$$$)
 sub print_image($$)
 {
 	my ($file,$res)=@_;
-#	my ($imagename)=$$res{image}=~/([0-9]+\.\w+)$/;
  	$$res{image}=~m!([^/]+)$!;
  	my ($imagename)=$1;
 

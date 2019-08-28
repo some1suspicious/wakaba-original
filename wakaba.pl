@@ -4,15 +4,24 @@ use CGI::Carp qw(fatalsToBrowser);
 
 use strict;
 
-#use Goapath;
-
 use CGI;
 use DBI;
+use File::Copy;
+
+
+#
+# Import settings
+#
 
 use lib '.';
 BEGIN { require 'config.pl'; }
 BEGIN { require 'strings_e.pl'; }
 BEGIN { require 'futaba_style.pl'; }
+BEGIN { require 'filetypes_audio.pl'; }
+
+my %filetypes=%filetypes::filetypes;
+
+
 
 #
 # Optional modules
@@ -29,7 +38,7 @@ $has_magick=1 unless($@);
 
 if(CHARSET) # don't use Unicode at all if CHARSET is not set.
 {
-	eval 'use Encode qw(decode_utf8 encode_utf8)';
+	eval 'use Encode qw(decode)';
 	$has_unicode=1 unless($@);
 }
 
@@ -236,14 +245,24 @@ sub build_cache_page($$@)
 	if($page==0) { $filename=HTML_SELF; }
 	else { $filename=$page.PAGE_EXT; }
 
-	$tmpname='tmp'.int(rand(1000000000));
+	if(USE_TEMPFILES)
+	{
+		$tmpname='tmp'.int(rand(1000000000));
 
-	open (PAGE,">$tmpname") or make_error(S_NOTWRITE);
-	binmode PAGE,':encoding('.CHARSET.')' if($has_unicode);
-	print_page(\*PAGE,$page,$total,@threads);
-	close PAGE;
+		open (PAGE,">$tmpname") or make_error(S_NOTWRITE);
+		binmode PAGE,':encoding('.CHARSET.')' if($has_unicode);
+		print_page(\*PAGE,$page,$total,@threads);
+		close PAGE;
 
-	rename $tmpname,$filename;
+		make_error(S_NOTWRITE) unless(rename $tmpname,$filename);
+	}
+	else
+	{
+		open (PAGE,">$filename") or make_error(S_NOTWRITE);
+		binmode PAGE,':encoding('.CHARSET.')' if($has_unicode);
+		print_page(\*PAGE,$page,$total,@threads);
+		close PAGE;
+	}
 }
 
 sub build_thread_cache($)
@@ -260,14 +279,25 @@ sub build_thread_cache($)
 	make_error(S_NOTHREADERR) if($thread[0]{parent});
 
 	$filename=RES_DIR.$thread.PAGE_EXT;
-	$tmpname=RES_DIR.'tmp'.int(rand(1000000000));
 
-	open (PAGE,">$tmpname") or make_error(S_NOTWRITE);
-	binmode PAGE,':encoding('.CHARSET.')' if($has_unicode);
-	print_reply(\*PAGE,@thread);
-	close PAGE;
+	if(USE_TEMPFILES)
+	{
+		$tmpname=RES_DIR.'tmp'.int(rand(1000000000));
 
-	rename $tmpname,$filename;
+		open (PAGE,">$tmpname") or make_error(S_NOTWRITE);
+		binmode PAGE,':encoding('.CHARSET.')' if($has_unicode);
+		print_reply(\*PAGE,@thread);
+		close PAGE;
+
+		rename $tmpname,$filename;
+	}
+	else
+	{
+		open (PAGE,">$filename") or make_error(S_NOTWRITE);
+		binmode PAGE,':encoding('.CHARSET.')' if($has_unicode);
+		print_reply(\*PAGE,@thread);
+		close PAGE;
+	}
 }
 
 sub build_thread_cache_all()
@@ -561,12 +591,12 @@ sub clean_string($$)
 {
 	my ($str,$admin)=@_;
 
-	if($has_unicode) # should this do shift-jis to deal with IE and stuff?
+	if($has_unicode)
 	{
-		#$str=decode_utf8($str);
+		$str=decode(CHARSET,$str);
 
-		# decode unicode entities
-		$str=~s/&\#([0-9]+);/chr($1)/g;
+		# decode any unicode entities
+		#$str=~s/&\#([0-9]+);/chr($1)/g;
 	}
 
 	$str=~s/^\s*//; # remove preceeding whitespace
@@ -584,7 +614,9 @@ sub clean_string($$)
 	}
 
 	# repair unicode entities if we haven't converted them earlier
-	$str=~s/&amp;(\#[0-9]+;)/&$1/ unless($has_unicode);
+#	$str=~s/&amp;(\#[0-9]+;)/&$1/ unless($has_unicode);
+	# repair unicode entities
+	$str=~s/&amp;(\#[0-9]+;)/&$1/;
 
 	return $str;
 }
@@ -708,11 +740,21 @@ sub process_file($$)
 	# analyze file and check that it's in a supported format
 	($ext,$width,$height)=analyze_image($file);
 
-	make_error(S_BADFORMAT) if(!ALLOW_UNKNOWN and !$width);
+	make_error(S_BADFORMAT) if(!ALLOW_UNKNOWN and !$width and !$filetypes{$ext});
 
-	# generate filename - fudges the microseconds
-	$filebase=$time.sprintf("%03d",int(rand(1000)));
-	$filename=IMG_DIR.$filebase.'.'.$ext;
+	if($filetypes{$ext}) # externally defined filetype - keep the name
+	{
+		$filebase=$file;
+		$filebase=~s!^.*(\\|/)!!; # cut off any directory in filename
+		$filename=IMG_DIR.$filebase;
+
+		make_error(S_DUPE) if(-e $filename); # verify no name clash
+	}
+	else # generate random filename - fudges the microseconds
+	{
+		$filebase=$time.sprintf("%03d",int(rand(1000)));
+		$filename=IMG_DIR.$filebase.'.'.$ext;
+	}
 
 	# prepare MD5 checksum if the Digest::MD5 module is available
 	$md5ctx=Digest::MD5->new if($has_md5);
@@ -756,7 +798,29 @@ sub process_file($$)
 
 	if(!$width) # unsupported file
 	{
-		$thumbnail=undef;
+		if($filetypes{$ext}) # externally defined filetype
+		{
+			my ($tn_ext);
+
+			open THUMBNAIL,$filetypes{$ext};
+			binmode THUMBNAIL;
+			($tn_ext,$tn_width,$tn_height)=analyze_image(\*THUMBNAIL);
+			close THUMBNAIL;
+
+			if(!$tn_width) # was that icon file really there?
+			{
+				$thumbnail=undef;
+			}
+			else
+			{
+				$thumbnail=THUMB_DIR.$filebase."_s.".$tn_ext;
+				make_error(S_NOTWRITE) unless(copy($filetypes{$ext},$thumbnail));
+			}
+		}
+		else
+		{
+			$thumbnail=undef;
+		}
 	}
 	elsif($width<=MAX_W and $height<=MAX_H) # small enough to display
 	{
@@ -1053,6 +1117,15 @@ sub make_error($)
 
 	$dbh->{Warn}=0;
 	$dbh->disconnect();
+
+	if(ERRORLOG) # could print even more data, really.
+	{
+		open ERRORFILE,'>>'.ERRORLOG;
+		print ERRORFILE $error."\n";
+		print ERRORFILE $ENV{HTTP_USER_AGENT}."\n";
+		print ERRORFILE "**\n";
+		close ERRORFILE;
+	}
 
 	# delete temp files
 
@@ -1404,7 +1477,7 @@ sub analyze_image($)
 
 	# find file extension for unknown files
 	my ($ext)=$file=~/\.([^\.]+)$/;
-	return ($ext,0,0);
+	return (lc($ext),0,0);
 }
 
 sub analyze_jpeg($)

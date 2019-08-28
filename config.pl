@@ -10,6 +10,7 @@ use constant SQL_PASSWORD => 'CHANGEME';						# MySQL password
 #use constant SQL_PASSWORD => '';					# Not used by SQLite
 use constant SQL_TABLE => 'comments';					# Table (NOT DATABASE) used by image board
 use constant SQL_ADMIN_TABLE => 'admin';
+use constant USE_TEMPFILES => 1;				# Set this to 1 under Unix and 0 under Windows! (Use tempfiles when creating pages)
 
 # Page look
 use constant TITLE => 'Wakaba image board';	# Name of this image board
@@ -72,6 +73,7 @@ use constant HTML_SELF => 'wakaba.html';	# Name of main html file
 use constant CSS_FILE => 'wakaba.css';		# location of the css file
 use constant JS_FILE => 'wakaba.js';		# location of the js file
 use constant PAGE_EXT => '.html';		# Extension used for board pages after first
+use constant ERRORLOG => '';			# Writes out all errors seen by user, mainly useful for debugging
 use constant CONVERT_COMMAND => 'convert';	# location of the ImageMagick convert command (usually just 'convert', but sometime a full path is needed)
 #use constant CONVERT_COMMAND => '/usr/X11R6/bin/convert';
 
