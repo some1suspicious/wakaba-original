@@ -480,11 +480,8 @@ sub post_stuff($$$$$$$$$$$$$$)
 	my $trip;
 	($name,$trip)=process_tripcode($name,TRIPKEY,SECRET,CHARSET);
 
-	# check captcha
-	check_captcha($dbh,$captcha,$ip,$parent) if(ENABLE_CAPTCHA and !$no_captcha and !is_trusted($trip));
-
 	# check for bans
-	ban_check($numip,$c_name,$subject,$comment) unless($whitelisted);
+	ban_check($numip,$c_name,$subject,$comment) unless $whitelisted;
 
 	# spam check
 	spam_engine(
@@ -492,7 +489,10 @@ sub post_stuff($$$$$$$$$$$$$$)
 		trap_fields=>SPAM_TRAP?["name","link"]:[],
 		spam_files=>[SPAM_FILES],
 		charset=>CHARSET,
-	);
+	) unless $whitelisted;
+
+	# check captcha
+	check_captcha($dbh,$captcha,$ip,$parent) if(ENABLE_CAPTCHA and !$no_captcha and !is_trusted($trip));
 
 	# proxy check
 	proxy_check($ip) if (!$whitelisted and ENABLE_PROXY_CHECK);
@@ -1472,11 +1472,11 @@ sub delete_all($$$)
 
 	check_password($admin,ADMIN_PASS);
 
-	$sth=$dbh->prepare("SELECT num FROM ".SQL_TABLE." WHERE ip & ? = ?;") or make_error(S_SQLFAIL);
-	$sth->execute($mask,$ip&$mask) or make_error(S_SQLFAIL);
+	$sth=$dbh->prepare("SELECT num FROM ".SQL_TABLE." WHERE ip & ? = ? & ?;") or make_error(S_SQLFAIL);
+	$sth->execute($mask,$ip,$mask) or make_error(S_SQLFAIL);
 	while($row=$sth->fetchrow_hashref()) { push(@posts,$$row{num}); }
 
-	delete_stuff('',0,$admin,@posts);
+	delete_stuff('',0,0,$admin,@posts);
 }
 
 sub update_spam_file($$)
@@ -1652,9 +1652,9 @@ sub init_database()
 
 	"num ".get_sql_autoincrement().",".	# Post number, auto-increments
 	"parent INTEGER,".			# Parent post for replies in threads. For original posts, must be set to 0 (and not null)
-	"timestamp INTEGER,".			# Timestamp in seconds for when the post was created
+	"timestamp INTEGER,".		# Timestamp in seconds for when the post was created
 	"lasthit INTEGER,".			# Last activity in thread. Must be set to the same value for BOTH the original post and all replies!
-	"ip TEXT,".				# IP number of poster, in integer form!
+	"ip TEXT,".					# IP number of poster, in integer form!
 
 	"date TEXT,".				# The date, as a string
 	"name TEXT,".				# Name of the poster

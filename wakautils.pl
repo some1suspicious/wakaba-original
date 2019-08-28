@@ -1,4 +1,4 @@
-# wakautils.pl v8.4
+# wakautils.pl v8.5
 
 use strict;
 
@@ -342,18 +342,41 @@ sub include($)
 	return $file;
 }
 
+
+sub forbidden_unicode($;$)
+{
+	my ($dec,$hex)=@_;
+	return 1 if length($dec)>7 or length($hex)>7; # too long numbers
+	my $ord=($dec or hex $hex);
+
+	return 1 if $ord>MAX_UNICODE; # outside unicode range
+	return 1 if $ord<32; # control chars
+	return 1 if $ord>=0xd800 and $ord<=0xdfff; # surrogate code points
+	return 1 if $ord>=0x202a and $ord<=0x202e; # text direction
+	return 0;
+}
+
 sub clean_string($;$)
 {
 	my ($str,$cleanentities)=@_;
 
 	if($cleanentities) { $str=~s/&/&amp;/g } # clean up &
-	else { $str=~s/&(?!#[0-9]+;|#x[0-9a-fA-F]+;)/&amp;/g } # clean up &, excluding numerical entities
+	else
+	{
+		$str=~s/&(#([0-9]+);|#x([0-9a-fA-F]+);|)/
+			if($1 eq "") { '&amp;' } # change simple ampersands
+			elsif(forbidden_unicode($2,$3))  { "" } # strip forbidden unicode chars
+			else { "&$1" } # and leave the rest as-is.
+		/ge  # clean up &, excluding numerical entities
+	}
 
 	$str=~s/\</&lt;/g; # clean up brackets for HTML tags
 	$str=~s/\>/&gt;/g;
 	$str=~s/"/&quot;/g; # clean up quotes for HTML attributes
 	$str=~s/'/&#39;/g;
 	$str=~s/,/&#44;/g; # clean up commas for some reason I forgot
+
+	$str=~s/[\x00-\x08\x0b\x0c\x0e-\x1f]//g; # remove control chars
 
 	return $str;
 }
@@ -365,9 +388,11 @@ sub decode_string($;$$)
 
 	$str=decode($charset,$str) if $use_unicode;
 
-	$str=~s{(&\#([0-9]+);|&#x([0-9a-f]+);)}{
-		my $ord=($2 or hex $3);
-		if($ord>MAX_UNICODE) { "" } # strip entities outside unicode range
+	$str=~s{(&#([0-9]*)([;&])|&#([x&])([0-9a-f]*)([;&]))}{
+		my $ord=($2 or hex $5);
+		if($3 eq '&' or $4 eq '&' or $5 eq '&') { $1 } # nested entities, leave as-is.
+		elsif(forbidden_unicode($2,$5))  { "" } # strip forbidden unicode chars
+		elsif($ord==35 or $ord==38) { $1 } # don't convert & or #
 		elsif($use_unicode) { chr $ord } # if we have unicode support, convert all entities
 		elsif($ord<128) { chr $ord } # otherwise just convert ASCII-range entities
 		else { $1 } # and leave the rest as-is.
@@ -1010,8 +1035,8 @@ sub compile_spam_checker(@)
 
 	return eval 'sub {
 		$_=shift;
-		study;
-		return '.(join "||",map "/$_/o",(@re)).';
+		# study; # causes a strange bug - moved to spam_engine()
+		return '.(join "||",map "/$_/mo",(@re)).';
 	}';
 }
 
@@ -1030,6 +1055,7 @@ sub spam_engine(%)
 	my @fields=$query->param;
 	@fields=grep !$excluded_fields{$_},@fields if %excluded_fields;
 	my $fulltext=join "\n",map decode_string($query->param($_),$charset),@fields;
+	study $fulltext;
 
 	spam_screen($query) if $spam_checker->($fulltext);
 }
@@ -1041,14 +1067,14 @@ sub spam_screen($)
 	print "Content-Type: text/html\n\n";
 	print "<html><body>";
 	print "<h1>Anti-spam filters triggered.</h1>";
-	print "<p>If you are not a spammer, you are probably accidentially";
-	print "trying to use an URL that is listed in the spam file. Try";
+	print "<p>If you are not a spammer, you are probably accidentially ";
+	print "trying to use an URL that is listed in the spam file. Try ";
 	print "editing your post to remove it. Sorry for any inconvenience.</p>";
 	print "<small style='color:white'><small>";
 	print "$_<br>" for(map $query->param($_),$query->param);
 	print "</small></small>";
 
-	exit(0);
+	exit 0;
 }
 
 
