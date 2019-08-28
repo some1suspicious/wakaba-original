@@ -36,6 +36,9 @@ use constant MAX_AGE => 0;			# Maximum age of a thread in hours (set to 0 to dis
 use constant MAX_FIELD_LENGTH => 100;	# Maximum number of characters in subject, name, and email
 use constant MAX_COMMENT_LENGTH => 1000;	# Maximum number of characters in a comment
 use constant MAX_LINES => 15;			# Max lines per post (0 = no limit)
+use constant MAX_IMAGE_WIDTH => 16384;		# Maximum width of image before rejecting
+use constant MAX_IMAGE_HEIGHT => 16384;		# Maximum width of image before rejecting
+use constant MAX_IMAGE_PIXELS => 50000000;	# Maximum width of image before rejecting
 
 # Captcha
 use constant ENABLE_CAPTCHA => 1;

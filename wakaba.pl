@@ -17,7 +17,7 @@ use lib '.';
 BEGIN { require 'config.pl'; }
 BEGIN { require 'strings_e.pl'; }
 BEGIN { require 'futaba_style.pl'; }
-BEGIN { require 'filetypes_audio.pl'; }
+BEGIN { require 'filetypes_none.pl'; }
 
 my %filetypes=%filetypes::filetypes;
 
@@ -614,9 +614,9 @@ sub clean_string($$)
 	}
 
 	# repair unicode entities if we haven't converted them earlier
-#	$str=~s/&amp;(\#[0-9]+;)/&$1/ unless($has_unicode);
+#	$str=~s/&amp;(\#[0-9]+;)/&$1/g unless($has_unicode);
 	# repair unicode entities
-	$str=~s/&amp;(\#[0-9]+;)/&$1/;
+	$str=~s/&amp;(\#[0-9]+;)/&$1/g;
 
 	return $str;
 }
@@ -741,6 +741,9 @@ sub process_file($$)
 	($ext,$width,$height)=analyze_image($file);
 
 	make_error(S_BADFORMAT) if(!ALLOW_UNKNOWN and !$width and !$filetypes{$ext});
+	make_error(S_TOOBIG) if(MAX_IMAGE_WIDTH and $width>MAX_IMAGE_WIDTH);
+	make_error(S_TOOBIG) if(MAX_IMAGE_HEIGHT and $height>MAX_IMAGE_HEIGHT);
+	make_error(S_TOOBIG) if(MAX_IMAGE_PIXELS and $width*$height>MAX_IMAGE_PIXELS);
 
 	if($filetypes{$ext}) # externally defined filetype - keep the name
 	{
