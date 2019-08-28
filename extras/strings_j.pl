@@ -47,16 +47,16 @@ use constant S_FOOT => '<div class="footer">'.
                        ' + <a href="http://www.1chan.net/futallaby/">futallaby</a>'.
                        ' -</div>';					# Prints footer
 
-use constant S_RELOAD => 'リロード';
-use constant S_MANAGEMENT => '削除';
-use constant S_DELETION => '削除';
 use constant S_WEEKDAYS => ('日','月','火','水','木','金','土');
 
 use constant S_MANARET => '掲示板に戻る';
-use constant S_MANAUPD => 'ログを更新する';
 use constant S_MANAMODE => '管理モード';
+
+use constant S_ADMINPASS => 'Admin password:';							# Prints login prompt
+
 use constant S_MANAPANEL => '記事削除';
 use constant S_MANABANS => 'Bans';
+use constant S_MANASPAM => 'Spam';
 use constant S_MANAPOST => '管理人投稿';
 use constant S_MANAREBUILD => 'Rebuild caches';
 use constant S_MANANUKE => 'Nuke board';
@@ -89,6 +89,14 @@ use constant S_BANWHITELIST => 'Whitelist';
 use constant S_BANREMOVE => 'Remove';
 use constant S_BANCOMMENT => 'Comment';
 
+use constant S_SPAMTITLE => 'Spam Panel';
+use constant S_SPAMEXPL => 'This is the list of domain names Wakaba considers to be spam.<br />'.
+                           'You can find an up-to-date version <a href="http://wakaba.c3.cx/antispam/antispam.pl?action=view&format=wakaba">here</a>, '.
+                           'or you can get the <code>spam.txt</code> file directly <a href="http://wakaba.c3.cx/antispam/spam.txt">here</a>.';
+use constant S_SPAMSUBMIT => 'Save';
+use constant S_SPAMCLEAR => 'Clear';
+use constant S_SPAMRESET => 'Restore';
+
 use constant S_TOOBIG => 'アップロードに失敗しました<br />サイズが大きすぎます<br />'.MAX_KB.'Kバイトまで';
 use constant S_TOOBIGORNONE => 'アップロードに失敗しました<br />画像サイズが大きすぎるか、<br />または画像がありません。';
 use constant S_REPORTERR => '該当記事がみつかりません';
@@ -115,6 +123,7 @@ use constant S_NOTHREADERR => 'スレッドがありません';
 use constant S_BADDELPASS => '該当記事が見つからないかパスワードが間違っています';
 use constant S_WRONGPASS => 'パスワードが違います';
 use constant S_NOTWRITE => 'を書けません<br />';
+use constant S_SPAM => 'Spammers are not welcome here.';					# Returns error when detecting spam
 
 use constant S_SQLCONF => '接続失敗';
 use constant S_SQLFAIL => 'sql失敗<br />';

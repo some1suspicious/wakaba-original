@@ -34,6 +34,7 @@
 #use constant S_ANONAME => 'Anonymous';			# Defines what to print if there is no text entered in the name field
 #use constant S_ANOTEXT => '';					# Defines what to print if there is no text entered in the comment field
 #use constant S_ANOTITLE => '';					# Defines what to print if there is no text entered into subject field
+#use constant DEFAULT_STYLE => 'Futaba';		# Title of the default style for the board.
 
 # Limitations
 #use constant MAX_KB => 1000;					# Maximum upload size in KB
@@ -54,7 +55,12 @@
 #use constant ENABLE_CAPTCHA => 1;
 #use constant SQL_CAPTCHA_TABLE => 'captcha';	# Use a different captcha table for each board, if you have more than one!
 #use constant CAPTCHA_LIFETIME => 1440;			# Captcha lifetime in seconds
-#use constant CAPTCHA_SCRIPT => 'captcha.pl';	# Name of script
+#use constant CAPTCHA_SCRIPT => 'captcha.pl';
+#use constant CAPTCHA_HEIGHT => 18;
+#use constant CAPTCHA_SCRIBBLE => 0.2;
+#use constant CAPTCHA_SCALING => 0.15;
+#use constant CAPTCHA_ROTATION => 0.3;
+#use constant CAPTCHA_SPACING => 2.5;
 
 # Tweaks
 #use constant THUMBNAIL_SMALL => 1;				# Thumbnail small images (1: yes, 0: no)
@@ -74,7 +80,7 @@
 #use constant USE_SECURE_ADMIN => 0;			# Use HTTPS for the admin panel.
 #use constant CHARSET => 'utf-8';				# Character set to use, typically 'utf-8' or 'shift_jis'. Disable charset handling by setting to ''. Remember to set Apache to use the same character set for .html files! (AddCharset shift_jis html)
 #use constant TRIM_METHOD => 0;					# Which threads to trim (0: oldest - like futaba 1: least active - furthest back)
-#use constant DATE_STYLE => 0;					# Date style (0: futaba 1: localtime 2: compact)
+#use constant DATE_STYLE => 'futaba';				# Date style ('futaba', '2ch', 'localtime', 'tiny')
 #use constant DISPLAY_ID => 0;					# Display user IDs (0: never, 1: if no email, 2:always)
 #use constant EMAIL_ID => 'Heaven';				# ID string to use when DISPLAY_ID is 1 and the user uses an email.
 #use constant TRIPKEY => '!';					# this character is displayed before tripcodes
@@ -94,6 +100,7 @@
 #use constant ERRORLOG => '';					# Writes out all errors seen by user, mainly useful for debugging
 #use constant CONVERT_COMMAND => 'convert';		# location of the ImageMagick convert command (usually just 'convert', but sometime a full path is needed)
 ##use constant CONVERT_COMMAND => '/usr/X11R6/bin/convert';
+#use constant SPAM_FILE => 'spam.txt';
 
 # no encoding; # Uncomment this if you uncommented the "use encoding" at the top of the file
 

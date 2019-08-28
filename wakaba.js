@@ -62,8 +62,10 @@ function insert(text) /* hay WTSnacks what's goin on in this function? */
 
 
 
-function set_stylesheet(styletitle)
+function set_stylesheet(styletitle,norefresh)
 {
+	set_cookie("wakabastyle",styletitle,365);
+
 	var links=document.getElementsByTagName("link");
 	var found=false;
 	for(var i=0;i<links.length;i++)
@@ -78,17 +80,20 @@ function set_stylesheet(styletitle)
 	}
 	if(!found) set_preferred_stylesheet();
 
-	if(document.images)
+/*	if(!norefresh)
 	{
-		for(var i=0;i<document.images.length;i++)
+		var images=document.images; //getElementsByTagName("img");
+		for(var i=0;i<images.length;i++)
 		{
-			var classname=document.images[i].getAttribute('class');
+			var classname=images[i].getAttribute('class');
 			if(classname&&classname.indexOf('captcha')!=-1)
 			{
-				document.images[i].src=make_captcha_link("."+document.images[i].getAttribute('class'));
+				//var src=images[i].src+"";
+				images[i].src=images[i].src;
+				//images[i].src=src+"&c";
 			}
 		}
-	}
+	}*/
 }
 
 function set_preferred_stylesheet()
@@ -140,7 +145,7 @@ window.onunload=function(e)
 
 var cookie=get_cookie("wakabastyle");
 var title=cookie?cookie:get_preferred_stylesheet();
-set_stylesheet(title);
+set_stylesheet(title,true);
 
 
 

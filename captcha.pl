@@ -11,18 +11,11 @@ use lib '.';
 BEGIN { require "config.pl"; }
 BEGIN { require "config_defaults.pl"; }
 BEGIN { require "strings_e.pl"; }
+BEGIN { require "wakautils.pl"; }
 
 
 
-
-my $pic_height=18;
-my $scribble=0.2;
-my $scale_rand=0.15;
-my $rot_rand=0.3;
-my $spacing=2.5;
-my @background=(0xff,0xff,0xee);
-my @foreground=(0x80,0x00,0x00);
-
+return 1 if(caller);
 
 my $font_height=8;
 my %font=(
@@ -56,29 +49,27 @@ my %font=(
 );
 
 
-my ($query,$key);
+my $query=new CGI;
+my $key=($query->param("key") or 'default');
+my $selector=($query->param("selector") or ".captcha");
+my $style=($query->cookie("wakabastyle") or DEFAULT_STYLE);
 
-$query=new CGI;
-$key=($query->param("key") or 'default');
+my @foreground=find_stylesheet_color($style,$selector);
+my @background=(0xff,0xff,0xff);
 
-my ($dbh);
 
-$dbh=DBI->connect(SQL_DBI_SOURCE,SQL_USERNAME,SQL_PASSWORD,{AutoCommit=>1}) or die S_SQLCONF;
 
+our $dbh=DBI->connect(SQL_DBI_SOURCE,SQL_USERNAME,SQL_PASSWORD,{AutoCommit=>1}) or die S_SQLCONF;
 init_captcha_database() unless(table_exists(SQL_CAPTCHA_TABLE));
 
-
-
-my ($ip,$word,$timestamp);
-
-$ip=($ENV{REMOTE_ADDR} or '0.0.0.0');
-($word,$timestamp)=get_word($ip,$key);
+my $ip=($ENV{REMOTE_ADDR} or '0.0.0.0');
+my ($word,$timestamp)=get_captcha_word($ip,$key);
 
 if(!$word)
 {
 	$word=make_word();
 	$timestamp=time();
-	save_word($ip,$key,$word,$timestamp);
+	save_captcha_word($ip,$key,$word,$timestamp);
 }
 
 srand $timestamp;
@@ -129,14 +120,12 @@ sub make_word()
 	return cfg_expand("%W%",%grammar);
 }
 
-sub cfg_expand($%)
+sub get_captcha_key($)
 {
-	my ($str,%grammar)=@_;
-	$str=~s/%(\w+)%/
-		my @expansions=@{$grammar{$1}};
-		cfg_expand($expansions[rand @expansions],%grammar);
-	/ge;
-	return $str;
+	my ($parent)=@_;
+
+	return 'res'.$parent if($parent);
+	return 'mainpage';
 }
 
 
@@ -145,30 +134,49 @@ sub cfg_expand($%)
 # Finding and saving words
 #
 
-sub get_word($$)
+sub get_captcha_word($$)
 {
 	my ($ip,$key)=@_;
 	my ($sth,$row);
 
-	$sth=$dbh->prepare("SELECT word,timestamp FROM ".SQL_CAPTCHA_TABLE." WHERE ip=? AND pagekey=?;") or die S_SQLFAIL;
-	$sth->execute($ip,$key) or die S_SQLFAIL;
+	$sth=$dbh->prepare("SELECT word,timestamp FROM ".SQL_CAPTCHA_TABLE." WHERE ip=? AND pagekey=?;") or return undef;
+	$sth->execute($ip,$key) or return undef; # the captcha script creates the database, so it might not exist yet
 	return @{$row} if($row=$sth->fetchrow_arrayref());
 
 	return undef;
 }
 
-sub save_word($$$$)
+sub save_captcha_word($$$$)
 {
 	my ($ip,$key,$word,$time)=@_;
-	my ($sth);
 
-	$sth=$dbh->prepare("DELETE FROM ".SQL_CAPTCHA_TABLE." WHERE ip=? AND pagekey=?;") or die S_SQLFAIL;
-	$sth->execute($ip,$key) or die S_SQLFAIL;
+	delete_captcha_word($ip,$key);
 
-	$sth=$dbh->prepare("INSERT INTO ".SQL_CAPTCHA_TABLE." VALUES(?,?,?,?);") or die S_SQLFAIL;
+	my $sth=$dbh->prepare("INSERT INTO ".SQL_CAPTCHA_TABLE." VALUES(?,?,?,?);") or die S_SQLFAIL;
 	$sth->execute($ip,$key,$word,$time) or die S_SQLFAIL;
 
 	trim_captcha_database(); # only cleans up on create - good idea or not?
+}
+
+sub check_captcha($$$)
+{
+	my ($captcha,$ip,$parent)=@_;
+
+	my $key=get_captcha_key($parent);
+	my ($word)=get_captcha_word($ip,$key);
+
+	make_error(S_NOCAPTCHA) unless($word);
+	make_error(S_BADCAPTCHA) if($word ne lc($captcha));
+
+	delete_captcha_word($ip,$key); # should the captcha word be deleted on an UNSUCCESSFUL try, too, maybe?
+}
+
+sub delete_captcha_word($$)
+{
+	my ($ip,$key)=@_;
+
+	my $sth=$dbh->prepare("DELETE FROM ".SQL_CAPTCHA_TABLE." WHERE ip=? AND pagekey=?;") or return;
+	$sth->execute($ip,$key) or return;
 }
 
 
@@ -210,6 +218,51 @@ sub table_exists($)
 	return 0 unless($sth=$dbh->prepare("SELECT * FROM ".$table." LIMIT 1;"));
 	return 0 unless($sth->execute());
 	return 1;
+}
+
+
+
+#
+# Stylesheet functions
+#
+
+sub find_stylesheet_color($$)
+{
+	my ($style,$selector)=@_;
+
+	my ($sheet)=grep
+	{
+		my ($title)=m!([^/]+)\.css$!i;
+		$title=ucfirst $title;
+		$title=~s/_/ /g;
+		$title=~s/ ([a-z])/ \u$1/g;
+		$title=~s/([a-z])([A-Z])/$1 $2/g;
+		$title eq $style;
+	} glob(CSS_DIR."*.css");
+	return (128,0,0) unless($sheet);
+
+	my $contents;
+	open STYLESHEET,$sheet or return (128,0,0);
+	$contents.=$_ while(<STYLESHEET>);
+	close STYLESHEET;
+
+	if($contents=~/(?:}|^)\s+\Q$selector\E\s*{[^}]*color:\s*([^;}]+?)\s*(?:;|}|^)/s)
+	{
+		my $color=$1;
+		if($color=~/#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i)
+		{
+			return (hex($1),hex($2),hex($3));
+		}
+		elsif($color=~/#([0-9a-f])([0-9a-f])([0-9a-f])/i)
+		{
+			return (hex($1x2),hex($2x2),hex($3x2));
+		}
+		elsif($color=~/rgb\s*\(\s*([0-9]+)\s*,\s*([0-9]+)\s*,\s*([0-9]+)\s*\)/)
+		{
+			return ($1,$2,$3);
+		}
+	}
+	return (128,0,0);
 }
 
 
@@ -262,7 +315,7 @@ my ($scale,$rot,$dx,$dy);
 sub draw_string($)
 {
 	my @chars=split //,$_[0];
-	my $x_offs=int($pic_height/$font_height*2);
+	my $x_offs=int(CAPTCHA_HEIGHT/$font_height*2);
 
 	foreach my $char (@chars)
 	{
@@ -289,7 +342,7 @@ sub draw_string($)
 				$prev_y=$y;
 			}
 		}
-		$x_offs+=int(($char_w+$spacing)*$scale);
+		$x_offs+=int(($char_w+(CAPTCHA_SPACING))*$scale);
 	}
 }
 
@@ -299,8 +352,8 @@ sub setup_transform($)
 
 	$dx=$char_w/2;
 	$dy=$font_height/2;
-	$scale=$pic_height/$font_height*(1+$scale_rand*(1-rand(2)));
-	$rot=(rand(2)-1)*$rot_rand;
+	$scale=CAPTCHA_HEIGHT/$font_height*(1+(CAPTCHA_SCALING)*(1-rand(2)));
+	$rot=(rand(2)-1)*(CAPTCHA_ROTATION);
 }
 
 sub transform_coords($$)
@@ -308,8 +361,8 @@ sub transform_coords($$)
 	my ($x,$y)=@_;
 
 	return (
-		int($scale*(cos($rot)*($x-$dx)-sin($rot)*($y-$dy)+$dx+rand($scribble))),
-		int($scale*(sin($rot)*($x-$dx)+cos($rot)*($y-$dy)+$dy+rand($scribble)))
+		int($scale*(cos($rot)*($x-$dx)-sin($rot)*($y-$dy)+$dx+rand(CAPTCHA_SCRIBBLE))),
+		int($scale*(sin($rot)*($x-$dx)+cos($rot)*($y-$dy)+$dy+rand(CAPTCHA_SCRIBBLE)))
 	);
 }
 
@@ -381,8 +434,9 @@ sub start_128_gif($$@)
 	$pixels=0;
 	$block='';
 
-	print pack("A6 vv CCC","GIF87a",$width,$height,0xa6,0,0);
+	print pack("A6 vv CCC","GIF89a",$width,$height,0xa6,0,0);
 	print pack('CCC'x128,@palette);
+	print pack('CCC CvCC',0x21,0xf9,4,0x01,0,0,0);
 	print pack('CvvvvCC',0x2c,0,0,$width,$height,0x00,0x07);
 }
 

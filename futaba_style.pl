@@ -1,5 +1,9 @@
 use strict;
 
+BEGIN { require "wakautils.pl" }
+
+
+
 #
 # Externally called functions
 #
@@ -37,7 +41,7 @@ sub print_reply($@)
 	print $file '[<a href="'.expand_filename(HTML_SELF).'">'.S_RETURN.'</a>]';
 	print $file '<div class="theader">'.S_POSTING.'</div>';
 
-	print_posting_form($file,$thread[0]{num},"",$thread[$#thread]{num});
+	print_posting_form($file,$thread[0]{num},"",$thread[$#thread]{num},@thread);
 
 	print $file '<form name="delform" action="'.get_script_name().'" method="post">';
 
@@ -60,10 +64,11 @@ sub print_admin_login($)
 	print $file '<div align="center">';
 	print $file '<form action="'.get_script_name().'" method="get">';
 	print $file S_ADMINPASS;
-	print $file ' <input type="password" name="admin" size="8" maxlength="16" value="" /> ';
+	print $file ' <input type="password" name="admin" size="8" maxlength="32" value="" /> ';
 	print $file '<select name="action">';
 	print $file '<option value="mpanel">'.S_MANAPANEL.'</option>';
 	print $file '<option value="bans">'.S_MANABANS.'</option>';
+	print $file '<option value="spam">'.S_MANASPAM.'</option>';
 	print $file '<option value="mpost">'.S_MANAPOST.'</option>';
 	print $file '<option value="rebuild">'.S_MANAREBUILD.'</option>';
 	print $file '<option value=""></option>';
@@ -117,7 +122,7 @@ sub print_admin_post_panel($$@)
 		print $file '<td>'.make_date($$row{timestamp},2).'</td>';
 		print $file '<td>'.$subject.'</td>';
 		print $file '<td><b>'.$name;
-		print $file TRIPKEY.$$row{trip} if($$row{trip});
+		print $file $$row{trip} if($$row{trip});
 		print $file '</b></td>';
 		print $file '<td>'.$comment.'</td>';
 		print $file '<td>'.dec_to_dot($$row{ip});
@@ -260,6 +265,41 @@ sub print_admin_ban_panel($$@)
 	print_page_footer($file);
 }
 
+sub print_admin_spam_panel($$@)
+{
+	my ($file,$admin,@spam)=@_;
+
+	print_page_header($file);
+	print_admin_header($file,$admin);
+
+	print $file '<div align="center">';
+	print $file '<b>'.S_SPAMTITLE.'</b>';
+	print $file '<p>'.S_SPAMEXPL.'</p>';
+
+	print $file '<form action="'.get_script_name().'" method="post">';
+	print $file '<input type="hidden" name="action" value="updatespam" />';
+	print $file '<input type="hidden" name="admin" value="'.$admin.'" />';
+
+	print $file '<div class="buttons">';
+	print $file '<input type="submit" value="'.S_SPAMSUBMIT.'" />';
+	print $file ' <input type="button" value="'.S_SPAMCLEAR.'" onclick="document.forms[0].spam.value=\'\'" />';
+	print $file ' <input type="reset" value="'.S_SPAMRESET.'" />';
+	print $file '</div>';
+	print $file '<textarea name="spam" rows="'.scalar(@spam).'" cols="60">';
+	print $file join "\n",map { clean_string($_) } @spam;
+	print $file '</textarea>';
+	print $file '<div class="buttons">';
+	print $file '<input type="submit" value="'.S_SPAMSUBMIT.'" />';
+	print $file ' <input type="button" value="'.S_SPAMCLEAR.'" onclick="document.forms[0].spam.value=\'\'" />';
+	print $file ' <input type="reset" value="'.S_SPAMRESET.'" />';
+
+	print $file '</div>';
+	print $file '</form>';
+
+	print $file '</div>';
+	print_page_footer($file);
+}
+
 sub print_admin_post($$)
 {
 	my ($file,$admin)=@_;
@@ -284,6 +324,7 @@ sub print_admin_header($$)
 	{
 		print $file ' [<a href="'.get_script_name().'?action=mpanel&admin='.$admin.'">'.S_MANAPANEL.'</a>]';
 		print $file ' [<a href="'.get_script_name().'?action=bans&admin='.$admin.'">'.S_MANABANS.'</a>]';
+		print $file ' [<a href="'.get_script_name().'?action=spam&admin='.$admin.'">'.S_MANASPAM.'</a>]';
 		print $file ' [<a href="'.get_script_name().'?action=mpost&admin='.$admin.'">'.S_MANAPOST.'</a>]';
 		print $file ' [<a href="'.get_script_name().'?action=rebuild&admin='.$admin.'">'.S_MANAREBUILD.'</a>]';
 	}
@@ -316,13 +357,6 @@ sub print_page_header($)
 {
 	my ($file)=@_;
 
-#	print $file '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"';
-#	print $file ' "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">';
-#	print $file '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="jp">'; # lang="jp"? what the hell?
-#	print $file '<head><meta http-equiv="content-type"  content="text/html;charset=utf-8" />';
-#	print $file '<!-- meta HTTP-EQUIV="pragma" CONTENT="no-cache" -->';
-
-#	print $file '<?xml version="1.0" encoding="utf-8"?>';
 	print $file '<html><head>';
 
 	print $file '<title>'.TITLE.'</title>';
@@ -356,9 +390,9 @@ sub print_page_footer($)
 	print $file '</body></html>';
 }
 
-sub print_posting_form($$$$)
+sub print_posting_form($$$$@)
 {
-	my ($file,$parent,$admin,$dummy)=@_;
+	my ($file,$parent,$admin,$dummy,@thread)=@_;
 	my ($image_inp,$textonly_inp);
 
 	if($admin) { $image_inp=$textonly_inp=1; }
@@ -414,7 +448,7 @@ sub print_posting_form($$$$)
 	print $file '<tr><td colspan="2">';
 	print $file '<div align="left" class="rules">'.S_RULES.'</div></td></tr>';
 	print $file '</tbody></table></form></div><hr />';
-	print $file '<script>with(document.postform) {name.value=get_cookie("name"); email.value=get_cookie("email"); password.value=get_password("password"); }</script>';
+	print $file '<script type="text/javascript">with(document.postform) {if(!name.value) name.value=get_cookie("name"); if(!email.value) email.value=get_cookie("email"); if(!password.value) password.value=get_password("password"); }</script>';
 }
 
 sub print_thread($$@)
@@ -501,7 +535,8 @@ sub print_comment_header($$$$)
 	{
 		print $file '<span class="postertrip">';
 		print $file '<a href="mailto:'.$$res{email}.'">' if($$res{email});
-		print $file TRIPKEY.$$res{trip};
+		print $file TRIPKEY if($$res{trip} and eval { my $t=quotemeta TRIPKEY; $$res{trip}!~/^$t/ or $$res=~/^$t.{8}/ }); # ugly kludge to deal with old-style trips
+		print $file $$res{trip};
 		print $file '</a>' if($$res{email});
 		print $file '</span>';
 	}
@@ -516,7 +551,7 @@ sub print_comment($$$)
 	my ($file,$res,$abbreviate)=@_;
 	my $abbreviation;
 
-	if($abbreviate and $abbreviation=abbreviate_html($$res{comment}))
+	if($abbreviate and $abbreviation=abbreviate_html($$res{comment},MAX_LINES_SHOWN,APPROX_LINE_LENGTH))
 	{
 		print $file '<blockquote>';
 		print $file $abbreviation;

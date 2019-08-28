@@ -15,11 +15,10 @@ use DBI;
 use lib '.';
 BEGIN { require "config.pl"; }
 BEGIN { require "config_defaults.pl"; }
-BEGIN { require "strings_e.pl"; }
-BEGIN { require "wakaba_style.pl"; }
-BEGIN { require "filetypes_none.pl"; }
-
-my %filetypes=%filetypes::filetypes;
+BEGIN { require "strings_e.pl"; }		# edit this line to change the language
+BEGIN { require "futaba_style.pl"; }	# edit this line to change the board style
+BEGIN { require "captcha.pl"; }
+BEGIN { require "wakautils.pl"; }
 
 
 
@@ -45,19 +44,11 @@ if(CHARSET) # don't use Unicode at all if CHARSET is not set.
 #
 
 my ($c_password,$c_name,$c_email);
-my ($self_path);
 
-my ($query,$action);
+my $query=new CGI;
+my $action=$query->param("action");
 
-$query=new CGI;
-$action=$query->param("action");
-
-my ($dbh);
-
-$dbh=DBI->connect(SQL_DBI_SOURCE,SQL_USERNAME,SQL_PASSWORD,{AutoCommit=>1}) or make_error(S_SQLCONF);
-
-save_cookies();
-save_path();
+our $dbh=DBI->connect(SQL_DBI_SOURCE,SQL_USERNAME,SQL_PASSWORD,{AutoCommit=>1}) or make_error(S_SQLCONF);
 
 # check for admin table
 init_admin_database() if(!table_exists(SQL_ADMIN_TABLE));
@@ -74,30 +65,26 @@ elsif(!$action)
 }
 elsif($action eq "post")
 {
-	my ($parent,$name,$email,$subject,$comment,$file,$password,$nofile,$captcha,$admin,$fake_ip);
-
-	$parent=$query->param("parent");
-	$name=$query->param("name");
-	$email=$query->param("email");
-	$subject=$query->param("subject");
-	$comment=$query->param("comment");
-	$file=$query->param("file");
-	$password=$query->param("password");
-	$nofile=$query->param("nofile");
-	$captcha=$query->param("captcha");
-	$admin=$query->param("admin");
-	$fake_ip=$query->param("fake_ip");
+	my $parent=$query->param("parent");
+	my $name=$query->param("name");
+	my $email=$query->param("email");
+	my $subject=$query->param("subject");
+	my $comment=$query->param("comment");
+	my $file=$query->param("file");
+	my $password=$query->param("password");
+	my $nofile=$query->param("nofile");
+	my $captcha=$query->param("captcha");
+	my $admin=$query->param("admin");
+	my $fake_ip=$query->param("fake_ip");
 
 	post_stuff($parent,$name,$email,$subject,$comment,$file,$password,$nofile,$captcha,$admin,$fake_ip);
 }
 elsif($action eq "delete")
 {
-	my ($password,$fileonly,$admin,@posts);
-
-	$password=$query->param("password");
-	$fileonly=$query->param("fileonly");
-	$admin=$query->param("admin");
-	@posts=$query->param("delete");
+	my $password=$query->param("password");
+	my $fileonly=$query->param("fileonly");
+	my $admin=$query->param("admin");
+	my @posts=$query->param("delete");
 
 	delete_stuff($password,$fileonly,$admin,@posts);
 }
@@ -107,66 +94,69 @@ elsif($action eq "admin")
 }
 elsif($action eq "mpanel")
 {
-	my ($admin);
-	$admin=$query->param("admin");
+	my $admin=$query->param("admin");
 	make_admin_post_panel($admin);
 }
 elsif($action eq "deleteall")
 {
-	my ($admin,$ip,$mask);
-	$admin=$query->param("admin");
-	$ip=$query->param("ip");
-	$mask=$query->param("mask");
+	my $admin=$query->param("admin");
+	my $ip=$query->param("ip");
+	my $mask=$query->param("mask");
 	delete_all($admin,parse_range($ip,$mask));
 }
 elsif($action eq "bans")
 {
-	my ($admin);
-	$admin=$query->param("admin");
+	my $admin=$query->param("admin");
 	make_admin_ban_panel($admin);
 }
 elsif($action eq "addip")
 {
-	my ($admin,$type,$comment,$ip,$mask);
-	$admin=$query->param("admin");
-	$type=$query->param("type");
-	$comment=$query->param("comment");
-	$ip=$query->param("ip");
-	$mask=$query->param("mask");
+	my $admin=$query->param("admin");
+	my $type=$query->param("type");
+	my $comment=$query->param("comment");
+	my $ip=$query->param("ip");
+	my $mask=$query->param("mask");
 	add_admin_entry($admin,$type,$comment,parse_range($ip,$mask),'');
 }
 elsif($action eq "addstring")
 {
-	my ($admin,$type,$string,$comment);
-	$admin=$query->param("admin");
-	$type=$query->param("type");
-	$string=$query->param("string");
-	$comment=$query->param("comment");
+	my $admin=$query->param("admin");
+	my $type=$query->param("type");
+	my $string=$query->param("string");
+	my $comment=$query->param("comment");
 	add_admin_entry($admin,$type,$comment,0,0,$string);
 }
 elsif($action eq "removeban")
 {
-	my ($admin,$num);
-	$admin=$query->param("admin");
-	$num=$query->param("num");
+	my $admin=$query->param("admin");
+	my $num=$query->param("num");
 	remove_admin_entry($admin,$num);
 }
-elsif($action eq "mpost")
+elsif($action eq "spam")
 {
 	my ($admin);
 	$admin=$query->param("admin");
+	make_admin_spam_panel($admin);
+}
+elsif($action eq "updatespam")
+{
+	my $admin=$query->param("admin");
+	my $spam=$query->param("spam");
+	update_spam_file($admin,$spam);
+}
+elsif($action eq "mpost")
+{
+	my $admin=$query->param("admin");
 	make_admin_post($admin);
 }
 elsif($action eq "rebuild")
 {
-	my ($admin);
-	$admin=$query->param("admin");
+	my $admin=$query->param("admin");
 	do_rebuild_cache($admin);
 }
 elsif($action eq "nuke")
 {
-	my ($admin);
-	$admin=$query->param("admin");
+	my $admin=$query->param("admin");
 	do_nuke_database($admin);
 }
 
@@ -383,6 +373,11 @@ sub post_stuff($$$$$$$$$$$$)
 	# check for bans
 	ban_check($numip,$name,$subject,$comment) unless($whitelisted);
 
+	# spam check
+	make_error(S_SPAM) if(spam_check($comment,SPAM_FILE));
+	make_error(S_SPAM) if(spam_check($subject,SPAM_FILE));
+	make_error(S_SPAM) if(spam_check($name,SPAM_FILE));
+
 	# proxy check
 	proxy_check($ip) unless($whitelisted);
 
@@ -403,20 +398,20 @@ sub post_stuff($$$$$$$$$$$$)
 	$c_password=$password;
 
 	# process the tripcode
-	($name,$trip)=process_tripcode($name);
+	($name,$trip)=process_tripcode($name,TRIPKEY,SECRET);
 
 	# clean up the inputs
-	$name=clean_string($name,$admin);
-	$email=clean_string($email,$admin);
-	$subject=clean_string($subject,$admin);
-	$comment=clean_string($comment,$admin);
+	$name=clean_wakaba_string($name,$admin);
+	$email=clean_wakaba_string($email,$admin);
+	$subject=clean_wakaba_string($subject,$admin);
+	$comment=clean_wakaba_string($comment,$admin);
 
 	# format comment
 	$comment=format_comment($comment,$admin);
 
 	# insert default values for empty fields
 	$parent=0 unless($parent);
-	$name=S_ANONAME unless($name||$trip);
+	$name=S_ANONAME unless($name or $trip);
 	$subject=S_ANOTITLE unless($subject);
 	$comment=S_ANOTEXT unless($comment);
 
@@ -571,40 +566,7 @@ sub proxy_check($)
 	}
 }
 
-sub process_tripcode($)
-{
-	my ($name,$hash)=@_;
-
-	if($name=~/^([^\#!]*)[\#!](.*)$/)
-	{
-		my ($namepart,$trippart)=($1,$2);
-		my ($normtrip,$sectrip,$trip);
-
-		if($trippart=~/^([^\#!]*)[\#!]+(.*)$/) { $normtrip=$1; $sectrip=$2; }
-		else { $normtrip=$trippart; }
-
-		if($normtrip)
-		{
-			my $salt;
-			($salt)=($normtrip."H.")=~/^.(..)/;
-			$salt=~s/[^\.-z]/./g;
-			$salt=~tr/:;<=>?@[\\]^_`/ABCDEFGabcdef/; 
-			$trip.=substr crypt($normtrip,$salt),-10;
-		}
-
-		if($sectrip and $has_md5)
-		{
-			$trip.=TRIPKEY if($normtrip);
-			$trip.=TRIPKEY.substr md5_base64(SECRET.$sectrip),0,8;
-		}
-
-		return ($namepart,$trip);
-	}
-
-	return ($name,"");
-}
-
-sub clean_string($$)
+sub clean_wakaba_string($$)
 {
 	my ($str,$admin)=@_;
 
@@ -658,15 +620,12 @@ sub format_comment($$)
 			else { "&gt;&gt;$1"; }
 		!ge;
 
-		# colour quoted sections if working in old-style mode.
-		$line=~s!^(&gt;.*)$!\<span class="unkfunc"\>$1\</span\>!g unless(ENABLE_WAKABAMARK);
-
 		return $line;
 	};
 
 	my @lines=split /\n/,$comment;
-	if(ENABLE_WAKABAMARK) { $comment=do_blocks($handler,0,@lines) }
-	else { $comment="<p>".do_spans($handler,@lines)."</p>" }
+	if(ENABLE_WAKABAMARK) { $comment=do_wakabamark($handler,0,@lines) }
+	else { $comment="<p>".simple_format($handler,@lines)."</p>" }
 
 	# restore >>1 references hidden in code blocks
 	$comment=~s/&gtgt;/&gt;&gt;/g;
@@ -674,83 +633,20 @@ sub format_comment($$)
 	return $comment;
 }
 
-sub do_blocks($@)
-{
-	my ($handler,$simplify,@lines)=@_;
-	my $res;
-
-	while(defined($_=$lines[0]))
-	{
-		if(/^\s*$/) { shift @lines; } # skip empty lines
-		elsif(/^(1\.|[\*\+\-]) .*/) # lists
-		{
-			my ($tag,$re,$html);
-
-			if($1 eq "1.") { $tag="ol"; $re=qr/[0-9]+\./; }
-			else { $tag="ul"; $re=qr/\Q$1\E/; }
-
-			while($lines[0]=~/^($re)(?: |\t)(.*)/)
-			{
-				my $spaces=(length $1)+1;
-				my @item=($2);
-				shift @lines;
-
-				while($lines[0]=~/^(?: {1,$spaces}|\t)(.*)/) { push @item,$1; shift @lines }
-				$html.="<li>".do_blocks($handler,1,@item)."</li>";
-			}
-			$res.="<$tag>$html</$tag>";
-		}
-		elsif(/^(?:    |\t).*/) # code sections
-		{
-			my @code;
-			while($lines[0]=~/^(?:    |\t)(.*)/) { push @code,$1; shift @lines; }
-			$res.="<pre><code>".(join "<br />",@code)."</code></pre>";
-		}
-		elsif(/^&gt;.*/) # quoted sections
-		{
-			my @quote;
-			while($lines[0]=~/^(&gt;.*)/) { push @quote,$1; shift @lines; }
-			$res.="<blockquote>".do_spans($handler,@quote)."</blockquote>";
-
-			#while($lines[0]=~/^&gt;(.*)/) { push @quote,$1; shift @lines; }
-			#$res.="<blockquote>".do_blocks($handler,@quote)."</blockquote>";
-		}
-		else # normal paragraph
-		{
-			my @text;
-			while($lines[0]!~/^(?:\s*$|1\. |[\*\+\-] |&gt;|    |\t)/) { push @text,shift @lines; }
-			if(!defined($lines[0]) and $simplify) { $res.=do_spans($handler,@text) }
-			else { $res.="<p>".do_spans($handler,@text)."</p>" }
-		}
-		$simplify=0;
-	}
-	return $res;
-}
-
-sub do_spans($@)
+sub simple_format($@)
 {
 	my $handler=shift;
 	return join "<br />",map
 	{
 		my $line=$_;
-		my @codespans;
-
-		# hide <code> sections
-		$line=~s{(`+)([^<>]+?)\1}{push @codespans,$2; "<code></code>"}ge if(ENABLE_WAKABAMARK);
 
 		# make URLs into links
 		$line=~s{(https?://[^\s<>"]*?)((?:\s|<|>|"|\.|\)|\]|!|\?|,|&#44;|&quot;)*(?:[\s<>"]|$))}{\<a href="$1"\>$1\</a\>$2}sgi;
 
-		# do <strong>
-		$line=~s{([^0-9a-zA-Z\*_]|^)(\*\*|__)([^<>\s\*_](?:[^<>]*?[^<>\s\*_])?)\2([^0-9a-zA-Z\*_]|$)}{$1<strong>$3</strong>$4}g if(ENABLE_WAKABAMARK);
-
-		# do <em>
-		$line=~s{([^0-9a-zA-Z\*_]|^)(\*|_)([^<>\s\*_](?:[^<>]*?[^<>\s\*_])?)\2([^0-9a-zA-Z\*_]|$)}{$1<em>$3</em>$4}g if(ENABLE_WAKABAMARK);
+		# colour quoted sections if working in old-style mode.
+		$line=~s!^(&gt;.*)$!\<span class="unkfunc"\>$1\</span\>!g unless(ENABLE_WAKABAMARK);
 
 		$line=$handler->($line) if($handler);
-
-		# fix up <code> sections
-		$line=~s{<code></code>}{"<code>".(shift @codespans)."</code>"}ge if(ENABLE_WAKABAMARK);
 
 		$line;
 	} @_;
@@ -762,17 +658,11 @@ sub make_id_code($$$)
 
 	return EMAIL_ID if($email and DISPLAY_ID==1);
 
-	my @gmt=gmtime $time+9*60*60; # weird time offset copied from futaba
-	my $date=sprintf '%04d%02d%02d',$gmt[5]+1900,$gmt[4]+1,$gmt[3];
+	my $day=int(($time+9*60*60)/86400); # weird time offset copied from futaba
 
-	if($has_md5)
-	{
-		return substr(crypt(md5_hex($ip.'id'.$date),'id'),-8);
-	}
-	else
-	{
-		return substr(crypt($ip.'id'.$date,'id'),-8);
-	}
+	return substr(md5_base64(SECRET.$ip.$day),-8) if($has_md5);
+
+	return ""; # no ID codes without MD5
 }
 
 sub get_post($)
@@ -808,49 +698,6 @@ sub sage_count($)
 	return ($sth->fetchrow_array())[0];
 }
 
-sub check_captcha($$$)
-{
-	my ($captcha,$ip,$parent)=@_;
-	my ($key,$word);
-
-	$key=get_captcha_key($parent);
-	$word=get_captcha_word($ip,$key);
-
-	make_error(S_NOCAPTCHA) unless($word);
-	make_error(S_BADCAPTCHA) if($word ne lc($captcha));
-
-	delete_captcha_word($ip,$key); # should the captcha word be deleted on an UNSUCCESSFUL try, too, maybe?
-}
-
-sub get_captcha_key($)
-{
-	my ($parent)=@_;
-
-	return 'res'.$parent if($parent);
-	return 'mainpage';
-}
-
-sub get_captcha_word($$)
-{
-	my ($ip,$key)=@_;
-	my ($sth,$row);
-
-	$sth=$dbh->prepare("SELECT word FROM ".SQL_CAPTCHA_TABLE." WHERE ip=? AND pagekey=?;") or return undef;
-	$sth->execute($ip,$key) or return undef; # the captcha script creates the database, so it might not exist yet
-	return $$row[0] if($row=$sth->fetchrow_arrayref());
-
-	return undef;
-}
-
-sub delete_captcha_word($$)
-{
-	my ($ip,$key)=@_;
-	my ($sth,$row);
-
-	$sth=$dbh->prepare("DELETE FROM ".SQL_CAPTCHA_TABLE." WHERE ip=? AND pagekey=?;") or return;
-	$sth->execute($ip,$key) or return;
-}
-
 sub get_file_size($)
 {
 	my ($file)=@_;
@@ -870,6 +717,7 @@ sub process_file($$)
 	my ($file,$time)=@_;
 	my ($filename,$md5,$width,$height,$thumbnail,$tn_width,$tn_height);
 	my ($sth,$ext,$filebase,$buffer,$md5ctx);
+	my %filetypes=FILETYPES;
 
 	# make sure to read file in binary mode on platforms that care about such things
 	binmode $file;
@@ -969,7 +817,7 @@ sub process_file($$)
 
 		if(THUMBNAIL_SMALL and !STUPID_THUMBNAILING)
 		{
-			if(make_thumbnail($filename,$thumbnail,$tn_width,$tn_height))
+			if(make_thumbnail($filename,$thumbnail,$tn_width,$tn_height,THUMBNAIL_QUALITY))
 			{
 				if(-s $thumbnail >= -s $filename) # is the thumbnail larger than the original image?
 				{
@@ -995,7 +843,7 @@ sub process_file($$)
 		if(STUPID_THUMBNAILING) { $thumbnail=$filename }
 		else
 		{
-			$thumbnail=undef unless(make_thumbnail($filename,$thumbnail,$tn_width,$tn_height));
+			$thumbnail=undef unless(make_thumbnail($filename,$thumbnail,$tn_width,$tn_height,THUMBNAIL_QUALITY));
 		}
 	}
 
@@ -1138,6 +986,16 @@ sub make_admin_ban_panel($)
 	print_admin_ban_panel(\*STDOUT,$admin,@bans);
 }
 
+sub make_admin_spam_panel($)
+{
+	my ($admin)=@_;
+
+	make_error(S_WRONGPASS) if($admin ne ADMIN_PASS); # check admin password
+
+	make_http_header();
+	print_admin_spam_panel(\*STDOUT,$admin,read_array(SPAM_FILE));
+}
+
 sub make_admin_post($)
 {
 	my ($admin)=@_;
@@ -1163,7 +1021,6 @@ sub do_rebuild_cache($)
 	make_http_forward(HTML_SELF);
 }
 
-
 sub add_admin_entry($$$$$$)
 {
 	my ($admin,$type,$comment,$ival1,$ival2,$sval1)=@_;
@@ -1171,7 +1028,7 @@ sub add_admin_entry($$$$$$)
 
 	make_error(S_WRONGPASS) if($admin ne ADMIN_PASS); # check admin password
 
-	$comment=clean_string($comment,'');
+	$comment=clean_string($comment);
 
 	$sth=$dbh->prepare("INSERT INTO ".SQL_ADMIN_TABLE." VALUES(null,?,?,?,?,?);") or make_error(S_SQLFAIL);
 	$sth->execute($type,$comment,$ival1,$ival2,$sval1) or make_error(S_SQLFAIL);
@@ -1204,6 +1061,18 @@ sub delete_all($$$)
 	while($row=$sth->fetchrow_hashref()) { push(@posts,$$row{num}); }
 
 	delete_stuff('',0,$admin,@posts);
+}
+
+sub update_spam_file($$)
+{
+	my ($admin,$spam)=@_;
+
+	make_error(S_WRONGPASS) if($admin ne ADMIN_PASS); # check admin password
+
+	my @spam=split /\r?\n/,$spam;
+	make_error(S_NOTWRITE) unless(write_array(SPAM_FILE,@spam));
+
+	make_http_forward(get_script_name()."?admin=$admin&action=spam");
 }
 
 sub do_nuke_database($)
@@ -1241,29 +1110,6 @@ sub make_http_header()
 	binmode STDOUT,':encoding('.CHARSET.')'  if($has_unicode);
 }
 
-sub make_http_forward($)
-{
-	my ($location)=@_;
-
-	if(ALTERNATE_REDIRECT)
-	{
-		print "Content-Type: text/html\n";
-		print "\n";
-		print "<html><head>";
-		print '<meta http-equiv="refresh" content="0; url='.$location.'" />';
-		print '<script type="text/javascript">document.location="'.$location.'";</script>';
-		print '</head><body><a href="'.$location.'">'.$location.'</a></body></html>';
-	}
-	else
-	{
-		print "Status: 301 Go West\n";
-		print "Location: $location\n";
-		print "Content-Type: text/html\n";
-		print "\n";
-		print '<html><body><a href="'.$location.'">'.$location.'</a></body></html>';
-	}
-}
-
 sub make_error($)
 {
 	my ($error)=@_;
@@ -1296,59 +1142,9 @@ sub make_error($)
 	exit;
 }
 
-sub make_cookies(%)
-{
-	my (%cookies)=@_;
-	my ($cookie);
-
-	foreach my $name (keys %cookies)
-	{
-		my $value=defined($cookies{$name})?$cookies{$name}:'';
-		my $cookie;
-
-		if($has_unicode)
-		{
-			$value=decode(CHARSET,$value);
-			$value=join '',map { my $c=ord($_); sprintf($c>255?'%%u%04x':'%%%02x',$c); } split //,$value;
-
-			$cookie=$query->cookie(-name=>$name,
-			                          -value=>$value,
-			                          -expires=>'+14d');
-
-			$cookie=~s/%25/%/g; # repair encoding damage
-		}
-		else
-		{
-			$cookie=$query->cookie(-name=>$name,
-			                       -value=>$value,
-			                       -expires=>'+14d');
-		}
-
-		print "Set-Cookie: $cookie\n";
-	}
-}
-
-sub save_cookies()
-{
-	$c_name=$query->cookie("name");
-	$c_email=$query->cookie("email");
-	$c_password=$query->cookie("password");
-
-	$c_name="" unless($c_name);
-	$c_email="" unless($c_email);
-	$c_password=substr(crypt(substr(rand(),2),"pw"),-8) unless($c_password);
-}
-
-sub save_path()
-{
-	($self_path)=$ENV{SCRIPT_NAME}=~m!^(.*/)[^/]+$!;
-}
-
 sub get_script_name()
 {
-	my $name=$ENV{SCRIPT_NAME};
-	$name=~s/\?(.*)//; # Cut off query string, for buggy servers. Hello IIS!
-	return $name;
+	return $ENV{SCRIPT_NAME};
 }
 
 sub get_secure_script_name()
@@ -1412,72 +1208,9 @@ sub expand_filename($)
 	my ($filename)=@_;
 	return $filename if($filename=~m!^/!);
 	return $filename if($filename=~m!^\w+:!);
+
+	my ($self_path)=$ENV{SCRIPT_NAME}=~m!^(.*/)[^/]+$!;
 	return $self_path.$filename;
-}
-
-sub abbreviate_html($)
-{
-	my ($html)=@_;
-	my ($lines,$chars,@stack);
-
-	return undef unless(MAX_LINES_SHOWN);
-
-	while($html=~m!(?:([^<]+)|<(/?)(\w+).*?(/?)>)!g)
-	{
-		my ($text,$closing,$tag,$implicit)=($1,$2,lc($3),$4);
-
-		if($text) { $chars+=length $text; }
-		else
-		{
-			push @stack,$tag if(!$closing and !$implicit);
-			pop @stack if($closing);
-
-			if(($closing or $implicit) and ($tag eq "p" or $tag eq "blockquote" or $tag eq "pre"
-			or $tag eq "li" or $tag eq "ol" or $tag eq "ul" or $tag eq "br"))
-			{
-				$lines+=int($chars/APPROX_LINE_LENGTH)+1;
-				$lines++ if($tag eq "p" or $tag eq "blockquote");
-				$chars=0;
-			}
-
-			if($lines>=MAX_LINES_SHOWN)
-			{
- 				# check if there's anything left other than end-tags
- 				return undef if((substr $html,pos $html)=~m!^(?:\s*</\w+>)*$!);
-
-				my $abbrev=substr $html,0,pos $html;
-				while(my $tag=pop @stack) { $abbrev.="</$tag>" }
-
-				return $abbrev;
-			}
-		}
-	}
-
-	return undef;
-}
-
-sub make_date($)
-{
-	my ($time,$style)=@_;
-
-	if($style==0)
-	{
-		my @ltime=localtime($time);
-
-		return sprintf("%02d/%02d/%02d(%s)%02d:%02d",
-		$ltime[5]-100,$ltime[4]+1,$ltime[3],(S_WEEKDAYS)[$ltime[6]],$ltime[2],$ltime[1]);
-	}
-	elsif($style==1)
-	{
-		return scalar(localtime($time));
-	}
-	elsif($style==2)
-	{
-		my @ltime=localtime($time);
-
-		return sprintf("%02d/%02d %02d:%02d",
-		$ltime[4]+1,$ltime[3],$ltime[2],$ltime[1]);
-	}
 }
 
 sub dot_to_dec($)
@@ -1707,154 +1440,4 @@ sub get_decoded_hashref($)
 	}
 
 	return $row;
-}
-
-
-
-#
-# Image utils
-#
-
-sub analyze_image($)
-{
-	my ($file)=@_;
-	my (@res);
-
-	return ("jpg",@res) if(@res=analyze_jpeg($file));
-	return ("png",@res) if(@res=analyze_png($file));
-	return ("gif",@res) if(@res=analyze_gif($file));
-
-	# find file extension for unknown files
-	my ($ext)=$file=~/\.([^\.]+)$/;
-	return (lc($ext),0,0);
-}
-
-sub analyze_jpeg($)
-{
-	my ($file)=@_;
-	my ($buffer);
-
-	read($file,$buffer,2);
-
-	if($buffer eq "\xff\xd8")
-	{
-		OUTER:
-		for(;;)
-		{
-			for(;;)
-			{
-				last OUTER unless(read($file,$buffer,1));
-				last if($buffer eq "\xff");
-			}
-
-			last unless(read($file,$buffer,3)==3);
-			my ($mark,$size)=unpack("Cn",$buffer);
-			last if($mark==0xda or $mark==0xd9);  # SOS/EOI
-#			last if($size<2);
-			make_error(S_VIRUS) if($size<2); # MS GDI+ JPEG exploit uses short chunks
-
-			if($mark>=0xc0 and $mark<=0xc2) # SOF0..SOF2 - what the hell are the rest? 
-			{
-				last unless(read($file,$buffer,5)==5);
-				my ($bits,$height,$width)=unpack("Cnn",$buffer);
-				seek($file,0,0);
-
-				return($width,$height);
-			}
-
-			seek($file,$size-2,1);
-		}
-	}
-
-	seek($file,0,0);
-
-	return ();
-}
-
-sub analyze_png($)
-{
-	my ($file)=@_;
-	my ($bytes,$buffer);
-
-	$bytes=read($file,$buffer,24);
-	seek($file,0,0);
-	return () unless($bytes==24);
-
-	my ($magic1,$magic2,$length,$ihdr,$width,$height)=unpack("NNNNNN",$buffer);
-
-	return () unless($magic1==0x89504e47 and $magic2==0x0d0a1a0a and $ihdr==0x49484452);
-
-	return ($width,$height);
-}
-
-sub analyze_gif($)
-{
-	my ($file)=@_;
-	my ($bytes,$buffer);
-
-	$bytes=read($file,$buffer,10);
-	seek($file,0,0);
-	return () unless($bytes==10);
-
-	my ($magic,$width,$height)=unpack("A6 vv",$buffer);
-
-	return () unless($magic eq "GIF87a" or $magic eq "GIF89a");
-
-	return ($width,$height);
-}
-
-sub make_thumbnail($$$$)
-{
-	my ($filename,$thumbnail,$width,$height)=@_;
-
-	# first try ImageMagick
-
-	my $magickname=$filename;
-	$magickname.="[0]" if($magickname=~/\.gif$/);
-
-	my $convert=CONVERT_COMMAND;
-	my $quality=THUMBNAIL_QUALITY;
-	`$convert -size ${width}x$height -geometry ${width}x${height}! -quality $quality $magickname $thumbnail`;
-
-	return 1 unless($?);
-
-	# if that fails, try pnmtools instead
-
-	if($filename=~/\.jpg$/)
-	{
-		`djpeg $filename | pnmscale -width $width -height $height | cjpeg -quality $quality > $thumbnail`;
-		# could use -scale 1/n
-		return 1 unless($?);
-	}
-	elsif($filename=~/\.png$/)
-	{
-		`pngtopnm $filename | pnmscale -width $width -height $height | cjpeg -quality $quality > $thumbnail`;
-		return 1 unless($?);
-	}
-	elsif($filename=~/\.gif$/)
-	{
-		`giftopnm $filename | pnmscale -width $width -height $height | cjpeg -quality $quality > $thumbnail`;
-		return 1 unless($?);
-	}
-
-	# try PerlMagick last, because it sucks ass.
-
-	eval 'use Image::Magick';
-	unless($@)
-	{
-		my ($res,$magick);
-
-		$magick=Image::Magick->new;
-
-		$res=$magick->Read($magickname);
-		return 0 if "$res";
-		$res=$magick->Scale(width=>$width, height=>$height);
-		#return 0 if "$res";
-		$res=$magick->Write(filename=>$thumbnail, quality=>70);
-		#return 0 if "$res";
-
-		return 1;
-	}
-
-	return 0;
 }

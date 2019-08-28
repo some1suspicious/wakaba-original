@@ -1,5 +1,7 @@
 use strict;
 
+BEGIN { require "wakautils.pl" }
+
 
 
 #
@@ -59,10 +61,11 @@ sub print_admin_login($)
 
 	print $file '<form action="'.get_script_name().'" method="get">';
 	print $file S_ADMINPASS;
-	print $file ' <input type="password" name="admin" size="8" maxlength="16" value="" />';
+	print $file ' <input type="password" name="admin" size="8" maxlength="32" value="" />';
 	print $file '&nbsp;<select name="action">';
 	print $file '<option value="mpanel">'.S_MANAPANEL.'</option>';
 	print $file '<option value="bans">'.S_MANABANS.'</option>';
+	print $file '<option value="spam">'.S_MANASPAM.'</option>';
 	print $file '<option value="mpost">'.S_MANAPOST.'</option>';
 	print $file '<option value="rebuild">'.S_MANAREBUILD.'</option>';
 	print $file '<option value=""></option>';
@@ -128,7 +131,7 @@ sub print_admin_post_panel($$@)
 		print $file '<td>'.make_date($$row{timestamp},2).'</td>';
 		print $file '<td>'.$subject.'</td>';
 		print $file '<td><b>'.$name;
-		print $file TRIPKEY.$$row{trip} if($$row{trip});
+		print $file $$row{trip} if($$row{trip});
 		print $file '</b></td>';
 		print $file '<td>'.$comment.'</td>';
 		print $file '<td>'.dec_to_dot($$row{ip});
@@ -250,6 +253,41 @@ sub print_admin_ban_panel($$@)
 	print_page_footer($file);
 }
 
+sub print_admin_spam_panel($$@)
+{
+	my ($file,$admin,@spam)=@_;
+
+	print_page_header($file);
+	print $file '<div id="spam">';
+	print_admin_header($file,$admin);
+
+	print $file '<h3>'.S_SPAMTITLE.'</h3>';
+	print $file '<p>'.S_SPAMEXPL.'</p>';
+
+	print $file '<form action="'.get_script_name().'" method="post">';
+	print $file '<input type="hidden" name="action" value="updatespam" />';
+	print $file '<input type="hidden" name="admin" value="'.$admin.'" />';
+
+	print $file '<div class="buttons">';
+	print $file '<input type="submit" value="'.S_SPAMSUBMIT.'" />';
+	print $file ' <input type="button" value="'.S_SPAMCLEAR.'" onclick="document.forms[0].spam.value=\'\'" />';
+	print $file ' <input type="reset" value="'.S_SPAMRESET.'" />';
+	print $file '</div>';
+	print $file '<textarea name="spam" rows="'.scalar(@spam).'" cols="60">';
+	print $file join "\n",map { clean_string($_) } @spam;
+	print $file '</textarea>';
+	print $file '<div class="buttons">';
+	print $file '<input type="submit" value="'.S_SPAMSUBMIT.'" />';
+	print $file ' <input type="button" value="'.S_SPAMCLEAR.'" onclick="document.forms[0].spam.value=\'\'" />';
+	print $file ' <input type="reset" value="'.S_SPAMRESET.'" />';
+
+	print $file '</div>';
+	print $file '</form>';
+
+	print $file '</div>';
+	print_page_footer($file);
+}
+
 sub print_admin_post($$)
 {
 	my ($file,$admin)=@_;
@@ -276,6 +314,7 @@ sub print_admin_header($$)
 	{
 		print $file ' [<a href="'.get_script_name().'?action=mpanel&admin='.$admin.'">'.S_MANAPANEL.'</a>]';
 		print $file ' [<a href="'.get_script_name().'?action=bans&admin='.$admin.'">'.S_MANABANS.'</a>]';
+		print $file ' [<a href="'.get_script_name().'?action=spam&admin='.$admin.'">'.S_MANASPAM.'</a>]';
 		print $file ' [<a href="'.get_script_name().'?action=mpost&admin='.$admin.'">'.S_MANAPOST.'</a>]';
 		print $file ' [<a href="'.get_script_name().'?action=rebuild&admin='.$admin.'">'.S_MANAREBUILD.'</a>]';
 	}
@@ -292,7 +331,7 @@ sub print_error($$)
 
 	print $file '<div id="error">';
 	print $file '<h2>'.$error.'</h2>';
-	print $file '<a href="'.$ENV{HTTP_REFERER}.'">'.S_RETURN.'</a>';
+	print $file '<h3><a href="'.$ENV{HTTP_REFERER}.'">'.S_RETURN.'</a></h3>';
 	print $file '</div>';
 
 	print $file '</body></html>';
@@ -323,9 +362,6 @@ sub print_page_header($)
 		print $file 'stylesheet" type="text/css" href="'.expand_filename($$style{filename}).'" title="'.$$style{title}.'" />';
 	}
 
-	print $file '<link rel="stylesheet" type="text/css" href="'.expand_filename("css/futaba.css").'" title="Futaba" />';
-	print $file '<link rel="alternate stylesheet" type="text/css" href="'.expand_filename("css/wakaba.css").'" title="Wakaba" />';
-	print $file '<link rel="alternate stylesheet" type="text/css" href="'.expand_filename("css/none.css").'" title="None" />';
 	print $file '<link rel="shortcut icon" href="'.expand_filename(FAVICON).'" />' if(FAVICON);
 	print $file '<script type="text/javascript" src="'.expand_filename(JS_FILE).'"></script>';
 	print $file '</head><body>';
@@ -408,7 +444,7 @@ sub print_posting_form($$$$)
 		my $key=get_captcha_key($parent);
 
 		print $file '<tr><td class="label">'.S_CAPTCHA.'</td><td class="input"><input type="text" name="captcha" size="10" />';
-		print $file ' <img src="'.expand_filename(CAPTCHA_SCRIPT).'?key='.$key.'&dummy='.$dummy.'" />';
+		print $file ' <img class="captcha" src="'.expand_filename(CAPTCHA_SCRIPT).'?key='.$key.'&dummy='.$dummy.'" />';
 		print $file '</td></tr>';
 	}
 
@@ -418,7 +454,7 @@ sub print_posting_form($$$$)
 	print $file '<tr><td colspan="2"><div id="rules">'.S_RULES.'</div></td></tr>';
 
 	print $file '</tbody></table></form></div>';
-	print $file '<script type="text/javascript">with(document.postform) {name.value=get_cookie("name"); email.value=get_cookie("email"); password.value=get_password("password"); }</script>';
+	print $file '<script type="text/javascript">with(document.postform) {if(!name.value) name.value=get_cookie("name"); if(!email.value) email.value=get_cookie("email"); if(!password.value) password.value=get_password("password"); }</script>';
 
 	print $file '<hr />';
 
@@ -506,7 +542,8 @@ sub print_comment_header($$$$)
 	{
 		print $file '<small>';
 		print $file '<a href="mailto:'.$$res{email}.'">' if($$res{email});
-		print $file TRIPKEY.$$res{trip};
+		print $file TRIPKEY if($$res{trip} and eval { my $t=quotemeta TRIPKEY; $$res{trip}!~/^$t/ or $$res=~/^$t.{8}/ }); # ugly kludge to deal with old-style trips
+		print $file $$res{trip};
 		print $file '</a>' if($$res{email});
 		print $file '</small>';
 	}
@@ -524,7 +561,7 @@ sub print_comment($$$)
 	my ($file,$res,$abbreviate)=@_;
 	my $abbreviation;
 
-	if($abbreviate and $abbreviation=abbreviate_html($$res{comment}))
+	if($abbreviate and $abbreviation=abbreviate_html($$res{comment},MAX_LINES_SHOWN,APPROX_LINE_LENGTH))
 	{
 		print $file '<div class="replytext">',$abbreviation.'</div>';
 		print $file '<div class="replyabbrev">'.sprintf(S_ABBRTEXT,get_reply_link($$res{num},$$res{parent})).'</div>';

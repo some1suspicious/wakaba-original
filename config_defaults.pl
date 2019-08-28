@@ -53,6 +53,11 @@ BEGIN {
 	eval "use constant SQL_CAPTCHA_TABLE => 'captcha'" unless(declared("SQL_CAPTCHA_TABLE"));
 	eval "use constant CAPTCHA_LIFETIME => 1440" unless(declared("CAPTCHA_LIFETIME"));
 	eval "use constant CAPTCHA_SCRIPT => 'captcha.pl'" unless(declared("CAPTCHA_SCRIPT"));
+	eval "use constant CAPTCHA_HEIGHT => 18" unless(declared("CAPTCHA_HEIGHT"));
+	eval "use constant CAPTCHA_SCRIBBLE => 0.2" unless(declared("CAPTCHA_SCRIBBLE"));
+	eval "use constant CAPTCHA_SCALING => 0.15" unless(declared("CAPTCHA_SCALING"));
+	eval "use constant CAPTCHA_ROTATION => 0.3" unless(declared("CAPTCHA_ROTATION"));
+	eval "use constant CAPTCHA_SPACING => 2.5" unless(declared("CAPTCHA_SPACING"));
 
 	eval "use constant THUMBNAIL_SMALL => 1" unless(declared("THUMBNAIL_SMALL"));
 	eval "use constant THUMBNAIL_QUALITY => 70" unless(declared("THUMBNAIL_QUALITY"));
@@ -72,7 +77,7 @@ BEGIN {
 	eval "use constant USE_SECURE_ADMIN => 0" unless(declared("USE_SECURE_ADMIN"));
 	eval "use constant CHARSET => 'utf-8'" unless(declared("CHARSET"));
 	eval "use constant TRIM_METHOD => 0" unless(declared("TRIM_METHOD"));
-	eval "use constant DATE_STYLE => 0" unless(declared("DATE_STYLE"));
+	eval "use constant DATE_STYLE => 'futaba'" unless(declared("DATE_STYLE"));
 	eval "use constant DISPLAY_ID => 0" unless(declared("DISPLAY_ID"));
 	eval "use constant EMAIL_ID => 'Heaven'" unless(declared("EMAIL_ID"));
 	eval "use constant TRIPKEY => '!'" unless(declared("TRIPKEY"));
@@ -91,6 +96,9 @@ BEGIN {
 	eval "use constant PAGE_EXT => '.html'" unless(declared("PAGE_EXT"));
 	eval "use constant ERRORLOG => ''" unless(declared("ERRORLOG"));
 	eval "use constant CONVERT_COMMAND => 'convert'" unless(declared("CONVERT_COMMAND"));
+	eval "use constant SPAM_FILE => 'spam.txt'" unless(declared("SPAM_FILE"));
+
+	eval "use constant FILETYPES => ()" unless(declared("FILETYPES"));
 }
 
 1;

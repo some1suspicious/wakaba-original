@@ -1,3 +1,5 @@
+BEGIN { require "wakautils.pl" }
+
 use constant S_HOME => 'Home';										# Forwards to home page
 use constant S_ADMIN => 'Manage';									# Forwards to Management Panel
 use constant S_RETURN => 'Return';									# Returns to image board
@@ -15,7 +17,8 @@ use constant S_DELPASS => 'Password';								# Describes password field
 use constant S_DELEXPL => '(Password used for file deletion)';		# Prints explanation for password box (to the right)
 use constant S_RULES => '<ul><li>Supported file types are: GIF, JPG, PNG</li>'.
              '<li>Maximum file size allowed is '.MAX_KB.' KB.</li>'.
-             '<li>Images greater than '.MAX_W.'x'.MAX_H.' pixels will be thumbnailed.</li></ul>';	# Prints rules under posting section
+             '<li>Images greater than '.MAX_W.'x'.MAX_H.' pixels will be thumbnailed.</li></ul>'.
+             include("include/mid.html");	# Prints rules under posting section
 
 use constant S_THUMB => 'Thumbnail displayed, click image for full size.';	# Prints instructions for viewing real source
 use constant S_HIDDEN => 'Image reply hidden, click name for full image.';	# Prints instructions for viewing hidden image reply
@@ -37,9 +40,10 @@ use constant S_FIRSTPG => 'Previous';								# Defines previous button
 use constant S_NEXT => 'Next';										# Defines next button
 use constant S_LASTPG => 'Next';									# Defines next button
 
-use constant S_HEAD => '';
+use constant S_HEAD => include("include/header.html");
 
-use constant S_FOOT => '<div class="footer">'.
+use constant S_FOOT => include("include/footer.html").
+                       '<div class="footer">'.
                        '- <a href="http://wakaba.c3.cx/">wakaba</a>'.
                        ' + <a href="http://www.2chan.net/">futaba</a>'.
                        ' + <a href="http://www.1chan.net/futallaby/">futallaby</a>'.
@@ -53,7 +57,8 @@ use constant S_MANAMODE => 'Manager Mode';								# Prints heading on top of Man
 use constant S_ADMINPASS => 'Admin password:';							# Prints login prompt
 
 use constant S_MANAPANEL => 'Management Panel';							# Defines Management Panel radio button--allows the user to view the management panel (overview of all posts)
-use constant S_MANABANS => 'Bans';										# Defines Management Panel radio button--allows the user to view the management panel (overview of all posts)
+use constant S_MANABANS => 'Bans';										# Defines Bans Panel button
+use constant S_MANASPAM => 'Spam';										# Defines Spam Panel button
 use constant S_MANAPOST => 'Manager Post';								# Defines Manager Post radio button--allows the user to post using HTML code in the comment box
 use constant S_MANAREBUILD => 'Rebuild caches';							# 
 use constant S_MANANUKE => 'Nuke board';								# 
@@ -84,6 +89,14 @@ use constant S_BANWHITELIST => 'Whitelist';
 use constant S_BANREMOVE => 'Remove';
 use constant S_BANCOMMENT => 'Comment';
 
+use constant S_SPAMTITLE => 'Spam Panel';
+use constant S_SPAMEXPL => 'This is the list of domain names Wakaba considers to be spam.<br />'.
+                           'You can find an up-to-date version <a href="http://wakaba.c3.cx/antispam/antispam.pl?action=view&format=wakaba">here</a>, '.
+                           'or you can get the <code>spam.txt</code> file directly <a href="http://wakaba.c3.cx/antispam/spam.txt">here</a>.';
+use constant S_SPAMSUBMIT => 'Save';
+use constant S_SPAMCLEAR => 'Clear';
+use constant S_SPAMRESET => 'Restore';
+
 use constant S_TOOBIG => 'This image is too large!  Upload something smaller!';
 use constant S_TOOBIGORNONE => 'Either this image is too big or there is no image at all.  Yeah.';
 use constant S_REPORTERR => 'Error: Cannot find reply.';					# Returns error when a reply (res) cannot be found
@@ -112,6 +125,7 @@ use constant S_BADDELPASS => 'Error: Password incorrect.';					# Returns error f
 use constant S_WRONGPASS => 'Error: Management password incorrect.';		# Returns error for wrong password (when trying to access Manager modes)
 use constant S_VIRUS => 'Error: Possible virus-infected file.';				# Returns error for malformed files suspected of being virus-infected.
 use constant S_NOTWRITE => 'Error: Cannot write to directory.';				# Returns error when the script cannot write to the directory, the chmod (777) is wrong
+use constant S_SPAM => 'Spammers are not welcome here.';					# Returns error when detecting spam
 
 use constant S_SQLCONF => 'SQL connection failure';							# Database connection failure
 use constant S_SQLFAIL => 'Critical SQL problem!';							# SQL Failure

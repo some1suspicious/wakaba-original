@@ -57,6 +57,10 @@ img {
         background: #EEAA88;
 	font-weight: bold;	
 }
+.captcha {
+	color: #800000;
+}
+
 #rules {
 	font-size: 0.7em;
 }
@@ -105,6 +109,9 @@ img {
 }
 .threadstart .replytext {
 	margin: 1em 40px 1em 40px;
+}
+.threadstart .omittedposts {
+        color:#707070;
 }
 
 
@@ -266,7 +273,20 @@ tr.row2 td {
 
 
 
-#login h2, #posts h2, #bans h2, #adminpost h2 {
+#error h2 {
+	font-size: 2em;
+	font-weight: normal;
+	text-align: center;
+}
+#error h3 {
+	font-size: 2em;
+	font-weight: normal;
+	text-align: center;
+}
+
+
+
+#login h2, #posts h2, #bans h2, #spam h2, #adminpost h2 {
 	background: #EEAA88;
 	font-size: 1em;
 	font-weight: normal;
@@ -281,7 +301,7 @@ tr.row2 td {
 	margin: 0px auto;
 }
 
-#posts h3, #bans h3 {
+#posts h3, #bans h3, #spam h3 {
 	font-size: 1em;
 	font-weight: bold;
 	font-family: sans-serif;
@@ -301,12 +321,9 @@ tr.row2 td {
 #posts h4 {
 	margin: 0em;
 }
-
-#posts .buttons {
-	display: table;
-	margin: 0.5em auto 0.5em auto;
+#posts .buttons, #spam .buttons {
+	text-align: center;
 }
-
 #posts table.admininput {
 	margin: 0px auto;
 }
@@ -314,14 +331,19 @@ tr.row2 td {
 #bans h3 {
 	margin-bottom: 0em;
 }
-
 #bans #inputs {
 	display: table;
 	margin: 0px auto;
 }
-
 #bans #inputs form {
 	display: table-cell;
 	vertical-align: bottom;
 	padding: 0.5em;
+}
+
+#spam form {
+	text-align: center;
+}
+#spam p {
+	text-align: center;
 }
