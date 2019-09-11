@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Shmyga Tech</title>
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+    <link rel="stylesheet" href="./futaba.css" />
+    <style type="text/css">
+        body {
+            margin: 0;
+            padding: 8px;
+            margin-bottom: auto;
+        }
+
+        blockquote blockquote {
+            margin-left: 0em
+        }
+
+        form {
+            margin-bottom: 0px
+        }
+
+        form .trap {
+            display: none
+        }
+
+        .postarea {
+            text-align: center
+        }
+
+        .postarea table {
+            margin: 0px auto;
+            text-align: left
+        }
+
+        .thumb {
+            border: none;
+            float: left;
+            margin: 2px 20px
+        }
+
+        .nothumb {
+            float: left;
+            background: #eee;
+            border: 2px dashed #aaa;
+            text-align: center;
+            margin: 2px 20px;
+            padding: 1em 0.5em 1em 0.5em;
+        }
+
+        .reply blockquote,
+        blockquote :last-child {
+            margin-bottom: 0em
+        }
+
+        .reflink a {
+            color: inherit;
+            text-decoration: none
+        }
+
+        .reply .filesize {
+            margin-left: 20px
+        }
+
+        .userdelete {
+            float: right;
+            text-align: center;
+            white-space: nowrap
+        }
+
+        .replypage .replylink {
+            display: none
+        }
+    </style>
+</head>
+
+<body class="replypage">
+    <div class="logo"> <br /> Shmyga Tech </div>
+
+    <script type="text/javascript">set_inputs("postform")</script>
+    <hr />
+    <form id="delform" action="/dev/wakaba.pl" method="post"> 
+        <table>
+            <tbody>
+                <tr>
+                    <td class="doubledash">&gt;&gt;</td>
+                    <td class="reply" id="reply66"> <a name="66"></a> <label><input type="checkbox" name="delete"
+                                value="66" /> <span class="replytitle">A tutorial on how to install Wakaba</span> <span
+                                class="commentpostername">some1suspicious</span> 19/08/30(Fri)08:56</label> <span
+                            class="reflink"> <a href="javascript:insert('&gt;&gt;66')">No.66</a> </span>&nbsp;
+                        <blockquote>
+                            <p>From the starting point when you only
+                                have a fresh OS installed to the finish where you can create a new thread&#44; post
+                                images&#44; use captcha and so on. And it actually works.</p>
+                            <p>The process of configuring and installing this engine is known as a Nightmare Mode quest
+                                for someone not very familar with all this server and programming-thech-IT things. And
+                                it&#39;s at least very time-consuming process for someone who have an idea of what
+                                back-end is and how it works.</p>
+                            <p>I&#39;m trying to make it easier for everyone.</p>
+                        </blockquote>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <table>
+            <tbody>
+                <tr>
+                    <td class="doubledash">&gt;&gt;</td>
+                    <td class="reply" id="reply67"> <a name="67"></a> <label><input type="checkbox" name="delete"
+                                value="67" /> <span class="replytitle"></span> <span
+                                class="commentpostername">some1suspicious</span> 19/08/30(Fri)09:00</label> <span
+                            class="reflink"> <a href="javascript:insert('&gt;&gt;67')">No.67</a> </span>&nbsp;
+                        <blockquote>
+                            <p><strong>INSTALLING OS</strong></p>
+                            <p>It is recommended to use some staging environment to tweak your engine and see if it
+                                works and then take it to production.</p>
+                            <p>I&#39;m using Debian 10 GNU/Linux distro on VirtualBox. It works perfectly fine.</p>
+                            <p>If you&#39;re not sure which file you need to download to get the OS from the official
+                                website you can try this one: <a
+                                    href="https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-10.0.0-amd64-netinst.iso"
+                                    rel="nofollow">https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-10.0.0-amd64-netinst.iso</a>
+                            </p>
+                            <p>After you have installed it you&#39;ll need to also enable network access to you virtual
+                                instance from the host machine. You can find lots of guides on the Internet. Example: <a
+                                    href="https://2buntu.com/articles/1513/accessing-your-virtualbox-guest-from-your-host-os"
+                                    rel="nofollow">https://2buntu.com/articles/1513/accessing-your-virtualbox-guest-from-your-host-os</a>
+                            </p>
+                            <p>Then make sure that you have sudo access (and if you have sudo package at all).</p>
+                            <p>Get sudo:<br /><strong>$</strong> <code>su</code><br />password:<br /><strong>#</strong>
+                                <code>apt update &amp;&amp; apt install sudo</code></p>
+                            <p>Then add your user to sudo group<br /><strong>#</strong>
+                                <code>cd /usr/sbin</code><br /><strong>#</strong>
+                                <code>./usermod -a -G sudo &lt;username&gt;</code></p>
+                            <p>Then logout and login again (only then changes would take effect)<br /><strong>#</strong>
+                                <code>exit</code><br /><strong>$</strong>
+                                <code>exit</code><br /><code>debian login:</code><br /><code>Password:</code><br /><strong>$</strong>
+                            </p>
+                            <p>Check if your user is in sudoers group (output should include your
+                                username)<br /><strong>$</strong> <code>getent group sudo</code></p>
+                            <p>Now you can install Apache server (it is already installed if you have installed your OS
+                                with the right options)<br /><strong>$</strong> <code>sudo apt install apache2</code>
+                            </p>
+                            <p>You can check it&#39;s status by<br /><strong>$</strong>
+                                <code>sudo systemctl status apache2</code><br />or by just requesting the default page
+                                using some client like curl and see if it throws raw HTML at you in
+                                response<br /><strong>$</strong>
+                                <code>sudo apt install curl &amp;&amp; curl localhost:80</code></p>
+                            <p>Then check if you can access it form your host system (find guests IP by running
+                                &quot;<strong>$</strong> <code>ip address</code>&quot; command inside of it). And make
+                                sure that your network config file is configured properly. As virtual box won&#39;t
+                                change it if you have added guest&#39;s netwrok settings after you have installed the
+                                OS. Check the config located at <code>/etc/network/interfaces</code> edit it if needed
+                                and raise interfaces again (or just reboot).</p>
+                            <p>You probably can not access it at this point as by default the firewall will not allow
+                                any connections at all.<br />You need to allow TCP protocol port
+                                80<br /><strong>$</strong>
+                                <code>sudo iptables -A INPUT -p tcp --dport 80 -j ACCEPT</code></p>
+                            <p>Now you should be able to type your guest&#39;s IP address in your host&#39;s
+                                browser&#39;s address bar and hopefully navigate to the default Apache page. If you
+                                can&#39;t then you missed something or did something wrong. Try to fix it.</p>
+                            <p><strong>INSTALLING THE ENGINE</strong></p>
+                            <p>Install git<br /><strong>$</strong> <code>sudo apt install git</code><br />Clone the repo
+                                (somewhere inside of the <code>/home/&lt;username&gt;/</code> directory so you don&#39;t
+                                need the root access rights to edit that files because you might want to tweak it&#44;
+                                name your boards and only install it afterwards) <br /><strong>$</strong>
+                                <code>git clone https://github.com/some1suspicious/wakaba-reddy.git</code><br />Move
+                                this folder to <code>/var/www/html/ </code><br /><strong>$</strong>
+                                <code>sudo mv wakaba-reddy /var/www/html/&lt;your board name&gt;</code></p>
+                            <p>This way you can quickly create as many boards as you need. And if you&#39;re following
+                                this guide while doing everything on a real server with Internet access then
+                                <strong>CONGRATULATIONS</strong> now everyone is able to view every file you have there
+                                including your configs with passwords. So don&#39;t do this step before the next one.
+                                Never. You need to at least turn off your apache server first (<strong>$</strong>
+                                <code>sudo service apache2 stop</code> ). But it&#39;s fine if you&#39;re on virtual
+                                machine.</p>
+                            <p><strong>Configure your Apache server</strong></p>
+                            <ol>
+                                <li><strong>Timeout</strong></li>
+                            </ol>
+                            <p>Default timeout is 300 seconds. This might to be too long and makes your server a nice
+                                target for a &quot;low and slow&quot; attacks (<a
+                                    href="https://www.cloudflare.com/learning/ddos/ddos-low-and-slow-attack/"
+                                    rel="nofollow">https://www.cloudflare.com/learning/ddos/ddos-low-and-slow-attack/</a>).<br />Make
+                                it 60 instead of 300. This means that your users won&#39;t be able to upload or receive
+                                something for more than 60 seconds.</p>
+                            <p>2. <strong>CGI execution&#44; .htaccess</strong><br />To allow the CGI execution (CGI is
+                                an interface for Apache-Perl communication) and make your rules in .htaccess files work
+                                you need to find <code>&lt;Directory /var/www/&gt;</code> tag and edit it so it looks
+                                like
+                                this:<br /><code># ------------------------------------------------</code><br /><code>&lt;Directory /var/www/&gt;</code>
+                            </p>
+                            <pre><code>    Options Indexes FollowSymLinks<br />    AllowOverride All<br />    Options +ExecCGI<br />    AddHandler cgi-script .cgi .pl<br />    Require all granted</code></pre>
+                            <p><code>&lt;/Directory&gt;</code><br /><code># ------------------------------------------------</code>
+                            </p>
+                            <p>3. <strong>Additional security tweaks</strong><br />You might want to place this right
+                                before the last line of the config that says something about vim.</p>
+                            <p><code># ------- Server security config  ---------------</code><br /><code># Prevent coockies stealing</code><br /><code>TraceEnable off</code><br /><code># Disable showing Apache version in headers</code><br /><code>ServerSignature Off</code><br /><code>ServerTokens Major</code><br /><code># Prevent from obtaining inode number&#44; multipart MIME boundary&#44; and child process through Etag header</code><br /><code>FileETag None</code><br /><code># Set cookie with HttpOnly and Secure flag (prevent possible CSS&#44; stealing sessions and coockies)</code><br /><code>Header edit Set-Cookie ^(.*)$ $1;HttpOnly;Secure</code><br /><code>#CORS (forbid framing)</code><br /><code>Header always append X-Frame-Options SAMEORIGIN</code><br /><code># X-XSS protection</code><br /><code>Header set X-XSS-Protection &quot;1; mode=block&quot;</code><br /><code># Disable HTTP 1.0 (allow only 1.1)</code><br /><code>RewriteEngine On</code><br /><code>RewriteCond %{THE_REQUEST} !HTTP/1.1$</code><br /><code>RewriteRule .* - [F]</code><br /><code># ------------------------------------------------</code><br />But
+                                this is not the best place to put it. We are doing this for simplicity but logically it
+                                is better to put this parts in <code>/etc/apache2/conf-available/security.conf</code>
+                                and then enable them. Restart apache2 service after editing it&#39;s configuration files
+                                (<strong>$</strong> <code>sudo service apache2 restart</code> ).</p>
+                            <p>4. <strong>Apache modules</strong><br />There are some modules that can extend the
+                                apache&#39;s core functions with additional features.<br />You can enable them by the
+                                following command<br /><strong>$</strong>
+                                <code>sudo a2enmod &lt;modname_without_extension&gt;</code><br />And aside from the
+                                default ones&#44; you will probably need the following
+                                modules:<br /><strong>cgid</strong> (<a
+                                    href="https://httpd.apache.org/docs/2.4/mod/mod_cgid.html"
+                                    rel="nofollow">https://httpd.apache.org/docs/2.4/mod/mod_cgid.html</a>)<br /><strong>headers</strong>
+                                (<a href="https://httpd.apache.org/docs/2.4/mod/mod_headers.html"
+                                    rel="nofollow">https://httpd.apache.org/docs/2.4/mod/mod_headers.html</a>)<br /><strong>rewrite</strong>
+                                (<a href="https://httpd.apache.org/docs/2.4/mod/mod_rewrite.html"
+                                    rel="nofollow">https://httpd.apache.org/docs/2.4/mod/mod_rewrite.html</a>)<br /><strong>ssl</strong>
+                                (<a href="https://httpd.apache.org/docs/2.4/mod/mod_ssl.html"
+                                    rel="nofollow">https://httpd.apache.org/docs/2.4/mod/mod_ssl.html</a>)<br />Restart
+                                the apache2 service after enabling them.</p>
+                            <p>5. <strong>Sites configuration</strong><br />There is a folder
+                                (<code>/etc/apache2/sites-available</code> ) that contain configuration for your
+                                websites. You can host multiple sites but for simplicity we will leave it unchanged. But
+                                you can specify <code>ServerName</code> and <code>ServerAdmin</code> (email) if you
+                                want. Note: if you want to host multiple sites then you might need to change that main
+                                config files because we have configured it only for one website and you might need more
+                                diverse options for each website. </p>
+                            <p>6. <strong>Actual website&#39;s directory</strong><br />You can place
+                                <code>robots.txt</code> files here (<code>/var/www/html/</code>) and some
+                                <code>.htaccess</code> files for security reasons (remember that it is always better to
+                                place rules as high in hierarchy (main apache.conf &gt; virtual host &gt; .htaccess) as
+                                possible while it&#39;s reasonable because it&#39;s more secure than using .htaccess
+                                files for everything).</p>
+                            <p>7. <strong>htaccess</strong><br />If you are using .htaccess from wakaba-reddy repo then
+                                it is probably configured already. But keep in mind that you might need to edit it after
+                                you rename/move/add some files or directories while doing some changes to the engine.
+                            </p>
+                            <p>8. <strong>chmod</strong><br />Script files should be executable. You can make them so
+                                with this command:<br /><strong>$</strong>
+                                <code>cmod 755 &lt;filename&gt;</code><br />Some direcotories (including the
+                                website&#39;s root directory) should be writable so Perl scripts can write files to
+                                them. Make directories writable with this command:<br /><strong>$</strong>
+                                <code>chmod 777 &lt;filename&gt;</code></p>
+                            <p><strong>Provide database</strong><br />Wakaba supports MySQL and SQLite databases. In
+                                this tutorial we&#39;ll use MariaDB (it is MySQL&#39;s fork).<br /><strong>$</strong>
+                                <code>sudo apt install mariadb-server</code><br />And check status&#44; it should be
+                                running<br /><strong>$</strong> <code>sudo systemctl status mariadb</code></p>
+                            <p>Now you should login as root and create a new user and then grant him all
+                                priviliges.<br /><strong>$</strong> <code>sudo mariadb</code><br /><strong>&gt;</strong>
+                                <code>CREATE DATABASE &lt;my_database_name&gt; CHARACTER SET utf8 COLLATE utf8_general_ci;</code><br /><strong>&gt;</strong>
+                                <code>CREATE USER &#39;&lt;my_user_name&gt;&#39;@&#39;localhost&#39; IDENTIFIED BY &#39;&lt;my_password&gt;&#39;;</code><br /><strong>&gt;</strong>
+                                <code>GRANT ALL PRIVILEGES ON &lt;my_database_name&gt;.* TO &#39;&lt;my_user_name&gt;&#39;@&#39;localhost&#39;;</code><br /><strong>&gt;</strong>
+                                <code>exit</code></p>
+                            <p>Check if you actually can login and create a database:<br /><strong>$</strong>
+                                <code>mariadb --user=&lt;my_user_name&gt; -p</code><br /><code>password:</code><br /><strong>&gt;</strong>
+                                <code>use &lt;my_database_name&gt;;</code><br /><strong>&gt;</strong>
+                                <code>CREATE TABLE test_table (tst INT);</code><br /><strong>&gt;</strong>
+                                <code>SELECT * FROM test_table;</code><br />If that doesn&#39;t produce any errors then
+                                you&#39;re good to go.</p>
+                            <p>Go ahead and hit
+                                <code>http://&lt;your_domain_or_local_ip&gt;/&lt;board_name&gt;/wakaba.pl</code><br />It
+                                should create the tables in the database and the first page with the interface. If
+                                something gone wrong then it&#39;s probably your fault. Shame on you. Or maybe
+                                you&#39;ve just forgotten to edit the <code>config.pl</code> file. Tweak it according to
+                                your preferences. And also install imagemagick if you will use it (see the actual
+                                <code>congif.pl</code> ).</p>
+                        </blockquote>
+                    </td>
+                </tr>
+            </tbody>
+        </table> <br clear="left" />
+        <hr />
+    </form>
+    <p class="footer"> - <a href="http://wakaba.c3.cx/">wakaba 3.0.13</a> -</p>
+</body>
+
+</html>
