@@ -42,3 +42,5 @@ http://.../wakaba.pl?action=rebuild&admin=ADMINPASSWORD
 Well, good luck. Report problems and bugs to me at paracelsus@gmail.com.
 
 - !WAHa.06x36
+
+[Install Guide](https://some1suspicious.github.io/wakaba-original/install_guide.html)
